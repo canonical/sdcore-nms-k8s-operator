@@ -20,12 +20,14 @@ APP_NAME = METADATA["name"]
 async def build_and_deploy(ops_test):
     """Build the charm-under-test and deploy it."""
     charm = await ops_test.build_charm(".")
-    resources = {
-        "gui-image": METADATA["resources"]["gui-image"]["upstream-source"],
-    }
     await ops_test.model.deploy(
         charm,
-        resources=resources,
+        resources={"gui-image": METADATA["resources"]["gui-image"]["upstream-source"]},
         application_name=APP_NAME,
         trust=True,
     )
+
+
+@pytest.mark.abort_on_fail
+async def test_given_when_then(ops_test, build_and_deploy):
+    pass
