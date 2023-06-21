@@ -1,0 +1,15 @@
+name: sdcore-gui
+
+display-name: SD-Core GUI
+summary: A Charmed Operator for SD-Core's Graphical User Interface (GUI).
+description: A Charmed Operator for SD-Core's Graphical User Interface (GUI).
+
+containers:
+  gui:
+    resource: gui-image
+
+resources:
+  gui-image:
+    type: oci-image
+    description: OCI image for SD-Core GUI
+    upstream-source: ghcr.io/canonical/sdcore-gui:1.3
