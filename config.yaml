@@ -1,0 +1,79 @@
+# Copyright 2023 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+options:
+  webui-endpoint:
+    description: The URL of the SD-Core API provided by the webui service.
+    type: string
+    default: "http://3.90.228.4:8543"
+  plmn-id:
+    type: string
+    default: "20893"
+
+  device-group-site-info:
+    type: string
+    default: demo
+  device-group-ip-domain-name:
+    type: string
+    default: pool1
+  device-group-dnn:
+    type: string
+    default: internet
+  device-group-ue-ip-pool:
+    type: string
+    default: "172.250.1.0/16"
+  device-group-dns-primary:
+    type: string
+    default: "8.8.8.8"
+  device-group-mtu:
+    type: int
+    default: 1460
+  device-group-dnn-mbr-uplink:
+    type: int
+    default: 20000000
+  device-group-dnn-mbr-downlink:
+    type: int
+    default: 200000000
+  device-group-traffic-class-name:
+    type: string
+    default: "platinum"
+  device-group-traffic-class-arp:
+    type: int
+    default: 6
+  device-group-traffic-class-pdb:
+    type: int
+    default: 300
+  device-group-traffic-class-pelr:
+    type: int
+    default: 6
+  device-group-traffic-class-qci:
+    type: int
+    default: 8
+
+  network-slice-name:
+    type: string
+    default: "default"
+  network-slice-sst:
+    type: int
+    default: 1
+  network-slice-sd:
+    type: string
+    default: "010203"
+  network-slice-device-group:
+    type: string
+    default: "cows"
+  network-slice-site-name:
+    type: string
+    default: "demo"
+  network-slice-gnb-name:
+    type: string
+    default: "demo-gnb1"
+  network-slice-gnb-tac:
+    type: string
+    default: "1"
+  network-slice-upf-name:
+    type: string
+    default: "upf"
+  network-slice-upf-port:
+    type: int
+    default: 8805

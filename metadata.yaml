@@ -7,9 +7,25 @@ description: A Charmed Operator for SD-Core's Graphical User Interface (GUI).
 containers:
   gui:
     resource: gui-image
+    mounts:
+      - storage: config
+        location: /etc/config  # TODO: change path when tested
+
+storage:
+  config:
+    type: filesystem
+    minimum-size: 1M
 
 resources:
   gui-image:
     type: oci-image
     description: OCI image for SD-Core GUI
-    upstream-source: ghcr.io/canonical/sdcore-gui:1.3
+    # upstream-source: ghcr.io/canonical/sdcore-gui:1.3  # TODO: Change when ROCK is published.
+    upstream-source: sanchezfdezjavier/guihelm:assets1
+
+requires:
+  ingress:
+    interface: ingress
+
+assumes:
+  - k8s-api

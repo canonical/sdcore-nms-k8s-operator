@@ -1,0 +1,60 @@
+
+const WEBUI_ENDPOINT: string = "{{ webui_endpoint }}";
+
+const STATIC_SUSBCRIBER_DATA = {
+  plmnID: "{{ plmn_id }}",
+};
+
+const STATIC_DEVICE_GROUP_DATA = {
+  "site-info": "{{ site_info }}",
+  "ip-domain-name": "{{ ip_domain_name }}",
+  "ip-domain-expanded": {
+    dnn: "{{ dnn }}",
+    "ue-ip-pool": "{{ ue_ip_pool }}",
+    "dns-primary": "{{ dns_primary }}",
+    mtu: {{ mtu }},
+    "ue-dnn-qos": {
+      "dnn-mbr-uplink": {{ dnn_mbr_uplink }},
+      "dnn-mbr-downlink": {{ dnn_mbr_downlink }},
+      "traffic-class": {
+        name: "{{  traffic_class_name  }}",
+        arp: {{ arp }},
+        pdb: {{ pdb }},
+        pelr: {{ pelr }},
+        qci: {{ qci }},
+      },
+    },
+  },
+};
+
+const NETWORK_SLICE_NAME = "{{ network_slice_name }}";
+
+const STATIC_NETWORK_SLICE_DATA = {
+  "slice-id": {
+    sst: {{ sst }},
+    sd: "{{ sd }}",
+  },
+  "site-device-group": ["{{ site_device_group }}"],
+  "site-info": {
+    "site-name": "{{ site_name }}",
+    gNodeBs: [
+      {
+        name: "{{ gnodeb_name }}",
+        tac: "{{ gnodeb_tac }}",
+      },
+    ],
+    upf: {
+      "upf-name": "{{ upf_name }}",
+      "upf-port": "{{ upf_port }}",
+    },
+  },
+}
+
+export {
+  WEBUI_ENDPOINT,
+  STATIC_SUSBCRIBER_DATA,
+  STATIC_DEVICE_GROUP_DATA,
+  STATIC_NETWORK_SLICE_DATA,
+  NETWORK_SLICE_NAME,
+};
+
