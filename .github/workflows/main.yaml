@@ -8,7 +8,7 @@ on:
     branches:
       - main
     schedule:
-      - cron: "0 6 * * 0"
+      - cron: "40 6 * * 0"
 
 jobs:
   lint-report:
