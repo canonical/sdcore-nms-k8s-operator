@@ -1,0 +1,13 @@
+# Copyright 2023 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+options:
+  webui-endpoint:
+    description: The URL of the SD-Core API provided by the webui service.
+    type: string
+  upf-hostname:
+    type: string
+    default: "upf"
+  upf-port:
+    type: int
+    default: 8805

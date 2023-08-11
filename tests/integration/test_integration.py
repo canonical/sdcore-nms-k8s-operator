@@ -20,14 +20,29 @@ APP_NAME = METADATA["name"]
 async def build_and_deploy(ops_test):
     """Build the charm-under-test and deploy it."""
     charm = await ops_test.build_charm(".")
+    resources = {
+        "gui-image": METADATA["resources"]["gui-image"]["upstream-source"],
+    }
     await ops_test.model.deploy(
         charm,
-        resources={"gui-image": METADATA["resources"]["gui-image"]["upstream-source"]},
+        resources=resources,
         application_name=APP_NAME,
+        config={
+            "webui-endpoint": "http://1.2.3.4:1234",
+            "upf-hostname": "upf",
+            "upf-port": "1234",
+        },
         trust=True,
     )
 
 
 @pytest.mark.abort_on_fail
-async def test_given_when_then(ops_test, build_and_deploy):
-    pass
+async def test_deploy_charm_and_wait_for_active_status(
+    ops_test,
+    build_and_deploy,
+):
+    await ops_test.model.wait_for_idle(
+        apps=[APP_NAME],
+        status="active",
+        timeout=1000,
+    )
