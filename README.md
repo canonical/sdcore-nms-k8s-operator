@@ -17,4 +17,4 @@ juju deploy sdcore-gui --channel=edge
 
 ## Image
 
-**sdcore-gui**: ghcr.io/canonical/sdcore-gui:1.3
+**sdcore-gui**: ghcr.io/canonical/sdcore-gui:0.1
