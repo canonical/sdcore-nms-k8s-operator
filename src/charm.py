@@ -9,6 +9,7 @@ import logging
 from charms.observability_libs.v1.kubernetes_service_patch import (  # type: ignore[import]
     KubernetesServicePatch,
 )
+from charms.traefik_k8s.v1.ingress import IngressPerAppRequirer  # type: ignore[import]
 from jinja2 import Environment, FileSystemLoader
 from lightkube.models.core_v1 import ServicePort
 from ops.charm import CharmBase
@@ -60,6 +61,12 @@ class SDCoreGUIOperatorCharm(CharmBase):
             ports=[
                 ServicePort(name="gui", port=GUI_PORT),
             ],
+        )
+        self.ingress = IngressPerAppRequirer(
+            charm=self,
+            port=GUI_PORT,
+            relation_name="ingress",
+            strip_prefix=True,
         )
 
         self.framework.observe(self.on.gui_pebble_ready, self._configure_sdcore_gui)

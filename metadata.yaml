@@ -24,3 +24,8 @@ resources:
 
 assumes:
   - k8s-api
+
+requires:
+  ingress:
+    interface: ingress
+    limit: 1
