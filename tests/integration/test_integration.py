@@ -89,10 +89,17 @@ def ui_is_running(ip: str, host: str) -> bool:
     """Returns whether the UI is running."""
     url = f"http://{ip}"
     headers = {"Host": host}
-    response = requests.get(url=url, headers=headers)
-    response.raise_for_status()
-    if "Network Configuration" in response.content.decode("utf-8"):
-        return True
+    t0 = time.time()
+    timeout = 300  # seconds
+    while time.time() - t0 < timeout:
+        try:
+            response = requests.get(url=url, headers=headers, timeout=5)
+            response.raise_for_status()
+            if "Network Configuration" in response.content.decode("utf-8"):
+                return True
+        except Exception:
+            logger.info("UI is not running yet")
+        time.sleep(2)
     return False
 
 
