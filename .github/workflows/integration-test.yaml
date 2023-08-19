@@ -35,7 +35,7 @@ jobs:
 #          provider: microk8s
 #          channel: 1.27-strict/stable
       - name: Enable MetalLB
-        if: ${{ inputs.enable-metallb == 'true' }}
+        if: ${{ inputs.enable-metallb == true }}
         run: microk8s enable metallb ${{ inputs.metallb-range }}
 #      - name: Run integration tests
 #        run: tox -e integration
