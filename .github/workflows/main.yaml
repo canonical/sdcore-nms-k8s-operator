@@ -21,7 +21,7 @@ jobs:
     uses: canonical/sdcore-github-workflows/.github/workflows/unit-test.yaml@main
 
   integration-test:
-    uses: ./.github/workflows/integration-test.yaml
+    uses: canonical/sdcore-github-workflows/.github/workflows/integration-test.yaml@dev-metallb
     with:
       charm-file-name: "sdcore-gui_ubuntu-22.04-amd64.charm"
       enable-metallb: true
