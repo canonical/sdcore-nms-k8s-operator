@@ -9,6 +9,7 @@ pep8-naming
 pyproject-flake8
 pytest
 pytest-operator
+requests
 types-PyYAML
 types-setuptools
 types-toml

@@ -24,6 +24,7 @@ jobs:
     uses: canonical/sdcore-github-workflows/.github/workflows/integration-test.yaml@main
     with:
       charm-file-name: "sdcore-gui_ubuntu-22.04-amd64.charm"
+      enable-metallb: true
 
   publish-charm:
     name: Publish Charm
