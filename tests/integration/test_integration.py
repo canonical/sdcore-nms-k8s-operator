@@ -24,7 +24,7 @@ async def build_and_deploy(ops_test):
     """Build the charm-under-test and deploy it."""
     charm = await ops_test.build_charm(".")
     resources = {
-        "gui-image": METADATA["resources"]["gui-image"]["upstream-source"],
+        "nms-image": METADATA["resources"]["nms-image"]["upstream-source"],
     }
     await ops_test.model.deploy(
         charm,
@@ -50,8 +50,8 @@ async def deploy_traefik(ops_test):
     )
 
 
-async def get_sdcore_gui_endpoint(ops_test) -> str:
-    """Retrieves the SD-Core GUI endpoint by using Traefik's `show-proxied-endpoints` action."""
+async def get_sdcore_nms_endpoint(ops_test) -> str:
+    """Retrieves the SD-Core NMS endpoint by using Traefik's `show-proxied-endpoints` action."""
     traefik = ops_test.model.applications[TRAEFIK_APP_NAME]
     traefik_unit = traefik.units[0]
     t0 = time.time()
@@ -134,7 +134,7 @@ async def test_given_traefik_deployed_when_relate_to_ingress_then_status_is_acti
 async def test_given_related_to_traefik_when_fetch_ui_then_returns_html_content(
     ops_test,
 ):
-    gui_url = await get_sdcore_gui_endpoint(ops_test)
+    nms_url = await get_sdcore_nms_endpoint(ops_test)
     traefik_ip = await get_traefik_ip(ops_test)
-    gui_host = _get_host_from_url(gui_url)
-    assert ui_is_running(ip=traefik_ip, host=gui_host)
+    nms_host = _get_host_from_url(nms_url)
+    assert ui_is_running(ip=traefik_ip, host=nms_host)

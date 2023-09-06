@@ -23,7 +23,7 @@ jobs:
   integration-test:
     uses: canonical/sdcore-github-workflows/.github/workflows/integration-test.yaml@main
     with:
-      charm-file-name: "sdcore-gui_ubuntu-22.04-amd64.charm"
+      charm-file-name: "sdcore-nms_ubuntu-22.04-amd64.charm"
       enable-metallb: true
 
   publish-charm:
@@ -36,5 +36,5 @@ jobs:
     if: ${{ github.ref_name == 'main' }}
     uses: canonical/sdcore-github-workflows/.github/workflows/publish-charm.yaml@main
     with:
-      charm-file-name: "sdcore-gui_ubuntu-22.04-amd64.charm"
+      charm-file-name: "sdcore-nms_ubuntu-22.04-amd64.charm"
     secrets: inherit
