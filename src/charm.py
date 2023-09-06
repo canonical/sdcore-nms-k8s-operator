@@ -19,34 +19,34 @@ from ops.pebble import Layer
 
 logger = logging.getLogger(__name__)
 
-GUI_PORT = 3000
+NMS_PORT = 3000
 
 
-class SDCoreGUIOperatorCharm(CharmBase):
-    """Main class to describe juju event handling for the SD-Core GUI operator."""
+class SDCoreNMSOperatorCharm(CharmBase):
+    """Main class to describe juju event handling for the SD-Core NMS operator."""
 
     def __init__(self, *args):
         super().__init__(*args)
-        self._container_name = "gui"
-        self._service_name = "sdcore-gui"
+        self._container_name = "nms"
+        self._service_name = "sdcore-nms"
         self._container = self.unit.get_container(self._container_name)
         self._service_patcher = KubernetesServicePatch(
             charm=self,
             ports=[
-                ServicePort(name="gui", port=GUI_PORT),
+                ServicePort(name="nms", port=NMS_PORT),
             ],
         )
         self.ingress = IngressPerAppRequirer(
             charm=self,
-            port=GUI_PORT,
+            port=NMS_PORT,
             relation_name="ingress",
             strip_prefix=True,
         )
 
-        self.framework.observe(self.on.gui_pebble_ready, self._configure_sdcore_gui)
-        self.framework.observe(self.on.config_changed, self._configure_sdcore_gui)
+        self.framework.observe(self.on.nms_pebble_ready, self._configure_sdcore_nms)
+        self.framework.observe(self.on.config_changed, self._configure_sdcore_nms)
 
-    def _configure_sdcore_gui(self, event: EventBase) -> None:
+    def _configure_sdcore_nms(self, event: EventBase) -> None:
         """Add Pebble layer and manages Juju unit status.
 
         Args:
@@ -118,8 +118,8 @@ class SDCoreGUIOperatorCharm(CharmBase):
         """
         return Layer(
             {
-                "summary": "GUI layer",
-                "description": "Pebble config layer for the GUI",
+                "summary": "NMS layer",
+                "description": "Pebble config layer for the NMS",
                 "services": {
                     self._service_name: {
                         "override": "replace",
@@ -137,4 +137,4 @@ class SDCoreGUIOperatorCharm(CharmBase):
 
 
 if __name__ == "__main__":  # pragma: no cover
-    main(SDCoreGUIOperatorCharm)
+    main(SDCoreNMSOperatorCharm)

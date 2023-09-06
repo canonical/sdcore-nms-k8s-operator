@@ -1,18 +1,18 @@
-name: sdcore-gui
+name: sdcore-nms
 
-display-name: SD-Core GUI
-summary: A Charmed Operator for SD-Core's Graphical User Interface (GUI).
-description: A Charmed Operator for SD-Core's Graphical User Interface (GUI).
+display-name: SD-Core NMS
+summary: A Charmed Operator for SD-Core's NMS.
+description: A Charmed Operator for SD-Core's Network Management System (NMS).
 
 containers:
-  gui:
-    resource: gui-image
+  nms:
+    resource: nms-image
 
 resources:
-  gui-image:
+  nms-image:
     type: oci-image
-    description: OCI image for SD-Core GUI
-    upstream-source: ghcr.io/canonical/sdcore-gui:0.1
+    description: OCI image for SD-Core NMS
+    upstream-source: ghcr.io/canonical/sdcore-nms:0.1
 
 assumes:
   - k8s-api
