@@ -18,6 +18,9 @@ assumes:
   - k8s-api
 
 requires:
+  fiveg_n4:
+    interface: fiveg_n4
+    limit: 1
   ingress:
     interface: ingress
     limit: 1

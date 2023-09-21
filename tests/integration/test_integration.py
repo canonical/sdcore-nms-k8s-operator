@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 METADATA = yaml.safe_load(Path("./metadata.yaml").read_text())
 APP_NAME = METADATA["name"]
 TRAEFIK_APP_NAME = "traefik"
+UPF_APP_NAME = "upf"
 
 
 @pytest.mark.abort_on_fail
@@ -30,11 +31,7 @@ async def build_and_deploy(ops_test):
         charm,
         resources=resources,
         application_name=APP_NAME,
-        config={
-            "webui-endpoint": "http://1.2.3.4:1234",
-            "upf-hostname": "upf",
-            "upf-port": "1234",
-        },
+        config={"webui-endpoint": "http://1.2.3.4:1234"},
         trust=True,
     )
 
@@ -46,6 +43,17 @@ async def deploy_traefik(ops_test):
         "traefik-k8s",
         application_name=TRAEFIK_APP_NAME,
         config={"external_hostname": "pizza.com", "routing_mode": "subdomain"},
+        trust=True,
+    )
+
+
+@pytest.mark.abort_on_fail
+async def deploy_sdcore_upf(ops_test):
+    """Deploy sdcore-upf-operator."""
+    await ops_test.model.deploy(
+        "sdcore-upf",
+        application_name=UPF_APP_NAME,
+        channel="edge",
         trust=True,
     )
 
@@ -104,12 +112,26 @@ def ui_is_running(ip: str, host: str) -> bool:
 
 
 @pytest.mark.abort_on_fail
-async def test_given_webui_config_when_deploy_charm_then_status_is_active(
+async def test_given_fiveg_n4_relation_not_created_when_deploy_charm_then_status_is_blocked(
     ops_test,
 ):
     await build_and_deploy(ops_test)
     await ops_test.model.wait_for_idle(
         apps=[APP_NAME],
+        status="blocked",
+        timeout=1000,
+    )
+
+@pytest.mark.abort_on_fail
+async def test_given_sdcore_nms_waiting_for_fiveg_n4_relation_when_fiveg_n4_relation_created_then_status_is_active(  # noqa: E501
+    ops_test,
+):
+    await deploy_sdcore_upf(ops_test)
+    await ops_test.model.add_relation(
+        relation1=f"{APP_NAME}:fiveg_n4", relation2=f"{UPF_APP_NAME}:fiveg_n4"
+    )
+    await ops_test.model.wait_for_idle(
+        apps=[APP_NAME, UPF_APP_NAME],
         status="active",
         timeout=1000,
     )
