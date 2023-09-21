@@ -15,6 +15,10 @@ jobs:
   static-analysis:
     uses: canonical/sdcore-github-workflows/.github/workflows/static-analysis.yaml@main
 
+  check-libraries:
+    uses: canonical/sdcore-github-workflows/.github/workflows/check-libraries.yaml@main
+    secrets: inherit
+
   unit-tests-with-coverage:
     uses: canonical/sdcore-github-workflows/.github/workflows/unit-test.yaml@main
 
