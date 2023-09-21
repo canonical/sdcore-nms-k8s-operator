@@ -26,9 +26,7 @@ class TestCharm(unittest.TestCase):
     def test_given_cant_connect_to_container_when_config_changed_then_status_is_waiting(self):
         self.harness.set_can_connect(container="nms", val=False)
 
-        self.harness.update_config(
-            key_values={"webui-endpoint": "banana"}
-        )
+        self.harness.update_config(key_values={"webui-endpoint": "banana"})
 
         self.assertEqual(
             self.harness.model.unit.status, WaitingStatus("Waiting for container to be ready")
@@ -39,19 +37,17 @@ class TestCharm(unittest.TestCase):
 
         self.assertEqual(
             self.harness.model.unit.status,
-            BlockedStatus(f"Waiting for `{FIVEG_N4_RELATION_NAME}` relation to be created")
+            BlockedStatus(f"Waiting for `{FIVEG_N4_RELATION_NAME}` relation to be created"),
         )
 
     def test_given_fiveg_n4_relation_not_created_when_config_changed_then_status_is_blocked(self):
         self.harness.set_can_connect(container="nms", val=True)
 
-        self.harness.update_config(
-            key_values={"webui-endpoint": "banana"}
-        )
+        self.harness.update_config(key_values={"webui-endpoint": "banana"})
 
         self.assertEqual(
             self.harness.model.unit.status,
-            BlockedStatus(f"Waiting for `{FIVEG_N4_RELATION_NAME}` relation to be created")
+            BlockedStatus(f"Waiting for `{FIVEG_N4_RELATION_NAME}` relation to be created"),
         )
 
     @patch("ops.model.Container.exists")
@@ -83,12 +79,10 @@ class TestCharm(unittest.TestCase):
         self.harness.update_relation_data(
             relation_id=fiveg_n4_relation_id,
             app_or_unit=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-            key_values={"upf_hostname": test_upf_hostname, "upf_port": test_upf_port}
+            key_values={"upf_hostname": test_upf_hostname, "upf_port": test_upf_port},
         )
 
-        self.harness.update_config(
-            key_values={"webui-endpoint": "banana"}
-        )
+        self.harness.update_config(key_values={"webui-endpoint": "banana"})
 
         expected_plan = {
             "services": {
@@ -119,7 +113,7 @@ class TestCharm(unittest.TestCase):
         self.harness.update_relation_data(
             relation_id=fiveg_n4_relation_id,
             app_or_unit=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-            key_values={"upf_hostname": "some.host.name", "upf_port": "1234"}
+            key_values={"upf_hostname": "some.host.name", "upf_port": "1234"},
         )
 
         self.harness.update_config({"webui-endpoint": "banana"})

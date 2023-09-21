@@ -122,6 +122,7 @@ async def test_given_fiveg_n4_relation_not_created_when_deploy_charm_then_status
         timeout=1000,
     )
 
+
 @pytest.mark.abort_on_fail
 async def test_given_sdcore_nms_waiting_for_fiveg_n4_relation_when_fiveg_n4_relation_created_then_status_is_active(  # noqa: E501
     ops_test,
@@ -138,9 +139,7 @@ async def test_given_sdcore_nms_waiting_for_fiveg_n4_relation_when_fiveg_n4_rela
 
 
 @pytest.mark.abort_on_fail
-async def test_given_traefik_deployed_when_relate_to_ingress_then_status_is_active(
-    ops_test,
-):
+async def test_given_traefik_deployed_when_relate_to_ingress_then_status_is_active(ops_test):
     await deploy_traefik(ops_test)
     await ops_test.model.add_relation(
         relation1=f"{APP_NAME}:ingress", relation2=f"{TRAEFIK_APP_NAME}:ingress"
@@ -153,9 +152,7 @@ async def test_given_traefik_deployed_when_relate_to_ingress_then_status_is_acti
 
 
 @pytest.mark.abort_on_fail
-async def test_given_related_to_traefik_when_fetch_ui_then_returns_html_content(
-    ops_test,
-):
+async def test_given_related_to_traefik_when_fetch_ui_then_returns_html_content(ops_test):
     nms_url = await get_sdcore_nms_endpoint(ops_test)
     traefik_ip = await get_traefik_ip(ops_test)
     nms_host = _get_host_from_url(nms_url)
