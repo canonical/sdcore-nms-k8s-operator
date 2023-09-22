@@ -142,7 +142,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
     @property
     def _environment_variables(self) -> dict:
-        """Returns environment variables for the nms container.
+        """Returns environment variables for the nms service.
 
         Returns:
             dict: Environment variables.
