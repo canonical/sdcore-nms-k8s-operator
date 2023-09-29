@@ -5,10 +5,8 @@ on:
     branches:
       - main
   push:
-    branches:
-      - main
-    schedule:
-      - cron: "40 6 * * 0"
+  schedule:
+    - cron: "40 6 * * 0"
 
 jobs:
   lint-report:
@@ -17,14 +15,17 @@ jobs:
   static-analysis:
     uses: canonical/sdcore-github-workflows/.github/workflows/static-analysis.yaml@main
 
+  check-libraries:
+    uses: canonical/sdcore-github-workflows/.github/workflows/check-libraries.yaml@main
+    secrets: inherit
+
   unit-tests-with-coverage:
     uses: canonical/sdcore-github-workflows/.github/workflows/unit-test.yaml@main
 
   integration-test:
-    uses: canonical/sdcore-github-workflows/.github/workflows/integration-test.yaml@main
+    uses: canonical/sdcore-github-workflows/.github/workflows/integration-test-with-multus.yaml@main
     with:
       charm-file-name: "sdcore-nms_ubuntu-22.04-amd64.charm"
-      enable-metallb: true
 
   publish-charm:
     name: Publish Charm
