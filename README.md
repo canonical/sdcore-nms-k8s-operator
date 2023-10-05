@@ -1,10 +1,3 @@
-<div align="center">
-  <img src="./icon.svg" alt="ONF Icon" width="200" height="200">
-</div>
-<div align="center">
-  <h1>SD-Core NMS Operator</h1>
-</div>
-
 # sdcore-nms-operator
 
 Charmed Operator for SD-Core's NMS.
