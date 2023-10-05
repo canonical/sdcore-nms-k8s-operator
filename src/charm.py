@@ -10,6 +10,9 @@ from charms.observability_libs.v1.kubernetes_service_patch import (  # type: ign
     KubernetesServicePatch,
 )
 from charms.sdcore_upf.v0.fiveg_n4 import N4Requires  # type: ignore[import]
+from charms.sdcore_webui.v0.sdcore_management import (  # type: ignore[import]
+    SdcoreManagementRequires,
+)
 from charms.traefik_k8s.v1.ingress import IngressPerAppRequirer  # type: ignore[import]
 from lightkube.models.core_v1 import ServicePort
 from ops.charm import CharmBase
@@ -22,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 FIVEG_N4_RELATION_NAME = "fiveg_n4"
 NMS_PORT = 3000
+SDCORE_MANAGEMENT_RELATION_NAME = "sdcore-management"
 
 
 class SDCoreNMSOperatorCharm(CharmBase):
@@ -33,6 +37,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self._service_name = "sdcore-nms"
         self._container = self.unit.get_container(self._container_name)
         self.fiveg_n4 = N4Requires(charm=self, relation_name=FIVEG_N4_RELATION_NAME)
+        self._sdcore_management = SdcoreManagementRequires(self, SDCORE_MANAGEMENT_RELATION_NAME)
         self._service_patcher = KubernetesServicePatch(
             charm=self,
             ports=[
@@ -47,8 +52,11 @@ class SDCoreNMSOperatorCharm(CharmBase):
         )
 
         self.framework.observe(self.on.nms_pebble_ready, self._configure_sdcore_nms)
-        self.framework.observe(self.on.config_changed, self._configure_sdcore_nms)
         self.framework.observe(self.fiveg_n4.on.fiveg_n4_available, self._configure_sdcore_nms)
+        self.framework.observe(
+            self._sdcore_management.on.management_url_available,
+            self._configure_sdcore_nms,
+        )
 
     def _configure_sdcore_nms(self, event: EventBase) -> None:
         """Add Pebble layer and manages Juju unit status.
@@ -60,25 +68,18 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self.unit.status = WaitingStatus("Waiting for container to be ready")
             event.defer()
             return
-        if not self.model.relations.get(FIVEG_N4_RELATION_NAME):
-            self.unit.status = BlockedStatus(
-                f"Waiting for `{FIVEG_N4_RELATION_NAME}` relation to be created"
-            )
-            return
-        if not self._webui_url_is_set():
-            self.unit.status = BlockedStatus("Invalid `webui-endpoint` config value")
+        for required_relation in [FIVEG_N4_RELATION_NAME, SDCORE_MANAGEMENT_RELATION_NAME]:
+            if not self._relation_created(required_relation):
+                self.unit.status = BlockedStatus(
+                    f"Waiting for `{required_relation}` relation to be created"
+                )
+                return
+        if not self._sdcore_management.management_url:
+            self.unit.status = WaitingStatus("Waiting for webui management url to be available")
             event.defer()
             return
         self._configure_pebble()
         self.unit.status = ActiveStatus()
-
-    def _webui_url_is_set(self) -> bool:
-        """Return whether the webui endpoint is set.
-
-        Return:
-            bool: Whether the webui endpoint is set.
-        """
-        return self.config.get("webui-endpoint", "") != ""
 
     def _configure_pebble(self) -> None:
         """Configure the Pebble layer."""
@@ -148,10 +149,21 @@ class SDCoreNMSOperatorCharm(CharmBase):
             dict: Environment variables.
         """
         return {
-            "WEBUI_ENDPOINT": self.config["webui-endpoint"],
+            "WEBUI_ENDPOINT": self._sdcore_management.management_url,
             "UPF_HOSTNAME": self._get_upf_hostname(),
             "UPF_PORT": self._get_upf_port(),
         }
+
+    def _relation_created(self, relation_name: str) -> bool:
+        """Returns True if the relation is created, False otherwise.
+
+        Args:
+            relation_name (str): Name of the relation.
+
+        Returns:
+            bool: True if the relation is created, False otherwise.
+        """
+        return bool(self.model.relations.get(relation_name))
 
 
 if __name__ == "__main__":  # pragma: no cover

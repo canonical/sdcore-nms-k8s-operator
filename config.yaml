@@ -1,7 +1,0 @@
-# Copyright 2023 Canonical Ltd.
-# See LICENSE file for licensing details.
-
-options:
-  webui-endpoint:
-    description: The URL of the SD-Core API provided by the webui service.
-    type: string
