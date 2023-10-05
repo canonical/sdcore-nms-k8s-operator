@@ -163,7 +163,7 @@ async def test_given_sdcore_nms_deployed_when_required_relations_created_then_st
     )
     await deploy_sdcore_webui(ops_test)
     await ops_test.model.add_relation(
-        relation1=f"{APP_NAME}:sdcore-management", relation2=f"{WEBUI_APP_NAME}:fiveg_n4"
+        relation1=f"{APP_NAME}:sdcore-management", relation2=f"{WEBUI_APP_NAME}:sdcore-management"
     )
     await ops_test.model.wait_for_idle(
         apps=[APP_NAME, UPF_APP_NAME],
