@@ -66,9 +66,14 @@ class TestCharm(unittest.TestCase):
 
     def test_given_management_url_not_available_when_pebble_ready_then_status_is_waiting(self):
         self.harness.set_can_connect(container="nms", val=True)
-        self.harness.add_relation(
+        fiveg_n4_relation_id = self.harness.add_relation(
             relation_name=FIVEG_N4_RELATION_NAME,
             remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
+        )
+        self.harness.update_relation_data(
+            relation_id=fiveg_n4_relation_id,
+            app_or_unit=TEST_FIVEG_N4_PROVIDER_APP_NAME,
+            key_values={"upf_hostname": "some.host.name", "upf_port": "1234"},
         )
         self.harness.add_relation(
             relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
@@ -78,6 +83,27 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(
             self.harness.model.unit.status,
             WaitingStatus("Waiting for webui management url to be available"),
+        )
+
+    def test_given_n4_information_not_available_when_pebble_ready_then_status_is_waiting(self):
+        self.harness.set_can_connect(container="nms", val=True)
+        self.harness.add_relation(
+            relation_name=FIVEG_N4_RELATION_NAME,
+            remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
+        )
+        sdcore_management_relation_id = self.harness.add_relation(
+            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
+            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
+        )
+        self.harness.update_relation_data(
+            relation_id=sdcore_management_relation_id,
+            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
+            key_values={"management_url": "http://10.0.0.1:5000"},
+        )
+        self.harness.container_pebble_ready("nms")
+        self.assertEqual(
+            self.harness.model.unit.status,
+            WaitingStatus("Waiting for UPF information to be available"),
         )
 
     def test_given_environment_information_available_and_required_relations_created_when_pebble_ready_then_pebble_plan_is_applied(  # noqa: E501

@@ -5,6 +5,7 @@
 """Charmed operator for the SD-Core Graphical User Interface."""
 
 import logging
+from typing import Optional
 
 from charms.observability_libs.v1.kubernetes_service_patch import (  # type: ignore[import]
     KubernetesServicePatch,
@@ -78,6 +79,10 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self.unit.status = WaitingStatus("Waiting for webui management url to be available")
             event.defer()
             return
+        if not self._get_upf_hostname() or not self._get_upf_port():
+            self.unit.status = WaitingStatus("Waiting for UPF information to be available")
+            event.defer()
+            return
         self._configure_pebble()
         self.unit.status = ActiveStatus()
 
@@ -102,9 +107,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
             raise RuntimeError(
                 f"Application missing from the {FIVEG_N4_RELATION_NAME} relation data"
             )
-        return fiveg_n4_relation.data[fiveg_n4_relation.app]["upf_hostname"]
+        return fiveg_n4_relation.data[fiveg_n4_relation.app].get("upf_hostname", "")
 
-    def _get_upf_port(self) -> int:
+    def _get_upf_port(self) -> Optional[int]:
         """Gets UPF's N4 port number from the `fiveg_n4` relation data bag.
 
         Returns:
@@ -117,7 +122,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
             raise RuntimeError(
                 f"Application missing from the {FIVEG_N4_RELATION_NAME} relation data"
             )
-        return int(fiveg_n4_relation.data[fiveg_n4_relation.app]["upf_port"])
+        if port := fiveg_n4_relation.data[fiveg_n4_relation.app].get("upf_port", ""):
+            return int(port)
+        return None
 
     @property
     def _pebble_layer(self) -> Layer:

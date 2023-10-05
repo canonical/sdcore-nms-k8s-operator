@@ -18,6 +18,7 @@ METADATA = yaml.safe_load(Path("./metadata.yaml").read_text())
 APP_NAME = METADATA["name"]
 TRAEFIK_APP_NAME = "traefik"
 UPF_APP_NAME = "upf"
+WEBUI_APP_NAME = "webui"
 
 
 @pytest.mark.abort_on_fail
@@ -31,7 +32,6 @@ async def build_and_deploy(ops_test):
         charm,
         resources=resources,
         application_name=APP_NAME,
-        config={"webui-endpoint": "http://1.2.3.4:1234"},
         trust=True,
     )
 
@@ -53,6 +53,17 @@ async def deploy_sdcore_upf(ops_test):
     await ops_test.model.deploy(
         "sdcore-upf",
         application_name=UPF_APP_NAME,
+        channel="edge",
+        trust=True,
+    )
+
+
+@pytest.mark.abort_on_fail
+async def deploy_sdcore_webui(ops_test):
+    """Deploy sdcore-webui-operator."""
+    await ops_test.model.deploy(
+        "sdcore-webui",
+        application_name=WEBUI_APP_NAME,
         channel="edge",
         trust=True,
     )
@@ -115,7 +126,10 @@ def ui_is_running(ip: str, host: str) -> bool:
 async def test_given_fiveg_n4_relation_not_created_when_deploy_charm_then_status_is_blocked(
     ops_test,
 ):
-    await build_and_deploy(ops_test)
+    await deploy_sdcore_webui(ops_test)
+    await ops_test.model.add_relation(
+        relation1=f"{APP_NAME}:sdcore-management", relation2=f"{WEBUI_APP_NAME}:fiveg_n4"
+    )
     await ops_test.model.wait_for_idle(
         apps=[APP_NAME],
         status="blocked",
@@ -124,12 +138,31 @@ async def test_given_fiveg_n4_relation_not_created_when_deploy_charm_then_status
 
 
 @pytest.mark.abort_on_fail
-async def test_given_sdcore_nms_waiting_for_fiveg_n4_relation_when_fiveg_n4_relation_created_then_status_is_active(  # noqa: E501
+async def test_given_sdcore_management_relation_not_created_when_deploy_charm_then_status_is_blocked(  # noqa: E501
     ops_test,
 ):
     await deploy_sdcore_upf(ops_test)
     await ops_test.model.add_relation(
         relation1=f"{APP_NAME}:fiveg_n4", relation2=f"{UPF_APP_NAME}:fiveg_n4"
+    )
+    await ops_test.model.wait_for_idle(
+        apps=[APP_NAME],
+        status="blocked",
+        timeout=1000,
+    )
+
+
+@pytest.mark.abort_on_fail
+async def test_given_sdcore_nms_deployed_when_required_relations_created_then_status_is_active(
+    ops_test,
+):
+    await deploy_sdcore_upf(ops_test)
+    await ops_test.model.add_relation(
+        relation1=f"{APP_NAME}:fiveg_n4", relation2=f"{UPF_APP_NAME}:fiveg_n4"
+    )
+    await deploy_sdcore_webui(ops_test)
+    await ops_test.model.add_relation(
+        relation1=f"{APP_NAME}:sdcore-management", relation2=f"{WEBUI_APP_NAME}:fiveg_n4"
     )
     await ops_test.model.wait_for_idle(
         apps=[APP_NAME, UPF_APP_NAME],
