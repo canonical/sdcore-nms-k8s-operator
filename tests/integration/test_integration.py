@@ -123,9 +123,10 @@ def ui_is_running(ip: str, host: str) -> bool:
 
 
 @pytest.mark.abort_on_fail
-async def test_given_fiveg_n4_relation_not_created_when_deploy_charm_then_status_is_blocked(
+async def test_given_required_relations_not_created_when_deploy_charm_then_status_is_blocked(
     ops_test,
 ):
+    await build_and_deploy(ops_test)
     await deploy_sdcore_webui(ops_test)
     await ops_test.model.add_relation(
         relation1=f"{APP_NAME}:sdcore-management", relation2=f"{WEBUI_APP_NAME}:fiveg_n4"
