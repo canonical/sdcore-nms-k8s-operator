@@ -129,7 +129,7 @@ async def test_given_required_relations_not_created_when_deploy_charm_then_statu
     await build_and_deploy(ops_test)
     await deploy_sdcore_webui(ops_test)
     await ops_test.model.add_relation(
-        relation1=f"{APP_NAME}:sdcore-management", relation2=f"{WEBUI_APP_NAME}:fiveg_n4"
+        relation1=f"{APP_NAME}:sdcore-management", relation2=f"{WEBUI_APP_NAME}:sdcore-management"
     )
     await ops_test.model.wait_for_idle(
         apps=[APP_NAME],

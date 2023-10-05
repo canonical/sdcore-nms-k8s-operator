@@ -28,15 +28,12 @@ class TestCharm(unittest.TestCase):
     def test_given_cant_connect_to_container_when_configure_sdcore_nms_then_status_is_waiting(
         self,
     ):
-        self.harness.set_can_connect(container="nms", val=False)
         self.harness.charm._configure_sdcore_nms(event=Mock())
         self.assertEqual(
             self.harness.model.unit.status, WaitingStatus("Waiting for container to be ready")
         )
 
     def test_given_fiveg_n4_relation_not_created_when_pebble_ready_then_status_is_blocked(self):
-        self.harness.set_can_connect(container="nms", val=True)
-
         self.harness.add_relation(
             relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
             remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
@@ -50,8 +47,6 @@ class TestCharm(unittest.TestCase):
     def test_given_sdcore_management_relation_not_created_when_pebble_ready_then_status_is_blocked(
         self,
     ):
-        self.harness.set_can_connect(container="nms", val=True)
-
         self.harness.add_relation(
             relation_name=FIVEG_N4_RELATION_NAME,
             remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
@@ -65,7 +60,6 @@ class TestCharm(unittest.TestCase):
         )
 
     def test_given_management_url_not_available_when_pebble_ready_then_status_is_waiting(self):
-        self.harness.set_can_connect(container="nms", val=True)
         fiveg_n4_relation_id = self.harness.add_relation(
             relation_name=FIVEG_N4_RELATION_NAME,
             remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
@@ -86,7 +80,6 @@ class TestCharm(unittest.TestCase):
         )
 
     def test_given_n4_information_not_available_when_pebble_ready_then_status_is_waiting(self):
-        self.harness.set_can_connect(container="nms", val=True)
         self.harness.add_relation(
             relation_name=FIVEG_N4_RELATION_NAME,
             remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
@@ -112,7 +105,6 @@ class TestCharm(unittest.TestCase):
         test_upf_hostname = "some.host.name"
         test_upf_port = "1234"
         test_management_url = "http://10.0.0.1:5000"
-        self.harness.set_can_connect(container="nms", val=True)
         fiveg_n4_relation_id = self.harness.add_relation(
             relation_name=FIVEG_N4_RELATION_NAME,
             remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
@@ -147,6 +139,7 @@ class TestCharm(unittest.TestCase):
                 }
             }
         }
+        self.harness.container_pebble_ready("nms")
         updated_plan = self.harness.get_container_pebble_plan("nms").to_dict()
 
         self.assertEqual(expected_plan, updated_plan)
