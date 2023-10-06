@@ -127,10 +127,6 @@ async def test_given_required_relations_not_created_when_deploy_charm_then_statu
     ops_test,
 ):
     await build_and_deploy(ops_test)
-    await deploy_sdcore_webui(ops_test)
-    await ops_test.model.add_relation(
-        relation1=f"{APP_NAME}:sdcore-management", relation2=f"{WEBUI_APP_NAME}:sdcore-management"
-    )
     await ops_test.model.wait_for_idle(
         apps=[APP_NAME],
         status="blocked",
@@ -157,10 +153,6 @@ async def test_given_sdcore_management_relation_not_created_when_deploy_charm_th
 async def test_given_sdcore_nms_deployed_when_required_relations_created_then_status_is_active(
     ops_test,
 ):
-    await deploy_sdcore_upf(ops_test)
-    await ops_test.model.add_relation(
-        relation1=f"{APP_NAME}:fiveg_n4", relation2=f"{UPF_APP_NAME}:fiveg_n4"
-    )
     await deploy_sdcore_webui(ops_test)
     await ops_test.model.add_relation(
         relation1=f"{APP_NAME}:sdcore-management", relation2=f"{WEBUI_APP_NAME}:sdcore-management"
