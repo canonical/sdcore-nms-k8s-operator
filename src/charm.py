@@ -10,6 +10,7 @@ from typing import Optional
 from charms.observability_libs.v1.kubernetes_service_patch import (  # type: ignore[import]
     KubernetesServicePatch,
 )
+from charms.sdcore_gnbsim.v0.fiveg_gnb_identity import GnbIdentityRequires  # type: ignore[import]
 from charms.sdcore_upf.v0.fiveg_n4 import N4Requires  # type: ignore[import]
 from charms.sdcore_webui.v0.sdcore_management import (  # type: ignore[import]
     SdcoreManagementRequires,
@@ -25,6 +26,7 @@ from ops.pebble import Layer
 logger = logging.getLogger(__name__)
 
 FIVEG_N4_RELATION_NAME = "fiveg_n4"
+GNB_IDENTITY_RELATION_NAME = "fiveg_gnb_identity"
 NMS_PORT = 3000
 SDCORE_MANAGEMENT_RELATION_NAME = "sdcore-management"
 
@@ -38,6 +40,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self._service_name = "sdcore-nms"
         self._container = self.unit.get_container(self._container_name)
         self.fiveg_n4 = N4Requires(charm=self, relation_name=FIVEG_N4_RELATION_NAME)
+        self._gnb_identity = GnbIdentityRequires(self, GNB_IDENTITY_RELATION_NAME)
         self._sdcore_management = SdcoreManagementRequires(self, SDCORE_MANAGEMENT_RELATION_NAME)
         self._service_patcher = KubernetesServicePatch(
             charm=self,
@@ -58,6 +61,10 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self._sdcore_management.on.management_url_available,
             self._configure_sdcore_nms,
         )
+        self.framework.observe(
+            self._gnb_identity.on.fiveg_gnb_identity_available,
+            self._configure_sdcore_nms,
+        )
 
     def _configure_sdcore_nms(self, event: EventBase) -> None:
         """Add Pebble layer and manages Juju unit status.
@@ -69,7 +76,11 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self.unit.status = WaitingStatus("Waiting for container to be ready")
             event.defer()
             return
-        for required_relation in [FIVEG_N4_RELATION_NAME, SDCORE_MANAGEMENT_RELATION_NAME]:
+        for required_relation in [
+            FIVEG_N4_RELATION_NAME,
+            SDCORE_MANAGEMENT_RELATION_NAME,
+            GNB_IDENTITY_RELATION_NAME,
+        ]:
             if not self._relation_created(required_relation):
                 self.unit.status = BlockedStatus(
                     f"Waiting for `{required_relation}` relation to be created"
@@ -81,6 +92,10 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         if not self._get_upf_hostname() or not self._get_upf_port():
             self.unit.status = WaitingStatus("Waiting for UPF information to be available")
+            event.defer()
+            return
+        if not self._get_gnb_name() or not self._get_tac():
+            self.unit.status = WaitingStatus("Waiting for gNB identity to be available")
             event.defer()
             return
         self._configure_pebble()
@@ -124,6 +139,38 @@ class SDCoreNMSOperatorCharm(CharmBase):
             )
         if port := fiveg_n4_relation.data[fiveg_n4_relation.app].get("upf_port", ""):
             return int(port)
+        return None
+
+    def _get_gnb_name(self) -> str:
+        """Gets gNB name from the `fiveg_gnb_identity` relation data bag.
+
+        Returns:
+            str: gNB name.
+        """
+        gnb_identity_relation = self.model.get_relation(GNB_IDENTITY_RELATION_NAME)
+        if not gnb_identity_relation:
+            raise RuntimeError(f"Relation {GNB_IDENTITY_RELATION_NAME} not available")
+        if not gnb_identity_relation.app:
+            raise RuntimeError(
+                f"Application missing from the {GNB_IDENTITY_RELATION_NAME} relation data"
+            )
+        return gnb_identity_relation.data[gnb_identity_relation.app].get("gnb_name", "")
+
+    def _get_tac(self) -> Optional[int]:
+        """Gets TAC from the `fiveg_gnb_identity` relation data bag.
+
+        Returns:
+            int: Tracking Area Code (TAC)
+        """
+        gnb_identity_relation = self.model.get_relation(GNB_IDENTITY_RELATION_NAME)
+        if not gnb_identity_relation:
+            raise RuntimeError(f"Relation {GNB_IDENTITY_RELATION_NAME} not available")
+        if not gnb_identity_relation.app:
+            raise RuntimeError(
+                f"Application missing from the {GNB_IDENTITY_RELATION_NAME} relation data"
+            )
+        if tac := gnb_identity_relation.data[gnb_identity_relation.app].get("tac", ""):
+            return int(tac)
         return None
 
     @property

@@ -19,6 +19,7 @@ APP_NAME = METADATA["name"]
 TRAEFIK_APP_NAME = "traefik"
 UPF_APP_NAME = "upf"
 WEBUI_APP_NAME = "webui"
+GNBSIM_APP_NAME = "gnbsim"
 
 
 @pytest.mark.abort_on_fail
@@ -64,6 +65,17 @@ async def deploy_sdcore_webui(ops_test):
     await ops_test.model.deploy(
         "sdcore-webui",
         application_name=WEBUI_APP_NAME,
+        channel="edge",
+        trust=True,
+    )
+
+
+@pytest.mark.abort_on_fail
+async def deploy_sdcore_gnbsim(ops_test):
+    """Deploy sdcore-gnbsim-operator."""
+    await ops_test.model.deploy(
+        "sdcore-gnbsim",
+        application_name=GNBSIM_APP_NAME,
         channel="edge",
         trust=True,
     )
@@ -135,7 +147,7 @@ async def test_given_required_relations_not_created_when_deploy_charm_then_statu
 
 
 @pytest.mark.abort_on_fail
-async def test_given_sdcore_management_relation_not_created_when_deploy_charm_then_status_is_blocked(  # noqa: E501
+async def test_given_only_fiveg_n4_relation_when_deploy_charm_then_status_is_blocked(
     ops_test,
 ):
     await deploy_sdcore_upf(ops_test)
@@ -150,12 +162,28 @@ async def test_given_sdcore_management_relation_not_created_when_deploy_charm_th
 
 
 @pytest.mark.abort_on_fail
-async def test_given_sdcore_nms_deployed_when_required_relations_created_then_status_is_active(
+async def test_given_no_fiveg_identity_relation_when_deploy_charm_then_status_is_blocked(
     ops_test,
 ):
     await deploy_sdcore_webui(ops_test)
     await ops_test.model.add_relation(
         relation1=f"{APP_NAME}:sdcore-management", relation2=f"{WEBUI_APP_NAME}:sdcore-management"
+    )
+    await ops_test.model.wait_for_idle(
+        apps=[APP_NAME],
+        status="blocked",
+        timeout=1000,
+    )
+
+
+@pytest.mark.abort_on_fail
+async def test_given_all_required_relations_created_when_deploy_charm_then_status_is_active(
+    ops_test,
+):
+    await deploy_sdcore_gnbsim(ops_test)
+    await ops_test.model.add_relation(
+        relation1=f"{APP_NAME}:fiveg_gnb_identity",
+        relation2=f"{deploy_sdcore_gnbsim}:fiveg_gnb_identity",
     )
     await ops_test.model.wait_for_idle(
         apps=[APP_NAME, UPF_APP_NAME],
