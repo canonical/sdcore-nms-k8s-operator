@@ -86,11 +86,11 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self.unit.status = WaitingStatus("Waiting for webui management url to be available")
             event.defer()
             return
-        if not self._fiveg_n4_is_provided():
+        if not self._fiveg_n4_information_is_correct():
             self.unit.status = WaitingStatus("Waiting for UPF information to be available")
             event.defer()
             return
-        if not self._fiveg_gnb_identity_is_provided():
+        if not self.fiveg_gnb_identity_information_is_correct():
             self.unit.status = WaitingStatus("Waiting for gNB information to be available")
             event.defer()
             return
@@ -105,13 +105,13 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self._container.add_layer(self._container_name, layer, combine=True)
             self._container.restart(self._service_name)
 
-    def _fiveg_n4_is_provided(self) -> bool:
+    def _fiveg_n4_information_is_correct(self) -> bool:
         """The `fiveg_n4` relation is not mandatory and limited to 1.
 
         If it exists it must contain the UPF hostname and port.
 
         Returns:
-            Whether the `fiveg_n4` relation information is provided.
+            Whether the `fiveg_n4` relation information is correct.
         """
         if self.model.relations.get(FIVEG_N4_RELATION_NAME):
             if not self._get_upf_hostname() or not self._get_upf_port():
@@ -150,17 +150,18 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return int(port)
         return None
 
-    def _fiveg_gnb_identity_is_provided(self) -> bool:
+    def fiveg_gnb_identity_information_is_correct(self) -> bool:
         """The `fiveg_gnb_identity` relation is not mandatory.
 
         If it exists it must contain the gNB name and TAC.
 
         Returns:
-            Whether the `fiveg_gnb_identity` relation information is provided.
+            Whether the `fiveg_gnb_identity` relation information is correct.
         """
-        for relation in self.model.relations.get(GNB_IDENTITY_RELATION_NAME):
-            if not self._get_gnb_name(relation) or not self._get_tac(relation):
-                return False
+        if gnb_identity_relations := self.model.relations.get(GNB_IDENTITY_RELATION_NAME):
+            for relation in gnb_identity_relations:
+                if not self._get_gnb_name(relation) or not self._get_tac(relation):
+                    return False
         return True
 
     def _get_gnb_name(self, gnb_identity_relation) -> str:
