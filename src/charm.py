@@ -76,25 +76,21 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self.unit.status = WaitingStatus("Waiting for container to be ready")
             event.defer()
             return
-        for required_relation in [
-            FIVEG_N4_RELATION_NAME,
-            SDCORE_MANAGEMENT_RELATION_NAME,
-            GNB_IDENTITY_RELATION_NAME,
-        ]:
-            if not self._relation_created(required_relation):
-                self.unit.status = BlockedStatus(
-                    f"Waiting for `{required_relation}` relation to be created"
-                )
-                return
+
+        if not self.model.relations.get(SDCORE_MANAGEMENT_RELATION_NAME):
+            self.unit.status = BlockedStatus(
+                f"Waiting for `{SDCORE_MANAGEMENT_RELATION_NAME}` relation to be created"
+            )
+            return
         if not self._sdcore_management.management_url:
             self.unit.status = WaitingStatus("Waiting for webui management url to be available")
             event.defer()
             return
-        if not self._get_upf_hostname() or not self._get_upf_port():
+        if not self._fiveg_n4_is_provided():
             self.unit.status = WaitingStatus("Waiting for UPF information to be available")
             event.defer()
             return
-        if not self._get_gnb_name() or not self._get_tac():
+        if not self._fiveg_gnb_identity_is_provided():
             self.unit.status = WaitingStatus("Waiting for gNB identity to be available")
             event.defer()
             return
@@ -109,6 +105,19 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self._container.add_layer(self._container_name, layer, combine=True)
             self._container.restart(self._service_name)
 
+    def _fiveg_n4_is_provided(self) -> bool:
+        """The `fiveg_n4` relation is not mandatory and limited to 1.
+
+        If it exists it must contain the UPF hostname and port.
+
+        Returns:
+            Whether the `fiveg_n4` relation information is provided.
+        """
+        if self.model.relations.get(FIVEG_N4_RELATION_NAME):
+            if not self._get_upf_hostname() or not self._get_upf_port():
+                return False
+        return True
+
     def _get_upf_hostname(self) -> str:
         """Gets UPF hostname from the `fiveg_n4` relation data bag.
 
@@ -117,7 +126,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         """
         fiveg_n4_relation = self.model.get_relation(FIVEG_N4_RELATION_NAME)
         if not fiveg_n4_relation:
-            raise RuntimeError(f"Relation {FIVEG_N4_RELATION_NAME} not available")
+            return ""
         if not fiveg_n4_relation.app:
             raise RuntimeError(
                 f"Application missing from the {FIVEG_N4_RELATION_NAME} relation data"
@@ -132,7 +141,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         """
         fiveg_n4_relation = self.model.get_relation(FIVEG_N4_RELATION_NAME)
         if not fiveg_n4_relation:
-            raise RuntimeError(f"Relation {FIVEG_N4_RELATION_NAME} not available")
+            return None
         if not fiveg_n4_relation.app:
             raise RuntimeError(
                 f"Application missing from the {FIVEG_N4_RELATION_NAME} relation data"
@@ -141,30 +150,37 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return int(port)
         return None
 
-    def _get_gnb_name(self) -> str:
+    def _fiveg_gnb_identity_is_provided(self) -> bool:
+        """The `fiveg_gnb_identity` relation is not mandatory.
+
+        If it exists it must contain the gNB name and TAC.
+
+        Returns:
+            Whether the `fiveg_gnb_identity` relation information is provided.
+        """
+        for relation in self.model.relations.get(GNB_IDENTITY_RELATION_NAME):
+            if not self._get_gnb_name(relation) or not self._get_tac(relation):
+                return False
+        return True
+
+    def _get_gnb_name(self, gnb_identity_relation) -> str:
         """Gets gNB name from the `fiveg_gnb_identity` relation data bag.
 
         Returns:
             str: gNB name.
         """
-        gnb_identity_relation = self.model.get_relation(GNB_IDENTITY_RELATION_NAME)
-        if not gnb_identity_relation:
-            raise RuntimeError(f"Relation {GNB_IDENTITY_RELATION_NAME} not available")
         if not gnb_identity_relation.app:
             raise RuntimeError(
                 f"Application missing from the {GNB_IDENTITY_RELATION_NAME} relation data"
             )
         return gnb_identity_relation.data[gnb_identity_relation.app].get("gnb_name", "")
 
-    def _get_tac(self) -> Optional[int]:
+    def _get_tac(self, gnb_identity_relation) -> Optional[int]:
         """Gets TAC from the `fiveg_gnb_identity` relation data bag.
 
         Returns:
             int: Tracking Area Code (TAC)
         """
-        gnb_identity_relation = self.model.get_relation(GNB_IDENTITY_RELATION_NAME)
-        if not gnb_identity_relation:
-            raise RuntimeError(f"Relation {GNB_IDENTITY_RELATION_NAME} not available")
         if not gnb_identity_relation.app:
             raise RuntimeError(
                 f"Application missing from the {GNB_IDENTITY_RELATION_NAME} relation data"

@@ -147,22 +147,7 @@ async def test_given_required_relations_not_created_when_deploy_charm_then_statu
 
 
 @pytest.mark.abort_on_fail
-async def test_given_only_fiveg_n4_relation_when_deploy_charm_then_status_is_blocked(
-    ops_test,
-):
-    await deploy_sdcore_upf(ops_test)
-    await ops_test.model.integrate(
-        relation1=f"{APP_NAME}:fiveg_n4", relation2=f"{UPF_APP_NAME}:fiveg_n4"
-    )
-    await ops_test.model.wait_for_idle(
-        apps=[APP_NAME],
-        status="blocked",
-        timeout=1000,
-    )
-
-
-@pytest.mark.abort_on_fail
-async def test_given_no_fiveg_identity_relation_when_deploy_charm_then_status_is_blocked(
+async def test_given_sdcore_management_relation_creted_when_deploy_charm_then_status_is_active(
     ops_test,
 ):
     await deploy_sdcore_webui(ops_test)
@@ -171,13 +156,26 @@ async def test_given_no_fiveg_identity_relation_when_deploy_charm_then_status_is
     )
     await ops_test.model.wait_for_idle(
         apps=[APP_NAME],
-        status="blocked",
+        status="active",
         timeout=1000,
     )
 
+@pytest.mark.abort_on_fail
+async def test_given_fiveg_n4_relation_when_deploy_charm_then_status_is_active(
+    ops_test,
+):
+    await deploy_sdcore_upf(ops_test)
+    await ops_test.model.integrate(
+        relation1=f"{APP_NAME}:fiveg_n4", relation2=f"{UPF_APP_NAME}:fiveg_n4"
+    )
+    await ops_test.model.wait_for_idle(
+        apps=[APP_NAME],
+        status="active",
+        timeout=1000,
+    )
 
 @pytest.mark.abort_on_fail
-async def test_given_all_required_relations_created_when_deploy_charm_then_status_is_active(
+async def test_given_fiveg_gnb_identity_created_when_deploy_charm_then_status_is_active(
     ops_test,
 ):
     await deploy_sdcore_gnbsim(ops_test)
