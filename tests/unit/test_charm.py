@@ -176,7 +176,7 @@ class TestCharm(unittest.TestCase):
         self.harness.container_pebble_ready("nms")
         self.assertEqual(
             self.harness.model.unit.status,
-            WaitingStatus("Waiting for gNB identity to be available"),
+            WaitingStatus("Waiting for gNB information to be available"),
         )
 
     def test_given_gnb_identity_gnb_name_not_available_when_pebble_ready_then_status_is_waiting(
@@ -205,7 +205,7 @@ class TestCharm(unittest.TestCase):
         self.harness.container_pebble_ready("nms")
         self.assertEqual(
             self.harness.model.unit.status,
-            WaitingStatus("Waiting for gNB identity to be available"),
+            WaitingStatus("Waiting for gNB information to be available"),
         )
 
     def test_given_gnb_identity_tac_not_available_when_pebble_ready_then_status_is_waiting(
@@ -234,7 +234,7 @@ class TestCharm(unittest.TestCase):
         self.harness.container_pebble_ready("nms")
         self.assertEqual(
             self.harness.model.unit.status,
-            WaitingStatus("Waiting for gNB identity to be available"),
+            WaitingStatus("Waiting for gNB information to be available"),
         )
 
     def test_given_gnb_identity_information_not_available_in_one_relation_when_pebble_ready_then_status_is_waiting(  # noqa: E501
@@ -269,7 +269,7 @@ class TestCharm(unittest.TestCase):
         self.harness.container_pebble_ready("nms")
         self.assertEqual(
             self.harness.model.unit.status,
-            WaitingStatus("Waiting for gNB identity to be available"),
+            WaitingStatus("Waiting for gNB information to be available"),
         )
 
     def test_given_all_relations_created_when_pebble_ready_then_pebble_plan_is_applied(self):

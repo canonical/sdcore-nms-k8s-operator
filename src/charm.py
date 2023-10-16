@@ -91,7 +91,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             event.defer()
             return
         if not self._fiveg_gnb_identity_is_provided():
-            self.unit.status = WaitingStatus("Waiting for gNB identity to be available")
+            self.unit.status = WaitingStatus("Waiting for gNB information to be available")
             event.defer()
             return
         self._configure_pebble()
