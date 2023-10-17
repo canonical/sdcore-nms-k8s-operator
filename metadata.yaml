@@ -10,6 +10,9 @@ issues: https://github.com/canonical/sdcore-nms-operator/issues
 containers:
   nms:
     resource: nms-image
+    mounts:
+      - storage: config
+          location: /nms/config
 
 resources:
   nms-image:
@@ -19,6 +22,11 @@ resources:
 
 assumes:
   - k8s-api
+
+storage:
+  config:
+    type: filesystem
+    minimum-size: 5M
 
 requires:
   fiveg_n4:
