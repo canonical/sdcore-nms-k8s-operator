@@ -119,7 +119,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
             upf_existing_content_stringio = self._container.pull(path=UPF_CONFIG_PATH)
             upf_existing_content = upf_existing_content_stringio.read()  # type: ignore[assignment]
         upf_config_content = self._get_upf_hosts_config()
-        if not config_file_content_matches(existing_content=upf_existing_content, new_content=upf_config_content):
+        if not config_file_content_matches(
+            existing_content=upf_existing_content, new_content=upf_config_content
+        ):
             self._push_upf_config_file_to_workload(upf_config_content)
 
         gnb_existing_content = ""
@@ -127,7 +129,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
             gnb_existing_content_stringio = self._container.pull(path=UPF_CONFIG_PATH)
             gnb_existing_content = gnb_existing_content_stringio.read()  # type: ignore[assignment]
         gnb_config_content = self._get_upf_hosts_config()
-        if not config_file_content_matches(existing_content=gnb_existing_content, new_content=gnb_config_content):
+        if not config_file_content_matches(
+            existing_content=gnb_existing_content, new_content=gnb_config_content
+        ):
             self._push_gnb_config_file_to_workload(gnb_config_content)
 
     def _get_upf_hostnames(self) -> List[str]:
@@ -144,12 +148,14 @@ class SDCoreNMSOperatorCharm(CharmBase):
                 raise RuntimeError(
                     f"Application missing from the {FIVEG_N4_RELATION_NAME} relation data"
                 )
-            upf_hostnames.append(fiveg_n4_relation.data[fiveg_n4_relation.app].get("upf_hostname", ""))
+            upf_hostnames.append(
+                fiveg_n4_relation.data[fiveg_n4_relation.app].get("upf_hostname", "")
+            )
         return upf_hostnames
-    
+
     def _get_upf_ports(self) -> Optional[List[int]]:
         """Gets the list of UPF ports from the `fiveg_n4` relation data bag.
-        
+
         Returns:
             List[int]: List of UPF ports
         """
@@ -165,26 +171,43 @@ class SDCoreNMSOperatorCharm(CharmBase):
                 upf_ports.append(int(port))
         return upf_ports
 
-    def _get_upf_hosts_config(self) -> list:
+    def _get_upf_hosts_config(self) -> str:
         """Gets the UPF hosts configuration for the NMS in a list of dictionaries format.
 
         Returns:
-            list: A list of dictionaries, each containing UPF hostname and port.
+            str: A json representation of list of dictionaries,
+                each containing UPF hostname and port.
         """
         upf_hostnames = self._get_upf_hostnames()
-        upf_ports = self._get_upf_port()
-        if len(upf_hostnames) != len(upf_ports):
+        upf_ports = self._get_upf_ports()
+        if len(upf_hostnames) != len(upf_ports):  # type: ignore[arg-type]
             raise RuntimeError("Number of UPF hostnames and ports do not match")
 
         upf_hosts_config = []
-        for upf_hostname, upf_port in zip(upf_hostnames, upf_ports):
-            upf_host_entry = {
-                "hostname": upf_hostname,
-                "port": str(upf_port)
-            }
+        for upf_hostname, upf_port in zip(upf_hostnames, upf_ports):  # type: ignore[arg-type]
+            upf_host_entry = {"hostname": upf_hostname, "port": str(upf_port)}
             upf_hosts_config.append(upf_host_entry)
 
-        return json.dumps(upf_hosts_config)
+        return json.dumps(upf_hosts_config, sort_keys=True)
+
+    def _get_gnb_hosts_config(self) -> str:
+        """Gets the UPF hosts configuration for the NMS in a list of dictionaries format.
+
+        Returns:
+            str: A json representation of list of dictionaries,
+                each containing UPF hostname and port.
+        """
+        gnb_hostnames = self._get_gnb_hostnames()
+        gnb_ports = self._get_gnb_ports()
+        if len(gnb_hostnames) != len(gnb_ports):  # type: ignore[arg-type]
+            raise RuntimeError("Number of UPF hostnames and ports do not match")
+
+        gnb_hosts_config = []
+        for gnb_hostname, gnb_port in zip(gnb_hostnames, gnb_ports):  # type: ignore[arg-type]
+            upf_host_entry = {"hostname": gnb_hostname, "port": str(gnb_port)}
+            gnb_hosts_config.append(upf_host_entry)
+
+        return json.dumps(gnb_hosts_config, sort_keys=True)
 
     def _push_upf_config_file_to_workload(self, content: str):
         """Push the upf config files to the NMS workload."""
@@ -274,8 +297,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
 def config_file_content_matches(existing_content: str, new_content: str) -> bool:
     """Returns wether two config file contents match."""
-    existing_content_list = json.loads(existing_content, sort_keys=True)
-    new_content_list = json.loads(new_content, sort_keys=True)
+    existing_content_list = json.loads(existing_content)
+    new_content_list = json.loads(new_content)
     return existing_content_list == new_content_list
 
 

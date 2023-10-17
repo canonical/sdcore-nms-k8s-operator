@@ -12,7 +12,7 @@ containers:
     resource: nms-image
     mounts:
       - storage: config
-          location: /nms/config
+        location: /nms/config
 
 resources:
   nms-image:
