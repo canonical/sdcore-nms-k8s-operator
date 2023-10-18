@@ -215,17 +215,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
             "UPF_PORT": self._get_upf_port(),
         }
 
-    def _relation_created(self, relation_name: str) -> bool:
-        """Returns True if the relation is created, False otherwise.
-
-        Args:
-            relation_name (str): Name of the relation.
-
-        Returns:
-            bool: True if the relation is created, False otherwise.
-        """
-        return bool(self.model.relations.get(relation_name))
-
 
 if __name__ == "__main__":  # pragma: no cover
     main(SDCoreNMSOperatorCharm)
