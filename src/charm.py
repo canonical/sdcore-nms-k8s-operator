@@ -86,14 +86,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self.unit.status = WaitingStatus("Waiting for webui management url to be available")
             event.defer()
             return
-        if not self._fiveg_n4_information_is_correct():
-            self.unit.status = WaitingStatus("Waiting for UPF information to be available")
-            event.defer()
-            return
-        if not self.fiveg_gnb_identity_information_is_correct():
-            self.unit.status = WaitingStatus("Waiting for gNB information to be available")
-            event.defer()
-            return
+        self._configure_upf_information()
+        self._configure_gnb_information()
         self._configure_pebble()
         self.unit.status = ActiveStatus()
 
@@ -105,18 +99,14 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self._container.add_layer(self._container_name, layer, combine=True)
             self._container.restart(self._service_name)
 
-    def _fiveg_n4_information_is_correct(self) -> bool:
-        """The `fiveg_n4` relation is not mandatory and limited to 1.
+    def _configure_upf_information(self):
+        """The `fiveg_n4` relation is not mandatory.
 
         If it exists it must contain the UPF hostname and port.
-
-        Returns:
-            Whether the `fiveg_n4` relation information is correct.
         """
         if self.model.relations.get(FIVEG_N4_RELATION_NAME):
             if not self._get_upf_hostname() or not self._get_upf_port():
-                return False
-        return True
+                logger.warning("Invalid information in %s integration", FIVEG_N4_RELATION_NAME)
 
     def _get_upf_hostname(self) -> str:
         """Gets UPF hostname from the `fiveg_n4` relation data bag.
@@ -150,19 +140,19 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return int(port)
         return None
 
-    def fiveg_gnb_identity_information_is_correct(self) -> bool:
+    def _configure_gnb_information(self):
         """The `fiveg_gnb_identity` relation is not mandatory.
 
         If it exists it must contain the gNB name and TAC.
-
-        Returns:
-            Whether the `fiveg_gnb_identity` relation information is correct.
         """
         if gnb_identity_relations := self.model.relations.get(GNB_IDENTITY_RELATION_NAME):
             for relation in gnb_identity_relations:
                 if not self._get_gnb_name(relation) or not self._get_tac(relation):
-                    return False
-        return True
+                    logger.warning(
+                        "Invalid information in %s integration with %s",
+                        GNB_IDENTITY_RELATION_NAME,
+                        relation.app,
+                    )
 
     def _get_gnb_name(self, gnb_identity_relation) -> str:
         """Gets gNB name from the `fiveg_gnb_identity` relation data bag.
