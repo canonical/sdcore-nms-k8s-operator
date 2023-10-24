@@ -235,7 +235,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         return tac_list
 
     def _get_upf_config(self) -> str:
-        """Gets the UPF hosts configuration for the NMS in a list of dictionaries format.
+        """Gets the UPF configuration for the NMS in a json.
 
         Returns:
             str: A json representation of list of dictionaries,
@@ -256,16 +256,16 @@ class SDCoreNMSOperatorCharm(CharmBase):
         return json.dumps(upf_config, sort_keys=True)
 
     def _get_gnb_config(self) -> str:
-        """Gets the UPF hosts configuration for the NMS in a list of dictionaries format.
+        """Gets the GNB configuration for the NMS in a json format.
 
         Returns:
             str: A json representation of list of dictionaries,
-                each containing UPF hostname and port.
+                each containing GNB names and tac.
         """
         gnb_name_list = self._get_gnb_name_list()
         gnb_tac_list = self._get_gnb_tac_list()
         if len(gnb_name_list) != len(gnb_tac_list):  # type: ignore[arg-type]
-            raise RuntimeError("Number of UPF hostnames and ports do not match")
+            raise RuntimeError("Number of GNB names and tac do not match")
 
         gnb_config = []
         for gnb_name, gnb_tac in zip(gnb_name_list, gnb_tac_list):  # type: ignore[arg-type]
