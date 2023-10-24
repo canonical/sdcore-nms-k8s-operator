@@ -6,7 +6,7 @@
 
 import json
 import logging
-from typing import List, Optional
+from typing import List
 
 from charms.observability_libs.v1.kubernetes_service_patch import (  # type: ignore[import]
     KubernetesServicePatch,
@@ -21,7 +21,7 @@ from lightkube.models.core_v1 import ServicePort
 from ops.charm import CharmBase
 from ops.framework import EventBase
 from ops.main import main
-from ops.model import ActiveStatus, BlockedStatus, Relation, WaitingStatus
+from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 from ops.pebble import Layer
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         self._configure_upf_information()
         self._configure_gnb_information()
-        self._generate_config_files()
         self._configure_pebble()
         self.unit.status = ActiveStatus()
 
@@ -103,57 +102,77 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self._container.add_layer(self._container_name, layer, combine=True)
             self._container.restart(self._service_name)
 
-    def _configure_upf_information(self):
+    def _configure_upf_information(self) -> None:
         """The `fiveg_n4` relation is not mandatory.
 
-        If it exists it must contain the UPF hostname and port.
+        If it exists, config files are generated and pushed to the workload.
         """
-        if self.model.relations.get(FIVEG_N4_RELATION_NAME):
-            if not self._get_upf_hostname() or not self._get_upf_port():
-                logger.warning("Invalid information in %s integration", FIVEG_N4_RELATION_NAME)
-
-    def _generate_config_files(self):
-        """Generates the config files for the NMS."""
-        upf_existing_content = ""
-        if self._container.exists(path=UPF_CONFIG_PATH):
-            upf_existing_content_stringio = self._container.pull(path=UPF_CONFIG_PATH)
-            upf_existing_content = upf_existing_content_stringio.read()  # type: ignore[assignment]
-        upf_config_content = self._get_upf_hosts_config()
-        if not config_file_content_matches(
+        if not self.model.relations.get(FIVEG_N4_RELATION_NAME):
+            logger.warning("Relation %s not available", FIVEG_N4_RELATION_NAME)
+            return
+        upf_existing_content = self._get_existing_config_file(path=UPF_CONFIG_PATH)
+        upf_config_content = self._get_upf_config()
+        if not upf_config_content:
+            logger.warning("UPF config file not available")
+            return
+        if not upf_existing_content or not config_file_content_matches(
             existing_content=upf_existing_content, new_content=upf_config_content
         ):
             self._push_upf_config_file_to_workload(upf_config_content)
 
-        gnb_existing_content = ""
-        if self._container.exists(path=UPF_CONFIG_PATH):
-            gnb_existing_content_stringio = self._container.pull(path=UPF_CONFIG_PATH)
-            gnb_existing_content = gnb_existing_content_stringio.read()  # type: ignore[assignment]
-        gnb_config_content = self._get_upf_hosts_config()
+    def _configure_gnb_information(self) -> None:
+        """The `fiveg_gnb_identity` relation is not mandatory.
+
+        If it exists, config files are generated and pushed to the workload.
+        """
+        if not self.model.relations.get(GNB_IDENTITY_RELATION_NAME):
+            logger.warning("Relation %s not available", GNB_IDENTITY_RELATION_NAME)
+            return
+        gnb_existing_content = self._get_existing_config_file(path=GNB_CONFIG_PATH)
+        gnb_config_content = self._get_gnb_config()
+        if not gnb_existing_content and not gnb_config_content:
+            logger.warning("gNB config file not available")
+            return
         if not config_file_content_matches(
             existing_content=gnb_existing_content, new_content=gnb_config_content
         ):
             self._push_gnb_config_file_to_workload(gnb_config_content)
 
-    def _get_upf_hostnames(self) -> List[str]:
+    def _get_existing_config_file(self, path: str) -> str:
+        """Gets the existing config file from the workload.
+
+        Args:
+            path (str): Path to the config file.
+
+        Returns:
+            str: Content of the config file.
+        """
+        if self._container.exists(path=path):
+            existing_content_stringio = self._container.pull(path=path)
+            return existing_content_stringio.read()
+        return ""
+
+    def _get_upf_hostname_list(self) -> List[str]:
         """Gets the list of UPF hostnames from the `fiveg_n4` relation data bag.
 
         Returns:
             List[str]: List of UPF hostnames
         """
-        upf_hostnames = []
+        upf_hostname_list = []
         for fiveg_n4_relation in self.model.relations.get(FIVEG_N4_RELATION_NAME, []):
             if not fiveg_n4_relation:
-                raise RuntimeError(f"Relation {FIVEG_N4_RELATION_NAME} not available")
+                logger.warning("Relation %s not available", FIVEG_N4_RELATION_NAME)
+                return []
             if not fiveg_n4_relation.app:
-                raise RuntimeError(
-                    f"Application missing from the {FIVEG_N4_RELATION_NAME} relation data"
+                logger.warning(
+                    "Application missing from the %s relation data", FIVEG_N4_RELATION_NAME
                 )
-            upf_hostnames.append(
-                fiveg_n4_relation.data[fiveg_n4_relation.app].get("upf_hostname", "")
-            )
-        return upf_hostnames
+                return []
+            if hostname := fiveg_n4_relation.data[fiveg_n4_relation.app].get("upf_hostname", ""):
+                upf_hostname_list.append(hostname)
+        return upf_hostname_list
 
-    def _get_upf_ports(self) -> Optional[List[int]]:
+    def _get_upf_port_list(self) -> List[int]:
         """Gets the list of UPF ports from the `fiveg_n4` relation data bag.
 
         Returns:
@@ -162,52 +181,98 @@ class SDCoreNMSOperatorCharm(CharmBase):
         upf_ports = []
         for fiveg_n4_relation in self.model.relations.get(FIVEG_N4_RELATION_NAME, []):
             if not fiveg_n4_relation:
-                raise RuntimeError(f"Relation {FIVEG_N4_RELATION_NAME} not available")
+                logger.warning("Relation %s not available", FIVEG_N4_RELATION_NAME)
+                return []
             if not fiveg_n4_relation.app:
-                raise RuntimeError(
-                    f"Application missing from the {FIVEG_N4_RELATION_NAME} relation data"
+                logger.warning(
+                    "Application missing from the %s relation data", FIVEG_N4_RELATION_NAME
                 )
+                return []
             if port := fiveg_n4_relation.data[fiveg_n4_relation.app].get("upf_port", ""):
                 upf_ports.append(int(port))
         return upf_ports
 
-    def _get_upf_hosts_config(self) -> str:
+    def _get_gnb_name_list(self) -> List[str]:
+        """Gets gNB name from the `fiveg_gnb_identity` relation data bag.
+
+        Returns:
+            str: gNB name.
+        """
+        gnb_name_list = []
+        for gnb_identity_relation in self.model.relations.get(GNB_IDENTITY_RELATION_NAME, []):
+            if not gnb_identity_relation:
+                logger.warning("Relation %s not available", GNB_IDENTITY_RELATION_NAME)
+                return []
+            if not gnb_identity_relation.app:
+                logger.warning(
+                    "Application missing from the %s relation data",
+                    GNB_IDENTITY_RELATION_NAME,
+                )
+                return []
+            gnb_name_list.append(
+                gnb_identity_relation.data[gnb_identity_relation.app].get("gnb_name", "")
+            )
+        return gnb_name_list
+
+    def _get_gnb_tac_list(self) -> List[int]:
+        """Gets TAC from the `fiveg_gnb_identity` relation data bag.
+
+        Returns:
+            int: Tracking Area Code (TAC)
+        """
+        tac_list = []
+        for gnb_identity_relation in self.model.relations.get(GNB_IDENTITY_RELATION_NAME, []):
+            if not gnb_identity_relation:
+                logger.warning("Relation %s not available", GNB_IDENTITY_RELATION_NAME)
+                return []
+            if not gnb_identity_relation.app:
+                logger.warning(
+                    "Application missing from the %s relation data",
+                    GNB_IDENTITY_RELATION_NAME,
+                )
+                return []
+            tac_list.append(gnb_identity_relation.data[gnb_identity_relation.app].get("tac", ""))
+        return tac_list
+
+    def _get_upf_config(self) -> str:
         """Gets the UPF hosts configuration for the NMS in a list of dictionaries format.
 
         Returns:
             str: A json representation of list of dictionaries,
                 each containing UPF hostname and port.
         """
-        upf_hostnames = self._get_upf_hostnames()
-        upf_ports = self._get_upf_ports()
-        if len(upf_hostnames) != len(upf_ports):  # type: ignore[arg-type]
+        upf_hostname_list = self._get_upf_hostname_list()
+        upf_port_list = self._get_upf_port_list()
+        if len(upf_hostname_list) != len(upf_port_list):  # type: ignore[arg-type]
             raise RuntimeError("Number of UPF hostnames and ports do not match")
 
-        upf_hosts_config = []
-        for upf_hostname, upf_port in zip(upf_hostnames, upf_ports):  # type: ignore[arg-type]
-            upf_host_entry = {"hostname": upf_hostname, "port": str(upf_port)}
-            upf_hosts_config.append(upf_host_entry)
+        upf_config = []
+        for upf_hostname, upf_port in zip(
+            upf_hostname_list, upf_port_list
+        ):  # type: ignore[arg-type]
+            upf_config_entry = {"hostname": upf_hostname, "port": str(upf_port)}
+            upf_config.append(upf_config_entry)
 
-        return json.dumps(upf_hosts_config, sort_keys=True)
+        return json.dumps(upf_config, sort_keys=True)
 
-    def _get_gnb_hosts_config(self) -> str:
+    def _get_gnb_config(self) -> str:
         """Gets the UPF hosts configuration for the NMS in a list of dictionaries format.
 
         Returns:
             str: A json representation of list of dictionaries,
                 each containing UPF hostname and port.
         """
-        gnb_hostnames = self._get_gnb_hostnames()
-        gnb_ports = self._get_gnb_ports()
-        if len(gnb_hostnames) != len(gnb_ports):  # type: ignore[arg-type]
+        gnb_name_list = self._get_gnb_name_list()
+        gnb_tac_list = self._get_gnb_tac_list()
+        if len(gnb_name_list) != len(gnb_tac_list):  # type: ignore[arg-type]
             raise RuntimeError("Number of UPF hostnames and ports do not match")
 
-        gnb_hosts_config = []
-        for gnb_hostname, gnb_port in zip(gnb_hostnames, gnb_ports):  # type: ignore[arg-type]
-            upf_host_entry = {"hostname": gnb_hostname, "port": str(gnb_port)}
-            gnb_hosts_config.append(upf_host_entry)
+        gnb_config = []
+        for gnb_name, gnb_tac in zip(gnb_name_list, gnb_tac_list):  # type: ignore[arg-type]
+            gnb_conf_entry = {"name": gnb_name, "tac": str(gnb_tac)}
+            gnb_config.append(gnb_conf_entry)
 
-        return json.dumps(gnb_hosts_config, sort_keys=True)
+        return json.dumps(gnb_config, sort_keys=True)
 
     def _push_upf_config_file_to_workload(self, content: str):
         """Push the upf config files to the NMS workload."""
@@ -218,46 +283,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
         """Push the gnb config files to the NMS workload."""
         self._container.push(path=GNB_CONFIG_PATH, source=content)
         logger.info("Pushed %s config file", GNB_CONFIG_PATH)
-
-    def _configure_gnb_information(self):
-        """The `fiveg_gnb_identity` relation is not mandatory.
-
-        If it exists it must contain the gNB name and TAC.
-        """
-        if gnb_identity_relations := self.model.relations.get(GNB_IDENTITY_RELATION_NAME):
-            for relation in gnb_identity_relations:
-                if not self._get_gnb_name(relation) or not self._get_gnb_tac(relation):
-                    logger.warning(
-                        "Invalid information in %s integration with %s",
-                        GNB_IDENTITY_RELATION_NAME,
-                        relation.app,
-                    )
-
-    def _get_gnb_name(self, gnb_identity_relation: Relation) -> str:
-        """Gets gNB name from the `fiveg_gnb_identity` relation data bag.
-
-        Returns:
-            str: gNB name.
-        """
-        if not gnb_identity_relation.app:
-            raise RuntimeError(
-                f"Application missing from the {GNB_IDENTITY_RELATION_NAME} relation data"
-            )
-        return gnb_identity_relation.data[gnb_identity_relation.app].get("gnb_name", "")
-
-    def _get_gnb_tac(self, gnb_identity_relation: Relation) -> Optional[int]:
-        """Gets TAC from the `fiveg_gnb_identity` relation data bag.
-
-        Returns:
-            int: Tracking Area Code (TAC)
-        """
-        if not gnb_identity_relation.app:
-            raise RuntimeError(
-                f"Application missing from the {GNB_IDENTITY_RELATION_NAME} relation data"
-            )
-        if tac := gnb_identity_relation.data[gnb_identity_relation.app].get("tac", ""):
-            return int(tac)
-        return None
 
     @property
     def _pebble_layer(self) -> Layer:
@@ -296,10 +321,13 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
 
 def config_file_content_matches(existing_content: str, new_content: str) -> bool:
-    """Returns wether two config file contents match."""
-    existing_content_list = json.loads(existing_content)
-    new_content_list = json.loads(new_content)
-    return existing_content_list == new_content_list
+    """Returns whether two config file contents match."""
+    try:
+        existing_content_list = json.loads(existing_content)
+        new_content_list = json.loads(new_content)
+        return existing_content_list == new_content_list
+    except json.JSONDecodeError:
+        return False
 
 
 if __name__ == "__main__":  # pragma: no cover
