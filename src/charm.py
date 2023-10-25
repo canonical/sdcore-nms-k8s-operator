@@ -108,12 +108,12 @@ class SDCoreNMSOperatorCharm(CharmBase):
         If it exists, config files are generated and pushed to the workload.
         """
         if not self.model.relations.get(FIVEG_N4_RELATION_NAME):
-            logger.warning("Relation %s not available", FIVEG_N4_RELATION_NAME)
+            logger.info("Relation %s not available", FIVEG_N4_RELATION_NAME)
             return
         upf_existing_content = self._get_existing_config_file(path=UPF_CONFIG_PATH)
         upf_config_content = self._get_upf_config()
         if not upf_config_content:
-            logger.warning("UPF config file is invalid")
+            logger.error("UPF config file is invalid")
             return
         if not upf_existing_content or not config_file_content_matches(
             existing_content=upf_existing_content, new_content=upf_config_content
@@ -126,12 +126,12 @@ class SDCoreNMSOperatorCharm(CharmBase):
         If it exists, config files are generated and pushed to the workload.
         """
         if not self.model.relations.get(GNB_IDENTITY_RELATION_NAME):
-            logger.warning("Relation %s not available", GNB_IDENTITY_RELATION_NAME)
+            logger.info("Relation %s not available", GNB_IDENTITY_RELATION_NAME)
             return
         gnb_existing_content = self._get_existing_config_file(path=GNB_CONFIG_PATH)
         gnb_config_content = self._get_gnb_config()
         if not gnb_config_content:
-            logger.warning("gNB config file is invalid")
+            logger.error("gNB config file is invalid")
             return
         if not gnb_existing_content or not config_file_content_matches(
             existing_content=gnb_existing_content, new_content=gnb_config_content
@@ -160,9 +160,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
         """
         upf_host_port_list = []
         for fiveg_n4_relation in self.model.relations.get(FIVEG_N4_RELATION_NAME, []):
-            if not fiveg_n4_relation:
-                logger.warning("Relation %s not available", FIVEG_N4_RELATION_NAME)
-                return []
             if not fiveg_n4_relation.app:
                 logger.warning(
                     "Application missing from the %s relation data", FIVEG_N4_RELATION_NAME
@@ -182,9 +179,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
         """
         gnb_name_tac_list = []
         for gnb_identity_relation in self.model.relations.get(GNB_IDENTITY_RELATION_NAME, []):
-            if not gnb_identity_relation:
-                logger.warning("Relation %s not available", GNB_IDENTITY_RELATION_NAME)
-                return []
             if not gnb_identity_relation.app:
                 logger.warning(
                     "Application missing from the %s relation data",
