@@ -156,7 +156,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         """Gets the list of UPF hosts and ports from the `fiveg_n4` relation data bag.
 
         Returns:
-            List[int]: List of UPF hostnames and ports.
+            List[Tuple[str, int]]: List of UPF hostnames and ports.
         """
         upf_host_port_list = []
         for fiveg_n4_relation in self.model.relations.get(FIVEG_N4_RELATION_NAME, []):
