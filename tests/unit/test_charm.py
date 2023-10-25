@@ -629,3 +629,47 @@ class TestCharm(unittest.TestCase):
         patch_push.assert_called_with(
             path=TEST_GNB_CONFIG_PATH, source=json.dumps(expected_gnb_config)
         )
+
+    @patch("ops.model.Container.push")
+    def test_given_n4_information_not_available_in_relation_data_when_pebble_ready_then_upf_config_not_pushed(  # noqa: E501
+        self,
+        patch_push,
+    ):
+        self.harness.set_can_connect(container="nms", val=True)
+        self.harness.add_relation(
+            relation_name=FIVEG_N4_RELATION_NAME,
+            remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
+        )
+        sdcore_management_relation_id = self.harness.add_relation(
+            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
+            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
+        )
+        self.harness.update_relation_data(
+            relation_id=sdcore_management_relation_id,
+            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
+            key_values={"management_url": "http://10.0.0.1:5000"},
+        )
+        self.harness.container_pebble_ready("nms")
+        patch_push.assert_not_called()
+
+    @patch("ops.model.Container.push")
+    def test_given_gnb_information_not_available_in_relation_data_when_pebble_ready_then_gnb_config_not_pushed(  # noqa: E501
+        self,
+        patch_push,
+    ):
+        self.harness.set_can_connect(container="nms", val=True)
+        self.harness.add_relation(
+            relation_name=GNB_IDENTITY_RELATION_NAME,
+            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
+        )
+        sdcore_management_relation_id = self.harness.add_relation(
+            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
+            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
+        )
+        self.harness.update_relation_data(
+            relation_id=sdcore_management_relation_id,
+            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
+            key_values={"management_url": "http://10.0.0.1:5000"},
+        )
+        self.harness.container_pebble_ready("nms")
+        patch_push.assert_not_called()

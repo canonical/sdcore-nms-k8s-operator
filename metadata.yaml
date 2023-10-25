@@ -29,9 +29,6 @@ storage:
     minimum-size: 5M
 
 requires:
-  fiveg_n4:
-    interface: fiveg_n4
-    limit: 1
   ingress:
     interface: ingress
     limit: 1
@@ -39,3 +36,5 @@ requires:
     interface: sdcore_management
   fiveg_gnb_identity:
     interface: fiveg_gnb_identity
+  fiveg_n4:
+    interface: fiveg_n4
