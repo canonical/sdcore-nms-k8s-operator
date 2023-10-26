@@ -118,7 +118,7 @@ def _get_host_from_url(url: str) -> str:
 
 def ui_is_running(ip: str, host: str) -> bool:
     """Returns whether the UI is running."""
-    url = f"http://{ip}"
+    url = f"http://{ip}/network-configuration"
     headers = {"Host": host}
     t0 = time.time()
     timeout = 300  # seconds
@@ -126,7 +126,7 @@ def ui_is_running(ip: str, host: str) -> bool:
         try:
             response = requests.get(url=url, headers=headers, timeout=5)
             response.raise_for_status()
-            if "Network Configuration" in response.content.decode("utf-8"):
+            if "5G NMS" in response.content.decode("utf-8"):
                 return True
         except Exception:
             logger.info("UI is not running yet")

@@ -10,20 +10,25 @@ issues: https://github.com/canonical/sdcore-nms-operator/issues
 containers:
   nms:
     resource: nms-image
+    mounts:
+      - storage: config
+        location: /nms/config
 
 resources:
   nms-image:
     type: oci-image
     description: OCI image for SD-Core NMS
-    upstream-source: ghcr.io/canonical/sdcore-nms:0.1
+    upstream-source: ghcr.io/canonical/sdcore-nms:0.2.0
 
 assumes:
   - k8s-api
 
+storage:
+  config:
+    type: filesystem
+    minimum-size: 5M
+
 requires:
-  fiveg_n4:
-    interface: fiveg_n4
-    limit: 1
   ingress:
     interface: ingress
     limit: 1
@@ -31,3 +36,5 @@ requires:
     interface: sdcore_management
   fiveg_gnb_identity:
     interface: fiveg_gnb_identity
+  fiveg_n4:
+    interface: fiveg_n4
