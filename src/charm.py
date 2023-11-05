@@ -59,6 +59,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         )
 
         self.framework.observe(self.on.nms_pebble_ready, self._configure_sdcore_nms)
+        self.framework.observe(self.on.update_status, self._configure_sdcore_nms)
         self.framework.observe(self.fiveg_n4.on.fiveg_n4_available, self._configure_sdcore_nms)
         self.framework.observe(
             self._sdcore_management.on.management_url_available,
@@ -77,9 +78,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         """
         if not self._container.can_connect():
             self.unit.status = WaitingStatus("Waiting for container to be ready")
-            event.defer()
             return
-
         if not self.model.relations.get(SDCORE_MANAGEMENT_RELATION_NAME):
             self.unit.status = BlockedStatus(
                 f"Waiting for `{SDCORE_MANAGEMENT_RELATION_NAME}` relation to be created"
@@ -87,7 +86,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         if not self._sdcore_management.management_url:
             self.unit.status = WaitingStatus("Waiting for webui management url to be available")
-            event.defer()
             return
         self._configure_upf_information()
         self._configure_gnb_information()
