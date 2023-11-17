@@ -1,6 +1,7 @@
-# sdcore-nms-operator
+# SD-Core NMS Operator (k8s)
+[![CharmHub Badge](https://charmhub.io/sdcore-nms/badge.svg)](https://charmhub.io/sdcore-nms)
 
-Charmed Operator for SD-Core's NMS.
+Charmed Operator for the SD-Core Network Management System (NMS).
 
 ## Usage
 
