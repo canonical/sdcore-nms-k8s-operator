@@ -122,7 +122,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
         """
         gnb_existing_content = self._get_existing_config_file(path=GNB_CONFIG_PATH)
         gnb_new_content = self._get_gnb_config()
-        relations = self.model.relations.get(GNB_IDENTITY_RELATION_NAME, [])
 
         if not config_file_content_matches(
             existing_content=gnb_existing_content, new_content=gnb_new_content
