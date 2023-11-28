@@ -18,7 +18,7 @@ from charms.sdcore_webui.v0.sdcore_management import (  # type: ignore[import]
 )
 from charms.traefik_k8s.v1.ingress import IngressPerAppRequirer  # type: ignore[import]
 from lightkube.models.core_v1 import ServicePort
-from ops.charm import CharmBase
+from ops.charm import CharmBase, RelationBrokenEvent
 from ops.framework import EventBase
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
@@ -69,6 +69,14 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self._gnb_identity.on.fiveg_gnb_identity_available,
             self._configure_sdcore_nms,
         )
+        self.framework.observe(
+            self.on[GNB_IDENTITY_RELATION_NAME].relation_broken,
+            self._configure_sdcore_nms,
+        )
+        self.framework.observe(
+            self.on[FIVEG_N4_RELATION_NAME].relation_broken,
+            self._configure_sdcore_nms,
+        )
 
     def _configure_sdcore_nms(self, event: EventBase) -> None:
         """Add Pebble layer and manages Juju unit status.
@@ -87,8 +95,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
         if not self._sdcore_management.management_url:
             self.unit.status = WaitingStatus("Waiting for webui management url to be available")
             return
-        self._configure_upf_information()
-        self._configure_gnb_information()
+        self._configure_upf_information(event)
+        self._configure_gnb_information(event)
         self._configure_pebble()
         self.unit.status = ActiveStatus()
 
@@ -100,28 +108,28 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self._container.add_layer(self._container_name, layer, combine=True)
             self._container.restart(self._service_name)
 
-    def _configure_upf_information(self) -> None:
+    def _configure_upf_information(self, event: EventBase) -> None:
         """The `fiveg_n4` relation is not mandatory.
 
         The UPF configuration is pushed to the workload if the new configuration
         differs for the existing in the workload.
         """
         upf_existing_content = self._get_existing_config_file(path=UPF_CONFIG_PATH)
-        upf_new_content = self._get_upf_config()
+        upf_new_content = self._get_upf_config(event)
 
         if not config_file_content_matches(
             existing_content=upf_existing_content, new_content=upf_new_content
         ):
             self._push_upf_config_file_to_workload(upf_new_content)
 
-    def _configure_gnb_information(self) -> None:
+    def _configure_gnb_information(self, event: EventBase) -> None:
         """The `fiveg_gnb_identity` relation is not mandatory.
 
         The GNB configuration is pushed to the workload if the new configuration
         differs for the existing in the workload.
         """
         gnb_existing_content = self._get_existing_config_file(path=GNB_CONFIG_PATH)
-        gnb_new_content = self._get_gnb_config()
+        gnb_new_content = self._get_gnb_config(event)
 
         if not config_file_content_matches(
             existing_content=gnb_existing_content, new_content=gnb_new_content
@@ -142,53 +150,69 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return existing_content_stringio.read()
         return ""
 
-    def _get_upf_host_port_list(self) -> List[Tuple[str, int]]:
+    def _get_upf_host_port_list(self, event: EventBase) -> List[Tuple[str, int]]:
         """Gets the list of UPF hosts and ports from the `fiveg_n4` relation data bag.
 
         Returns:
             List[Tuple[str, int]]: List of UPF hostnames and ports.
         """
         upf_host_port_list = []
+        broken_relation_id = event.relation.id if isinstance(event, RelationBrokenEvent) else None
         for fiveg_n4_relation in self.model.relations.get(FIVEG_N4_RELATION_NAME, []):
             if not fiveg_n4_relation.app:
                 logger.warning(
                     "Application missing from the %s relation data", FIVEG_N4_RELATION_NAME
                 )
                 return []
-            port = fiveg_n4_relation.data[fiveg_n4_relation.app].get("upf_port", "")
-            hostname = fiveg_n4_relation.data[fiveg_n4_relation.app].get("upf_hostname", "")
+            if fiveg_n4_relation.id == broken_relation_id:
+                logger.warning(
+                    "UPF information from broken relation %s won't be added to config",
+                    GNB_IDENTITY_RELATION_NAME,
+                )
+                continue
+            relation_data = fiveg_n4_relation.data[fiveg_n4_relation.app]
+            port = relation_data.get("upf_port", "")
+            hostname = relation_data.get("upf_hostname", "")
             if hostname and port:
                 upf_host_port_list.append((hostname, int(port)))
         return upf_host_port_list
 
-    def _get_gnb_name_tac_list(self) -> List[Tuple[str, int]]:
+    def _get_gnb_name_tac_list(self, event: EventBase) -> List[Tuple[str, int]]:
         """Gets a list gnb_name and TAC from the `fiveg_gnb_identity` relation data bag.
 
         Returns:
             List[Tuple[str, int]]: List of gnb_name and TAC.
         """
         gnb_name_tac_list = []
+        broken_relation_id = event.relation.id if isinstance(event, RelationBrokenEvent) else None
         for gnb_identity_relation in self.model.relations.get(GNB_IDENTITY_RELATION_NAME, []):
             if not gnb_identity_relation.app:
                 logger.warning(
                     "Application missing from the %s relation data",
                     GNB_IDENTITY_RELATION_NAME,
                 )
-                return []
-            gnb_name = gnb_identity_relation.data[gnb_identity_relation.app].get("gnb_name", "")
-            gnb_tac = gnb_identity_relation.data[gnb_identity_relation.app].get("tac", "")
+                continue
+            if gnb_identity_relation.id == broken_relation_id:
+                logger.warning(
+                    "GNB information from broken relation %s won't be added to config",
+                    GNB_IDENTITY_RELATION_NAME,
+                )
+                continue
+            relation_data = gnb_identity_relation.data[gnb_identity_relation.app]
+            gnb_name = relation_data.get("gnb_name", "")
+            gnb_tac = relation_data.get("tac", "")
             if gnb_name and gnb_tac:
                 gnb_name_tac_list.append((gnb_name, int(gnb_tac)))
         return gnb_name_tac_list
 
-    def _get_upf_config(self) -> str:
+    def _get_upf_config(self, event: EventBase) -> str:
         """Gets the UPF configuration for the NMS in a json.
 
         Returns:
             str: Json representation of list of dictionaries,
                 each containing UPF hostname and port.
         """
-        upf_host_port_list = self._get_upf_host_port_list()
+        upf_host_port_list = self._get_upf_host_port_list(event)
 
         upf_config = []
         for upf_hostname, upf_port in upf_host_port_list:
@@ -197,14 +221,14 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
         return json.dumps(upf_config, sort_keys=True)
 
-    def _get_gnb_config(self) -> str:
+    def _get_gnb_config(self, event: EventBase) -> str:
         """Gets the GNB configuration for the NMS in a json format.
 
         Returns:
             str: Json representation of list of dictionaries,
                 each containing GNB names and tac.
         """
-        gnb_name_tac_list = self._get_gnb_name_tac_list()
+        gnb_name_tac_list = self._get_gnb_name_tac_list(event)
 
         gnb_config = []
         for gnb_name, gnb_tac in gnb_name_tac_list:
