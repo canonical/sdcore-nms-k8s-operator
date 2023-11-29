@@ -112,8 +112,8 @@ async def get_traefik_ip(ops_test) -> str:
 
 
 def _get_host_from_url(url: str) -> str:
-    """Returns the host from a URL formatted as http://<host>:<port>."""
-    return url.split("//")[1].split(":")[0]
+    """Returns the host from a URL formatted as http://<host>:<port>/."""
+    return url.split("//")[1].split(":")[0].split("/")[0]
 
 
 def ui_is_running(ip: str, host: str) -> bool:
@@ -128,8 +128,8 @@ def ui_is_running(ip: str, host: str) -> bool:
             response.raise_for_status()
             if "5G NMS" in response.content.decode("utf-8"):
                 return True
-        except Exception:
-            logger.info("UI is not running yet")
+        except Exception as e:
+            logger.info(f"UI is not running yet: {e}")
         time.sleep(2)
     return False
 
