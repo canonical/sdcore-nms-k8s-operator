@@ -153,6 +153,10 @@ class SDCoreNMSOperatorCharm(CharmBase):
     def _get_upf_host_port_list(self, event: EventBase) -> List[Tuple[str, int]]:
         """Gets the list of UPF hosts and ports from the `fiveg_n4` relation data bag.
 
+        Args:
+            event (EventBase): Juju event that triggers the config update. Used to identify
+            the broken relation so that its information is not added to the config.
+
         Returns:
             List[Tuple[str, int]]: List of UPF hostnames and ports.
         """
@@ -163,22 +167,27 @@ class SDCoreNMSOperatorCharm(CharmBase):
                 logger.warning(
                     "Application missing from the %s relation data", FIVEG_N4_RELATION_NAME
                 )
-                return []
+                continue
             if fiveg_n4_relation.id == broken_relation_id:
+                # Workaround to handle the relation broken event
+                # https://github.com/canonical/operator/issues/888
                 logger.warning(
                     "UPF information from broken relation %s won't be added to config",
                     GNB_IDENTITY_RELATION_NAME,
                 )
                 continue
-            relation_data = fiveg_n4_relation.data[fiveg_n4_relation.app]
-            port = relation_data.get("upf_port", "")
-            hostname = relation_data.get("upf_hostname", "")
+            port = fiveg_n4_relation.data[fiveg_n4_relation.app].get("upf_port", "")
+            hostname = fiveg_n4_relation.data[fiveg_n4_relation.app].get("upf_hostname", "")
             if hostname and port:
                 upf_host_port_list.append((hostname, int(port)))
         return upf_host_port_list
 
     def _get_gnb_name_tac_list(self, event: EventBase) -> List[Tuple[str, int]]:
         """Gets a list gnb_name and TAC from the `fiveg_gnb_identity` relation data bag.
+
+        Args:
+            event (EventBase): Juju event that triggers the config update. Used to identify
+            the broken relation so that its information is not added to the config.
 
         Returns:
             List[Tuple[str, int]]: List of gnb_name and TAC.
@@ -193,14 +202,15 @@ class SDCoreNMSOperatorCharm(CharmBase):
                 )
                 continue
             if gnb_identity_relation.id == broken_relation_id:
+                # Workaround to handle the relation broken event
+                # https://github.com/canonical/operator/issues/888
                 logger.warning(
                     "GNB information from broken relation %s won't be added to config",
                     GNB_IDENTITY_RELATION_NAME,
                 )
                 continue
-            relation_data = gnb_identity_relation.data[gnb_identity_relation.app]
-            gnb_name = relation_data.get("gnb_name", "")
-            gnb_tac = relation_data.get("tac", "")
+            gnb_name = gnb_identity_relation.data[gnb_identity_relation.app].get("gnb_name", "")
+            gnb_tac = gnb_identity_relation.data[gnb_identity_relation.app].get("tac", "")
             if gnb_name and gnb_tac:
                 gnb_name_tac_list.append((gnb_name, int(gnb_tac)))
         return gnb_name_tac_list
