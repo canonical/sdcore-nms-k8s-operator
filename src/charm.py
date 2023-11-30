@@ -158,7 +158,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
                     "Application missing from the %s relation data",
                     FIVEG_N4_RELATION_NAME,
                 )
-                return []
+                continue
             port = fiveg_n4_relation.data[fiveg_n4_relation.app].get("upf_port", "")
             hostname = fiveg_n4_relation.data[fiveg_n4_relation.app].get("upf_hostname", "")
             if hostname and port:
@@ -178,7 +178,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
                     "Application missing from the %s relation data",
                     GNB_IDENTITY_RELATION_NAME,
                 )
-                return []
+                continue
             gnb_name = gnb_identity_relation.data[gnb_identity_relation.app].get("gnb_name", "")
             gnb_tac = gnb_identity_relation.data[gnb_identity_relation.app].get("tac", "")
             if gnb_name and gnb_tac:
