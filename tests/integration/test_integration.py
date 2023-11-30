@@ -112,7 +112,7 @@ async def get_traefik_ip(ops_test) -> str:
 
 
 def _get_host_from_url(url: str) -> str:
-    """Returns the host from a URL formatted as http://<host>:<port>/."""
+    """Returns the host from a URL formatted as http://<host>:<port>/ or as http://<host>/."""
     return url.split("//")[1].split(":")[0].split("/")[0]
 
 
