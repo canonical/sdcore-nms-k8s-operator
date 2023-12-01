@@ -22,10 +22,6 @@ TEST_GNB_CONFIG_PATH = "/nms/config/gnb_config.json"
 
 
 class TestCharm(unittest.TestCase):
-    @patch(
-        "charm.KubernetesServicePatch",
-        lambda charm, ports: None,
-    )
     def setUp(self):
         self.harness = testing.Harness(SDCoreNMSOperatorCharm)
         self.addCleanup(self.harness.cleanup)
