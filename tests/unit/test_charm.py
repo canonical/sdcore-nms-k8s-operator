@@ -35,10 +35,6 @@ def read_file(path: str) -> str:
 
 
 class TestCharm(unittest.TestCase):
-    @patch(
-        "charm.KubernetesServicePatch",
-        lambda charm, ports: None,
-    )
     def setUp(self):
         self.harness = testing.Harness(SDCoreNMSOperatorCharm)
         self.addCleanup(self.harness.cleanup)

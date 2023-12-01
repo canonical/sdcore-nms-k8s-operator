@@ -15,7 +15,7 @@ juju deploy sdcore-nms --channel=edge
 juju deploy traefik-k8s --trust --config external_hostname=<your hostname> --config routing_mode=subdomain
 juju deploy sdcore-upf --channel=edge --trust
 juju deploy mongodb-k8s --trust --channel=5/edge
-juju deploy sdcore-webui --trust --channel=edge
+juju deploy sdcore-webui --channel=edge
 juju deploy sdcore-gnbsim --trust --channel=edge
 juju integrate mongodb-k8s sdcore-webui
 juju integrate sdcore-nms:ingress traefik-k8s:ingress

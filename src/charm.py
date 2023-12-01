@@ -8,16 +8,12 @@ import json
 import logging
 from typing import List, Tuple
 
-from charms.observability_libs.v1.kubernetes_service_patch import (  # type: ignore[import]
-    KubernetesServicePatch,
-)
 from charms.sdcore_gnbsim.v0.fiveg_gnb_identity import GnbIdentityRequires  # type: ignore[import]
 from charms.sdcore_upf.v0.fiveg_n4 import N4Requires  # type: ignore[import]
 from charms.sdcore_webui.v0.sdcore_management import (  # type: ignore[import]
     SdcoreManagementRequires,
 )
 from charms.traefik_k8s.v1.ingress import IngressPerAppRequirer  # type: ignore[import]
-from lightkube.models.core_v1 import ServicePort
 from ops.charm import CharmBase
 from ops.framework import EventBase
 from ops.main import main
@@ -45,12 +41,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self.fiveg_n4 = N4Requires(charm=self, relation_name=FIVEG_N4_RELATION_NAME)
         self._gnb_identity = GnbIdentityRequires(self, GNB_IDENTITY_RELATION_NAME)
         self._sdcore_management = SdcoreManagementRequires(self, SDCORE_MANAGEMENT_RELATION_NAME)
-        self._service_patcher = KubernetesServicePatch(
-            charm=self,
-            ports=[
-                ServicePort(name="nms", port=NMS_PORT),
-            ],
-        )
+        self.unit.set_ports(NMS_PORT)
         self.ingress = IngressPerAppRequirer(
             charm=self,
             port=NMS_PORT,
