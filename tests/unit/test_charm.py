@@ -3,7 +3,7 @@
 
 import json
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from ops import testing
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
