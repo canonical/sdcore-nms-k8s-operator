@@ -13,7 +13,7 @@ from charms.sdcore_upf.v0.fiveg_n4 import N4Requires  # type: ignore[import]
 from charms.sdcore_webui.v0.sdcore_management import (  # type: ignore[import]
     SdcoreManagementRequires,
 )
-from charms.traefik_k8s.v1.ingress import IngressPerAppRequirer  # type: ignore[import]
+from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer  # type: ignore[import]
 from ops.charm import CharmBase
 from ops.framework import EventBase
 from ops.main import main
