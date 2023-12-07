@@ -2,7 +2,7 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-"""Charmed operator for the SD-Core Graphical User Interface."""
+"""Charmed operator for the SD-Core Graphical User Interface for K8s."""
 
 import json
 import logging
@@ -31,7 +31,7 @@ UPF_CONFIG_PATH = "/nms/config/upf_config.json"
 
 
 class SDCoreNMSOperatorCharm(CharmBase):
-    """Main class to describe juju event handling for the SD-Core NMS operator."""
+    """Main class to describe juju event handling for the SD-Core NMS operator for K8s."""
 
     def __init__(self, *args):
         super().__init__(*args)
