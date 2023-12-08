@@ -14,7 +14,7 @@ To get started using the library, you need to fetch the library using `charmcraf
 
 ```shell
 cd some-charm
-charmcraft fetch-lib charms.sdcore_upf.v0.fiveg_n4
+charmcraft fetch-lib charms.sdcore_upf_k8s.v0.fiveg_n4
 ```
 
 Add the following libraries to the charm's `requirements.txt` file:
@@ -26,7 +26,7 @@ Typical usage of this class would look something like:
 
     ```python
     ...
-    from charms.sdcore_upf.v0.fiveg_n4 import N4Provides
+    from charms.sdcore_upf_k8s.v0.fiveg_n4 import N4Provides
     ...
 
     class SomeProviderCharm(CharmBase):
@@ -58,7 +58,7 @@ Typical usage of this class would look something like:
 
     ```python
     ...
-    from charms.sdcore_upf.v0.fiveg_n4 import N4Requires
+    from charms.sdcore_upf_k8s.v0.fiveg_n4 import N4Requires
     ...
 
     class SomeRequirerCharm(CharmBase):
@@ -91,14 +91,14 @@ from ops.framework import EventBase, EventSource, Object
 from pydantic import BaseModel, Field, ValidationError
 
 # The unique Charmhub library identifier, never change it
-LIBID = "bc6261cf77104d4fb3edfd6d4ea63149"
+LIBID = "6c81534a04904d48966ceb7b4f42a850"
 
 # Increment this major API version when introducing breaking changes
 LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 2
+LIBPATCH = 1
 
 PYDEPS = ["pydantic", "pytest-interface-tester"]
 

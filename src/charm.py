@@ -8,9 +8,11 @@ import json
 import logging
 from typing import List, Tuple
 
-from charms.sdcore_gnbsim.v0.fiveg_gnb_identity import GnbIdentityRequires  # type: ignore[import]
-from charms.sdcore_upf.v0.fiveg_n4 import N4Requires  # type: ignore[import]
-from charms.sdcore_webui.v0.sdcore_management import (  # type: ignore[import]
+from charms.sdcore_gnbsim_k8s.v0.fiveg_gnb_identity import (  # type: ignore[import]
+    GnbIdentityRequires,
+)
+from charms.sdcore_upf_k8s.v0.fiveg_n4 import N4Requires  # type: ignore[import]
+from charms.sdcore_webui_k8s.v0.sdcore_management import (  # type: ignore[import]
     SdcoreManagementRequires,
 )
 from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer  # type: ignore[import]
