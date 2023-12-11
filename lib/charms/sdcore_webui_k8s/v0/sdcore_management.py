@@ -14,7 +14,7 @@ to be able to provide or consume the information to access the configuration ser
 From a charm directory, fetch the library using `charmcraft`:
 
 ```shell
-charmcraft fetch-lib charms.sdcore_webui.v0.sdcore_management
+charmcraft fetch-lib charms.sdcore_webui_k8s.v0.sdcore_management
 ```
 
 Add the following libraries to the charm's `requirements.txt` file:
@@ -30,7 +30,7 @@ Example:
 from ops.charm import CharmBase
 from ops.main import main
 
-from charms.sdcore_webui.v0.sdcore_management import (
+from charms.sdcore_webui_k8s.v0.sdcore_management import (
     ManagementUrlAvailable,
     SdcoreManagementRequires,
 )
@@ -66,7 +66,7 @@ Example:
 from ops.charm import CharmBase, RelationJoinedEvent
 from ops.main import main
 
-from charms.sdcore_webui.v0.sdcore_management import (
+from charms.sdcore_webui_k8s.v0.sdcore_management import (
     SdcoreManagementProvides,
 )
 
@@ -105,7 +105,7 @@ from ops.model import Relation
 from pydantic import BaseModel, Field, HttpUrl, ValidationError
 
 # The unique Charmhub library identifier, never change it
-LIBID = "e879ede87229469981725ef404973ee5"
+LIBID = "46698369ff444f10a4e86984c078ee82"
 
 # Increment this major API version when introducing breaking changes
 LIBAPI = 0

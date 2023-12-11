@@ -1,11 +1,11 @@
-name: sdcore-nms
+name: sdcore-nms-k8s
 
-display-name: SD-Core NMS
+display-name: SD-Core NMS K8s
 summary: A Charmed Operator for SD-Core's NMS.
 description: A Charmed Operator for SD-Core's Network Management System (NMS).
-website: https://charmhub.io/sdcore-nms
-source: https://github.com/canonical/sdcore-nms-operator
-issues: https://github.com/canonical/sdcore-nms-operator/issues
+website: https://charmhub.io/sdcore-nms-k8s
+source: https://github.com/canonical/sdcore-nms-k8s-operator
+issues: https://github.com/canonical/sdcore-nms-k8s-operator/issues
 
 containers:
   nms:
