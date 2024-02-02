@@ -1,5 +1,5 @@
 jsonschema
 jinja2
 ops
-pydantic
+pydantic<2.0
 pytest-interface-tester
