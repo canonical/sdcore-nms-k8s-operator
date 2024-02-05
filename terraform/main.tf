@@ -1,5 +1,8 @@
-resource "juju_application" "nms" {
-  name  = "nms"
+# Copyright 2024 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+resource "juju_application" "sdcore-nms-k8s" {
+  name  = var.app_name
   model = var.model_name
 
   charm {
@@ -9,34 +12,5 @@ resource "juju_application" "nms" {
   units = 1
   trust = true
 }
-
-resource "juju_integration" "nms-traefik" {
-  model = var.model_name
-
-  application {
-    name     = juju_application.nms.name
-    endpoint = "ingress"
-  }
-
-  application {
-    name     = var.traefik_application_name
-    endpoint = "ingress"
-  }
-}
-
-resource "juju_integration" "nms-webui" {
-  model = var.model_name
-
-  application {
-    name     = juju_application.nms.name
-    endpoint = "sdcore-management"
-  }
-
-  application {
-    name     = var.webui_application_name
-    endpoint = "sdcore-management"
-  }
-}
-
 
 
