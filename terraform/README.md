@@ -1,21 +1,15 @@
-# SD-Core NMS K8s Terraform Module
+# SD-Core NMS K8s Terraform module
 
-This SD-Core NMS K8s Terraform module aims to deploy the [sdcore-nms-k8s charm](https://charmhub.io/sdcore-nms-k8s) via Terraform.
+This folder contains a base [Terraform][Terraform] module for the sdcore-nms-k8s charm.
 
-## Getting Started
+The module uses the [Terraform Juju provider][Terraform Juju provider] to model the charm deployment onto any Kubernetes environment managed by [Juju][Juju].
 
-### Prerequisites
+The base module is not intended to be deployed in separation (it is possible though), but should rather serve as a building block for higher level modules.
 
-The following software and tools needs to be installed and should be running in the local environment. Please [set up your environment](https://discourse.charmhub.io/t/set-up-your-development-environment-with-microk8s-for-juju-terraform-provider/13109) before deployment.
-
-- `microk8s`
-- `juju 3.x`
-- `terrafom`
-
-### Module structure
+## Module structure
 
 - **main.tf** - Defines the Juju application to be deployed.
-- **variables.tf** - Allows customization of the deployment. Except for exposing the deployment options (Juju model name, channel or application name) also models the charm configuration.
+- **variables.tf** - Allows customization of the deployment options (Juju model name, channel or application name).
 - **output.tf** - Responsible for integrating the module with other Terraform modules, primarily by defining potential integration endpoints (charm integrations), but also by exposing the application name.
 - **terraform.tf** - Defines the Terraform provider.
 
@@ -51,8 +45,9 @@ resource "juju_integration" "nms-sdcore-management" {
 }
 ```
 
-Please check the available [integration pairs](https://charmhub.io/sdcore-nms-k8s/integrations).
+The complete list of available integrations can be found [here][nms-integrations].
 
-[Terraform](https://www.terraform.io/)
-
-[Terraform Juju provider](https://registry.terraform.io/providers/juju/juju/latest)
+[Terraform]: https://www.terraform.io/
+[Terraform Juju provider]: https://registry.terraform.io/providers/juju/juju/latest
+[Juju]: https://juju.is
+[nms-integrations]: https://charmhub.io/sdcore-nms-k8s/integrations
