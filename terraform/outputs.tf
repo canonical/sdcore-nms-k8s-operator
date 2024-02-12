@@ -6,6 +6,8 @@ output "app_name" {
   value       = juju_application.sdcore-nms-k8s.name
 }
 
+# Required integration endpoints
+
 output "ingress_endpoint" {
   description = "Name of the endpoint to integrate with ingress interface."
   value       = "ingress"
