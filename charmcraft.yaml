@@ -11,4 +11,5 @@ parts:
   charm:
     build-packages:
       - cargo
+      - libffi-dev
       - rustc
