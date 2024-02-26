@@ -1,0 +1,6 @@
+jsonschema
+jinja2
+juju==3.3.1.1
+ops
+pydantic<2.0
+pytest-interface-tester
