@@ -12,5 +12,6 @@ parts:
     build-packages:
       - cargo
       - libffi-dev
+      - libssl-dev
       - pkg-config
       - rustc
