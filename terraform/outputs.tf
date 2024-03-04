@@ -27,3 +27,8 @@ output "fiveg_n4_endpoint" {
   description = "Name of the endpoint to integrate with fiveg_n4 interface."
   value       = "fiveg_n4"
 }
+
+output "logging_endpoint" {
+  description = "Name of the endpoint used to integrate with the Logging provider."
+  value       = "logging"
+}
