@@ -20,6 +20,7 @@ TRAEFIK_APP_NAME = "traefik"
 UPF_APP_NAME = "upf"
 WEBUI_APP_NAME = "webui"
 GNBSIM_APP_NAME = "gnbsim"
+GRAFANA_AGENT_APP_NAME = "grafana-agent-k8s"
 
 
 @pytest.mark.abort_on_fail
@@ -78,6 +79,16 @@ async def deploy_sdcore_gnbsim(ops_test):
         application_name=GNBSIM_APP_NAME,
         channel="edge",
         trust=True,
+    )
+
+
+@pytest.mark.abort_on_fail
+async def deploy_grafana_agent(ops_test):
+    """Deploy grafana-agent operator."""
+    await ops_test.model.deploy(
+        GRAFANA_AGENT_APP_NAME,
+        application_name=GRAFANA_AGENT_APP_NAME,
+        channel="stable",
     )
 
 
@@ -200,6 +211,19 @@ async def test_given_traefik_deployed_when_relate_to_ingress_then_status_is_acti
     )
     await ops_test.model.wait_for_idle(
         apps=[APP_NAME, TRAEFIK_APP_NAME],
+        status="active",
+        timeout=1000,
+    )
+
+
+@pytest.mark.abort_on_fail
+async def test_given_grafana_agent_deployed_when_relate_to_logging_then_status_is_active(ops_test):
+    await deploy_grafana_agent(ops_test)
+    await ops_test.model.integrate(
+        relation1=f"{APP_NAME}:logging", relation2=GRAFANA_AGENT_APP_NAME
+    )
+    await ops_test.model.wait_for_idle(
+        apps=[APP_NAME],
         status="active",
         timeout=1000,
     )
