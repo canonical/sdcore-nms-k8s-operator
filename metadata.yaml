@@ -22,6 +22,7 @@ resources:
 
 assumes:
   - k8s-api
+  - juju >= 3.4
 
 storage:
   config:
@@ -38,3 +39,5 @@ requires:
     interface: fiveg_gnb_identity
   fiveg_n4:
     interface: fiveg_n4
+  logging:
+    interface: loki_push_api

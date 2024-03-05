@@ -8,6 +8,7 @@ import json
 import logging
 from typing import List, Tuple
 
+from charms.loki_k8s.v1.loki_push_api import LogForwarder  # type: ignore[import]
 from charms.sdcore_gnbsim_k8s.v0.fiveg_gnb_identity import (  # type: ignore[import]
     GnbIdentityRequires,
 )
@@ -30,6 +31,7 @@ NMS_PORT = 3000
 SDCORE_MANAGEMENT_RELATION_NAME = "sdcore-management"
 GNB_CONFIG_PATH = "/nms/config/gnb_config.json"
 UPF_CONFIG_PATH = "/nms/config/upf_config.json"
+LOGGING_RELATION_NAME = "logging"
 
 
 class SDCoreNMSOperatorCharm(CharmBase):
@@ -50,7 +52,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             relation_name="ingress",
             strip_prefix=True,
         )
-
+        self._logging = LogForwarder(charm=self, relation_name=LOGGING_RELATION_NAME)
         self.framework.observe(self.on.nms_pebble_ready, self._configure_sdcore_nms)
         self.framework.observe(self.on.update_status, self._configure_sdcore_nms)
         self.framework.observe(self.fiveg_n4.on.fiveg_n4_available, self._configure_sdcore_nms)
