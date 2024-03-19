@@ -44,6 +44,7 @@ class TestCharm(unittest.TestCase):
         self,
     ):
         self.harness.charm._configure_sdcore_nms(event=Mock())
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status, WaitingStatus("Waiting for container to be ready")
         )
@@ -60,6 +61,7 @@ class TestCharm(unittest.TestCase):
             remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
         )
         self.harness.container_pebble_ready("nms")
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
             BlockedStatus(
@@ -74,6 +76,7 @@ class TestCharm(unittest.TestCase):
         )
 
         self.harness.container_pebble_ready("nms")
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
             WaitingStatus("Waiting for webui management url to be available"),
@@ -92,6 +95,7 @@ class TestCharm(unittest.TestCase):
             key_values={"management_url": "http://10.0.0.1:5000"},
         )
         self.harness.container_pebble_ready("nms")
+        self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus())
 
     def test_given_n4_information_not_available_when_pebble_ready_then_status_is_active(
@@ -115,6 +119,7 @@ class TestCharm(unittest.TestCase):
         )
 
         self.harness.container_pebble_ready("nms")
+        self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus())
 
     def test_given_gnb_identity_information_not_available_when_pebble_ready_then_status_is_active(
@@ -138,6 +143,7 @@ class TestCharm(unittest.TestCase):
         )
 
         self.harness.container_pebble_ready("nms")
+        self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus())
 
     def test_given_gnb_identity_gnb_name_not_available_when_pebble_ready_then_status_is_active(
@@ -166,6 +172,7 @@ class TestCharm(unittest.TestCase):
         )
 
         self.harness.container_pebble_ready("nms")
+        self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus())
 
     def test_given_gnb_identity_tac_not_available_when_pebble_ready_then_status_is_active(
@@ -194,6 +201,7 @@ class TestCharm(unittest.TestCase):
         )
 
         self.harness.container_pebble_ready("nms")
+        self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus())
 
     def test_given_gnb_identity_information_not_available_in_one_relation_when_pebble_ready_then_status_is_active(  # noqa: E501
@@ -228,6 +236,7 @@ class TestCharm(unittest.TestCase):
         )
 
         self.harness.container_pebble_ready("nms")
+        self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus())
 
     def test_given_all_relations_created_when_pebble_ready_then_pebble_plan_is_applied(
@@ -358,6 +367,7 @@ class TestCharm(unittest.TestCase):
             app_or_unit=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
             key_values={"gnb_name": "some.gnb", "tac": "1234"},
         )
+        self.harness.evaluate_status()
 
         self.assertEqual(self.harness.model.unit.status, ActiveStatus())
 
