@@ -44,6 +44,7 @@ class TestCharm(unittest.TestCase):
         self,
     ):
         self.harness.charm._configure_sdcore_nms(event=Mock())
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status, WaitingStatus("Waiting for container to be ready")
         )
@@ -60,6 +61,7 @@ class TestCharm(unittest.TestCase):
             remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
         )
         self.harness.container_pebble_ready("nms")
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
             BlockedStatus(
@@ -74,9 +76,10 @@ class TestCharm(unittest.TestCase):
         )
 
         self.harness.container_pebble_ready("nms")
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
-            WaitingStatus("Waiting for webui management url to be available"),
+            WaitingStatus("Waiting for webui management URL to be available"),
         )
 
     def test_given_management_url_available_when_pebble_ready_then_status_is_active(self):
@@ -92,6 +95,7 @@ class TestCharm(unittest.TestCase):
             key_values={"management_url": "http://10.0.0.1:5000"},
         )
         self.harness.container_pebble_ready("nms")
+        self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus())
 
     def test_given_n4_information_not_available_when_pebble_ready_then_status_is_active(
@@ -115,6 +119,7 @@ class TestCharm(unittest.TestCase):
         )
 
         self.harness.container_pebble_ready("nms")
+        self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus())
 
     def test_given_gnb_identity_information_not_available_when_pebble_ready_then_status_is_active(
@@ -138,6 +143,7 @@ class TestCharm(unittest.TestCase):
         )
 
         self.harness.container_pebble_ready("nms")
+        self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus())
 
     def test_given_gnb_identity_gnb_name_not_available_when_pebble_ready_then_status_is_active(
@@ -166,6 +172,7 @@ class TestCharm(unittest.TestCase):
         )
 
         self.harness.container_pebble_ready("nms")
+        self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus())
 
     def test_given_gnb_identity_tac_not_available_when_pebble_ready_then_status_is_active(
@@ -194,6 +201,7 @@ class TestCharm(unittest.TestCase):
         )
 
         self.harness.container_pebble_ready("nms")
+        self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus())
 
     def test_given_gnb_identity_information_not_available_in_one_relation_when_pebble_ready_then_status_is_active(  # noqa: E501
@@ -228,6 +236,7 @@ class TestCharm(unittest.TestCase):
         )
 
         self.harness.container_pebble_ready("nms")
+        self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus())
 
     def test_given_all_relations_created_when_pebble_ready_then_pebble_plan_is_applied(
@@ -358,6 +367,7 @@ class TestCharm(unittest.TestCase):
             app_or_unit=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
             key_values={"gnb_name": "some.gnb", "tac": "1234"},
         )
+        self.harness.evaluate_status()
 
         self.assertEqual(self.harness.model.unit.status, ActiveStatus())
 
@@ -649,4 +659,100 @@ class TestCharm(unittest.TestCase):
 
         self.assertEqual(
             json.loads((root / "nms/config/gnb_config.json").read_text()), expected_gnb_config
+        )
+
+    def test_given_storage_not_available_when_pebble_ready_then_status_is_waiting(self):
+        gnb_identity_relation_id = self.harness.add_relation(
+            relation_name=GNB_IDENTITY_RELATION_NAME,
+            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
+        )
+        self.harness.update_relation_data(
+            relation_id=gnb_identity_relation_id,
+            app_or_unit=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
+            key_values={"gnb_name": "some.gnb", "tac": "1234"},
+        )
+        sdcore_management_relation_id = self.harness.add_relation(
+            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
+            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
+        )
+        self.harness.update_relation_data(
+            relation_id=sdcore_management_relation_id,
+            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
+            key_values={"management_url": "http://10.0.0.1:5000"},
+        )
+
+        self.harness.container_pebble_ready("nms")
+        self.harness.evaluate_status()
+
+        self.assertEqual(
+            self.harness.model.unit.status, WaitingStatus("Waiting for storage to be attached")
+        )
+
+    def test_given_upf_config_file_not_available_when_evaluate_status_then_status_is_waiting(self):
+        root = self.harness.get_filesystem_root("nms")
+        (root / "nms/config/").mkdir(parents=True)
+        (root / "nms/config/gnb_config.json").write_text("[]")
+
+        sdcore_management_relation_id = self.harness.add_relation(
+            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
+            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
+        )
+        self.harness.update_relation_data(
+            relation_id=sdcore_management_relation_id,
+            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
+            key_values={"management_url": "http://10.0.0.1:5000"},
+        )
+
+        self.harness.set_can_connect(container="nms", val=True)
+        self.harness.evaluate_status()
+
+        self.assertEqual(
+            self.harness.model.unit.status,
+            WaitingStatus("Waiting for UPF config file to be stored"),
+        )
+
+    def test_given_gnb_config_file_not_available_when_evaluate_status_then_status_is_waiting(self):
+        root = self.harness.get_filesystem_root("nms")
+        (root / "nms/config/").mkdir(parents=True)
+        (root / "nms/config/upf_config.json").write_text("[]")
+
+        sdcore_management_relation_id = self.harness.add_relation(
+            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
+            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
+        )
+        self.harness.update_relation_data(
+            relation_id=sdcore_management_relation_id,
+            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
+            key_values={"management_url": "http://10.0.0.1:5000"},
+        )
+
+        self.harness.set_can_connect(container="nms", val=True)
+        self.harness.evaluate_status()
+
+        self.assertEqual(
+            self.harness.model.unit.status,
+            WaitingStatus("Waiting for GNB config file to be stored"),
+        )
+
+    def test_given_service_is_not_running_when_evaluate_status_then_status_is_waiting(self):
+        root = self.harness.get_filesystem_root("nms")
+        (root / "nms/config/").mkdir(parents=True)
+        (root / "nms/config/upf_config.json").write_text("[]")
+        (root / "nms/config/gnb_config.json").write_text("[]")
+
+        sdcore_management_relation_id = self.harness.add_relation(
+            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
+            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
+        )
+        self.harness.update_relation_data(
+            relation_id=sdcore_management_relation_id,
+            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
+            key_values={"management_url": "http://10.0.0.1:5000"},
+        )
+
+        self.harness.set_can_connect(container="nms", val=True)
+        self.harness.evaluate_status()
+
+        self.assertEqual(
+            self.harness.model.unit.status, WaitingStatus("Waiting for NMS service to start")
         )

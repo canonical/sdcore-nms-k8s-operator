@@ -17,10 +17,10 @@ from charms.sdcore_webui_k8s.v0.sdcore_management import (  # type: ignore[impor
     SdcoreManagementRequires,
 )
 from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer  # type: ignore[import]
+from ops import ActiveStatus, BlockedStatus, CollectStatusEvent, ModelError, WaitingStatus
 from ops.charm import CharmBase
 from ops.framework import EventBase
 from ops.main import main
-from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 from ops.pebble import Layer
 
 logger = logging.getLogger(__name__)
@@ -29,8 +29,9 @@ FIVEG_N4_RELATION_NAME = "fiveg_n4"
 GNB_IDENTITY_RELATION_NAME = "fiveg_gnb_identity"
 NMS_PORT = 3000
 SDCORE_MANAGEMENT_RELATION_NAME = "sdcore-management"
-GNB_CONFIG_PATH = "/nms/config/gnb_config.json"
-UPF_CONFIG_PATH = "/nms/config/upf_config.json"
+CONFIG_DIR_PATH = "/nms/config"
+GNB_CONFIG_PATH = f"{CONFIG_DIR_PATH}/gnb_config.json"
+UPF_CONFIG_PATH = f"{CONFIG_DIR_PATH}/upf_config.json"
 LOGGING_RELATION_NAME = "logging"
 
 
@@ -53,6 +54,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             strip_prefix=True,
         )
         self._logging = LogForwarder(charm=self, relation_name=LOGGING_RELATION_NAME)
+        self.framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)
         self.framework.observe(self.on.nms_pebble_ready, self._configure_sdcore_nms)
         self.framework.observe(self.on.update_status, self._configure_sdcore_nms)
         self.framework.observe(self.fiveg_n4.on.fiveg_n4_available, self._configure_sdcore_nms)
@@ -72,20 +74,16 @@ class SDCoreNMSOperatorCharm(CharmBase):
             event (EventBase): Juju event.
         """
         if not self._container.can_connect():
-            self.unit.status = WaitingStatus("Waiting for container to be ready")
             return
         if not self.model.relations.get(SDCORE_MANAGEMENT_RELATION_NAME):
-            self.unit.status = BlockedStatus(
-                f"Waiting for `{SDCORE_MANAGEMENT_RELATION_NAME}` relation to be created"
-            )
             return
         if not self._sdcore_management.management_url:
-            self.unit.status = WaitingStatus("Waiting for webui management url to be available")
+            return
+        if not self._container.exists(path=CONFIG_DIR_PATH):
             return
         self._configure_upf_information()
         self._configure_gnb_information()
         self._configure_pebble()
-        self.unit.status = ActiveStatus()
 
     def _configure_pebble(self) -> None:
         """Configure the Pebble layer."""
@@ -94,6 +92,55 @@ class SDCoreNMSOperatorCharm(CharmBase):
         if plan.services != layer.services:
             self._container.add_layer(self._container_name, layer, combine=True)
             self._container.restart(self._service_name)
+
+    def _on_collect_unit_status(self, event: CollectStatusEvent):
+        """Check the unit status and set to Unit when CollectStatusEvent is fired.
+
+        Args:
+            event: CollectStatusEvent
+        """
+        if not self._container.can_connect():
+            event.add_status(WaitingStatus("Waiting for container to be ready"))
+            logger.info("Waiting for container to be ready")
+            return
+        if not self.model.relations.get(SDCORE_MANAGEMENT_RELATION_NAME):
+            event.add_status(
+                BlockedStatus(
+                    f"Waiting for `{SDCORE_MANAGEMENT_RELATION_NAME}` relation to be created"
+                )
+            )
+            logger.info(f"Waiting for `{SDCORE_MANAGEMENT_RELATION_NAME}` relation to be created")
+            return
+        if not self._sdcore_management.management_url:
+            event.add_status(WaitingStatus("Waiting for webui management URL to be available"))
+            logger.info("Waiting for webui management URL to be available")
+            return
+        if not self._container.exists(path=CONFIG_DIR_PATH):
+            event.add_status(WaitingStatus("Waiting for storage to be attached"))
+            logger.info("Waiting for storage to be attached")
+            return
+        if not self._container.exists(path=UPF_CONFIG_PATH):
+            event.add_status(WaitingStatus("Waiting for UPF config file to be stored"))
+            logger.info("Waiting for UPF config file to be stored")
+            return
+        if not self._container.exists(path=GNB_CONFIG_PATH):
+            event.add_status(WaitingStatus("Waiting for GNB config file to be stored"))
+            logger.info("Waiting for GNB config file to be stored")
+            return
+        if not self._nms_service_is_running():
+            event.add_status(WaitingStatus("Waiting for NMS service to start"))
+            logger.info("Waiting for NMS service to start")
+            return
+
+        event.add_status(ActiveStatus())
+
+    def _nms_service_is_running(self) -> bool:
+        """Check if the NMS service is running."""
+        try:
+            self._container.get_service(service_name=self._service_name)
+        except ModelError:
+            return False
+        return True
 
     def _configure_upf_information(self) -> None:
         """Creates the UPF config file.
