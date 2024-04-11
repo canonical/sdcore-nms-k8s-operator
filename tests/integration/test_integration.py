@@ -93,7 +93,7 @@ async def deploy_grafana_agent(ops_test):
 
 
 async def get_sdcore_nms_endpoint(ops_test) -> str:
-    """Retrieves the SD-Core NMS endpoint by using Traefik's `show-proxied-endpoints` action."""
+    """Retrieve the SD-Core NMS endpoint by using Traefik's `show-proxied-endpoints` action."""
     traefik = ops_test.model.applications[TRAEFIK_APP_NAME]
     traefik_unit = traefik.units[0]
     t0 = time.time()
@@ -117,18 +117,18 @@ async def get_sdcore_nms_endpoint(ops_test) -> str:
 
 
 async def get_traefik_ip(ops_test) -> str:
-    """Retrieves the IP of the Traefik Application."""
+    """Retrieve the IP of the Traefik Application."""
     app_status = await ops_test.model.get_status(filters=[TRAEFIK_APP_NAME])
     return app_status.applications[TRAEFIK_APP_NAME].public_address
 
 
 def _get_host_from_url(url: str) -> str:
-    """Returns the host from a URL formatted as http://<host>:<port>/ or as http://<host>/."""
+    """Return the host from a URL formatted as http://<host>:<port>/ or as http://<host>/."""
     return url.split("//")[1].split(":")[0].split("/")[0]
 
 
 def ui_is_running(ip: str, host: str) -> bool:
-    """Returns whether the UI is running."""
+    """Return whether the UI is running."""
     url = f"http://{ip}/network-configuration"
     headers = {"Host": host}
     t0 = time.time()

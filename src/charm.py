@@ -143,7 +143,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         return True
 
     def _configure_upf_information(self) -> None:
-        """Creates the UPF config file.
+        """Create the UPF config file.
 
         The config file is generated based on the various `fiveg_n4` relations and their content.
         """
@@ -158,7 +158,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self._push_upf_config_file_to_workload(upf_config_content)
 
     def _configure_gnb_information(self) -> None:
-        """Creates the GNB config file.
+        """Create the GNB config file.
 
         The config file is generated based on the various `fiveg_gnb_identity` relations
         and their content.
@@ -174,7 +174,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self._push_gnb_config_file_to_workload(gnb_config_content)
 
     def _get_existing_config_file(self, path: str) -> str:
-        """Gets the existing config file from the workload.
+        """Get the existing config file from the workload.
 
         Args:
             path (str): Path to the config file.
@@ -188,7 +188,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         return ""
 
     def _get_upf_host_port_list(self) -> List[Tuple[str, int]]:
-        """Gets the list of UPF hosts and ports from the `fiveg_n4` relation data bag.
+        """Get the list of UPF hosts and ports from the `fiveg_n4` relation data bag.
 
         Returns:
             List[Tuple[str, int]]: List of UPF hostnames and ports.
@@ -208,7 +208,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         return upf_host_port_list
 
     def _get_gnb_name_tac_list(self) -> List[Tuple[str, int]]:
-        """Gets a list gnb_name and TAC from the `fiveg_gnb_identity` relation data bag.
+        """Get a list gnb_name and TAC from the `fiveg_gnb_identity` relation data bag.
 
         Returns:
             List[Tuple[str, int]]: List of gnb_name and TAC.
@@ -228,7 +228,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         return gnb_name_tac_list
 
     def _get_upf_config(self) -> str:
-        """Gets the UPF configuration for the NMS in a json.
+        """Get the UPF configuration for the NMS in a json.
 
         Returns:
             str: Json representation of list of dictionaries,
@@ -246,7 +246,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         return json.dumps(upf_config, sort_keys=True)
 
     def _get_gnb_config(self) -> str:
-        """Gets the GNB configuration for the NMS in a json format.
+        """Get the GNB configuration for the NMS in a json format.
 
         Returns:
             str: Json representation of list of dictionaries,
@@ -295,7 +295,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
     @property
     def _environment_variables(self) -> dict:
-        """Returns environment variables for the nms service.
+        """Return environment variables for the nms service.
 
         Returns:
             dict: Environment variables.
@@ -308,7 +308,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
 
 def config_file_content_matches(existing_content: str, new_content: str) -> bool:
-    """Returns whether two config file contents match."""
+    """Return whether two config file contents match."""
     try:
         existing_content_list = json.loads(existing_content)
         new_content_list = json.loads(new_content)
