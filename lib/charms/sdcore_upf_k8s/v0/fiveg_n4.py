@@ -98,7 +98,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 1
+LIBPATCH = 2
 
 PYDEPS = ["pydantic", "pytest-interface-tester"]
 
@@ -142,7 +142,7 @@ class ProviderSchema(DataBagSchema):
 
 
 def data_matches_provider_schema(data: dict) -> bool:
-    """Returns whether data matches provider schema.
+    """Return whether data matches provider schema.
 
     Args:
         data (dict): Data to be validated.
@@ -162,18 +162,18 @@ class FiveGN4RequestEvent(EventBase):
     """Dataclass for the `fiveg_n4` request event."""
 
     def __init__(self, handle, relation_id: int):
-        """Sets relation id."""
+        """Set relation id."""
         super().__init__(handle)
         self.relation_id = relation_id
 
     def snapshot(self) -> dict:
-        """Returns event data."""
+        """Return event data."""
         return {
             "relation_id": self.relation_id,
         }
 
     def restore(self, snapshot):
-        """Restores event data."""
+        """Restore event data."""
         self.relation_id = snapshot["relation_id"]
 
 
@@ -189,7 +189,7 @@ class N4Provides(Object):
     on = N4ProviderCharmEvents()
 
     def __init__(self, charm: CharmBase, relation_name: str):
-        """Observes relation joined event.
+        """Observe relation joined event.
 
         Args:
             charm: Juju charm
@@ -203,7 +203,7 @@ class N4Provides(Object):
     def publish_upf_n4_information(
         self, relation_id: int, upf_hostname: str, upf_n4_port: int
     ) -> None:
-        """Sets UPF's hostname and port in the relation data.
+        """Set UPF's hostname and port in the relation data.
 
         Args:
             relation_id (str): Relation ID
@@ -235,13 +235,13 @@ class N4AvailableEvent(EventBase):
     """Dataclass for the `fiveg_n4` available event."""
 
     def __init__(self, handle, upf_hostname: str, upf_port: int):
-        """Sets UPF's hostname and port."""
+        """Set UPF's hostname and port."""
         super().__init__(handle)
         self.upf_hostname = upf_hostname
         self.upf_port = upf_port
 
     def snapshot(self) -> dict:
-        """Returns event data."""
+        """Return event data."""
         return {
             "upf_hostname": self.upf_hostname,
             "upf_port": self.upf_port,
@@ -265,7 +265,7 @@ class N4Requires(Object):
     on = N4RequirerCharmEvents()
 
     def __init__(self, charm: CharmBase, relation_name: str):
-        """Observes relation joined and relation changed events.
+        """Observe relation joined and relation changed events.
 
         Args:
             charm: Juju charm
@@ -278,7 +278,7 @@ class N4Requires(Object):
         self.framework.observe(charm.on[relation_name].relation_changed, self._on_relation_changed)
 
     def _on_relation_changed(self, event: RelationChangedEvent) -> None:
-        """Triggered everytime there's a change in relation data.
+        """Triggered every time there's a change in relation data.
 
         Args:
             event (RelationChangedEvent): Juju event
