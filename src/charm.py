@@ -41,7 +41,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
         self._container_name = "nms"
-        self._service_name = "sdcore-nms"
+        self._service_name = "nms"
         self._container = self.unit.get_container(self._container_name)
         self.fiveg_n4 = N4Requires(charm=self, relation_name=FIVEG_N4_RELATION_NAME)
         self._gnb_identity = GnbIdentityRequires(self, GNB_IDENTITY_RELATION_NAME)
@@ -89,7 +89,10 @@ class SDCoreNMSOperatorCharm(CharmBase):
         """Configure the Pebble layer."""
         plan = self._container.get_plan()
         layer = self._pebble_layer
+        logger.info("Plan services %s", plan.services)
+        logger.info("layer services %s", layer.services)
         if plan.services != layer.services:
+            logger.info("RESTARTING %s", layer.services)
             self._container.add_layer(self._container_name, layer, combine=True)
             self._container.restart(self._service_name)
 

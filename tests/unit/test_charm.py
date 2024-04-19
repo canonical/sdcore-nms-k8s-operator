@@ -278,7 +278,7 @@ class TestCharm(unittest.TestCase):
 
         expected_plan = {
             "services": {
-                "sdcore-nms": {
+                "nms": {
                     "startup": "enabled",
                     "override": "replace",
                     "command": "/bin/bash -c 'cd /app && npm run start'",
@@ -314,7 +314,7 @@ class TestCharm(unittest.TestCase):
 
         expected_plan = {
             "services": {
-                "sdcore-nms": {
+                "nms": {
                     "startup": "enabled",
                     "override": "replace",
                     "command": "/bin/bash -c 'cd /app && npm run start'",
