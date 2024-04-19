@@ -88,10 +88,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         """Configure the Pebble layer."""
         plan = self._container.get_plan()
         layer = self._pebble_layer
-        logger.info("Plan services %s", plan.services)
-        logger.info("layer services %s", layer.services)
         if plan.services != layer.services:
-            logger.info("RESTARTING")
             self._container.add_layer(self._container_name, layer, combine=True)
             self._container.restart(self._service_name)
 
