@@ -40,8 +40,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
-        self._container_name = "nms"
-        self._service_name = "sdcore-nms"
+        self._container_name = self._service_name = "nms"
         self._container = self.unit.get_container(self._container_name)
         self.fiveg_n4 = N4Requires(charm=self, relation_name=FIVEG_N4_RELATION_NAME)
         self._gnb_identity = GnbIdentityRequires(self, GNB_IDENTITY_RELATION_NAME)
