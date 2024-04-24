@@ -11,90 +11,103 @@ from pathlib import Path
 import pytest
 import requests  # type: ignore[import]
 import yaml
+from pytest_operator.plugin import OpsTest
 
 logger = logging.getLogger(__name__)
 
 METADATA = yaml.safe_load(Path("./metadata.yaml").read_text())
 APP_NAME = METADATA["name"]
-TRAEFIK_APP_NAME = "traefik"
-UPF_APP_NAME = "upf"
-WEBUI_APP_NAME = "webui"
-GNBSIM_APP_NAME = "gnbsim"
-GRAFANA_AGENT_APP_NAME = "grafana-agent-k8s"
+TRAEFIK_CHARM_NAME = "traefik-k8s"
+TRAEFIK_CHARM_CHANNEL = "latest/stable"
+UPF_CHARM_NAME = "sdcore-upf-k8s"
+UPF_CHARM_CHANNEL = "1.4/edge"
+WEBUI_CHARM_NAME = "sdcore-webui-k8s"
+WEBUI_CHARM_CHANNEL = "1.4/edge"
+GNBSIM_CHARM_NAME = "sdcore-gnbsim-k8s"
+GNBSIM_CHARM_CHANNEL = "1.4/edge"
+GRAFANA_AGENT_CHARM_NAME = "grafana-agent-k8s"
+GRAFANA_AGENT_CHARM_CHANNEL = "latest/stable"
+TIMEOUT = 15 * 60
 
 
 @pytest.mark.abort_on_fail
-async def build_and_deploy(ops_test):
+async def build_and_deploy(ops_test: OpsTest):
     """Build the charm-under-test and deploy it."""
     charm = await ops_test.build_charm(".")
     resources = {
         "nms-image": METADATA["resources"]["nms-image"]["upstream-source"],
     }
+    assert ops_test.model
     await ops_test.model.deploy(
         charm,
         resources=resources,
         application_name=APP_NAME,
-        trust=True,
     )
 
 
 @pytest.mark.abort_on_fail
-async def deploy_traefik(ops_test):
+async def deploy_traefik(ops_test: OpsTest):
     """Deploy Traefik."""
+    assert ops_test.model
     await ops_test.model.deploy(
-        "traefik-k8s",
-        application_name=TRAEFIK_APP_NAME,
+        TRAEFIK_CHARM_NAME,
+        application_name=TRAEFIK_CHARM_NAME,
         config={"external_hostname": "pizza.com", "routing_mode": "subdomain"},
+        channel=TRAEFIK_CHARM_CHANNEL,
         trust=True,
     )
 
 
 @pytest.mark.abort_on_fail
-async def deploy_sdcore_upf(ops_test):
-    """Deploy sdcore-upf-operator."""
+async def deploy_sdcore_upf(ops_test: OpsTest):
+    """Deploy sdcore-upf-k8s-operator."""
+    assert ops_test.model
     await ops_test.model.deploy(
-        "sdcore-upf",
-        application_name=UPF_APP_NAME,
-        channel="edge",
+        UPF_CHARM_NAME,
+        application_name=UPF_CHARM_NAME,
+        channel=UPF_CHARM_CHANNEL,
         trust=True,
     )
 
 
 @pytest.mark.abort_on_fail
-async def deploy_sdcore_webui(ops_test):
+async def deploy_sdcore_webui(ops_test: OpsTest):
     """Deploy sdcore-webui-operator."""
+    assert ops_test.model
     await ops_test.model.deploy(
-        "sdcore-webui",
-        application_name=WEBUI_APP_NAME,
-        channel="edge",
-        trust=True,
+        WEBUI_CHARM_NAME,
+        application_name=WEBUI_CHARM_NAME,
+        channel=WEBUI_CHARM_CHANNEL,
     )
 
 
 @pytest.mark.abort_on_fail
-async def deploy_sdcore_gnbsim(ops_test):
+async def deploy_sdcore_gnbsim(ops_test: OpsTest):
     """Deploy sdcore-gnbsim-operator."""
+    assert ops_test.model
     await ops_test.model.deploy(
-        "sdcore-gnbsim",
-        application_name=GNBSIM_APP_NAME,
-        channel="edge",
+        GNBSIM_CHARM_NAME,
+        application_name=GNBSIM_CHARM_NAME,
+        channel=GNBSIM_CHARM_CHANNEL,
         trust=True,
     )
 
 
 @pytest.mark.abort_on_fail
-async def deploy_grafana_agent(ops_test):
+async def deploy_grafana_agent(ops_test: OpsTest):
     """Deploy grafana-agent operator."""
+    assert ops_test.model
     await ops_test.model.deploy(
-        GRAFANA_AGENT_APP_NAME,
-        application_name=GRAFANA_AGENT_APP_NAME,
-        channel="stable",
+        GRAFANA_AGENT_CHARM_NAME,
+        application_name=GRAFANA_AGENT_CHARM_NAME,
+        channel=GRAFANA_AGENT_CHARM_CHANNEL,
     )
 
 
-async def get_sdcore_nms_endpoint(ops_test) -> str:
+async def get_sdcore_nms_endpoint(ops_test: OpsTest) -> str:
     """Retrieve the SD-Core NMS endpoint by using Traefik's `show-proxied-endpoints` action."""
-    traefik = ops_test.model.applications[TRAEFIK_APP_NAME]
+    assert ops_test.model
+    traefik = ops_test.model.applications[TRAEFIK_CHARM_NAME]
     traefik_unit = traefik.units[0]
     t0 = time.time()
     timeout = 30  # seconds
@@ -116,10 +129,11 @@ async def get_sdcore_nms_endpoint(ops_test) -> str:
     raise TimeoutError("Traefik did not return proxied endpoints")
 
 
-async def get_traefik_ip(ops_test) -> str:
+async def get_traefik_ip(ops_test: OpsTest) -> str:
     """Retrieve the IP of the Traefik Application."""
-    app_status = await ops_test.model.get_status(filters=[TRAEFIK_APP_NAME])
-    return app_status.applications[TRAEFIK_APP_NAME].public_address
+    assert ops_test.model
+    app_status = await ops_test.model.get_status(filters=[TRAEFIK_CHARM_NAME])
+    return app_status.applications[TRAEFIK_CHARM_NAME].public_address
 
 
 def _get_host_from_url(url: str) -> str:
@@ -147,90 +161,99 @@ def ui_is_running(ip: str, host: str) -> bool:
 
 @pytest.mark.abort_on_fail
 async def test_given_required_relations_not_created_when_deploy_charm_then_status_is_blocked(
-    ops_test,
+    ops_test: OpsTest,
 ):
     await build_and_deploy(ops_test)
+    assert ops_test.model
     await ops_test.model.wait_for_idle(
         apps=[APP_NAME],
         status="blocked",
-        timeout=1000,
+        timeout=TIMEOUT,
     )
 
 
 @pytest.mark.abort_on_fail
 async def test_given_sdcore_management_relation_created_when_deploy_charm_then_status_is_active(
-    ops_test,
+    ops_test: OpsTest,
 ):
     await deploy_sdcore_webui(ops_test)
+    assert ops_test.model
     await ops_test.model.integrate(
-        relation1=f"{APP_NAME}:sdcore-management", relation2=f"{WEBUI_APP_NAME}:sdcore-management"
+        relation1=f"{APP_NAME}:sdcore-management",
+        relation2=f"{WEBUI_CHARM_NAME}:sdcore-management",
     )
     await ops_test.model.wait_for_idle(
         apps=[APP_NAME],
         status="active",
-        timeout=1000,
+        timeout=TIMEOUT,
     )
 
 
 @pytest.mark.abort_on_fail
-async def test_given_fiveg_n4_relation_when_deploy_charm_then_status_is_active(
-    ops_test,
-):
+async def test_given_fiveg_n4_relation_when_deploy_charm_then_status_is_active(ops_test: OpsTest):
     await deploy_sdcore_upf(ops_test)
+    assert ops_test.model
     await ops_test.model.integrate(
-        relation1=f"{APP_NAME}:fiveg_n4", relation2=f"{UPF_APP_NAME}:fiveg_n4"
+        relation1=f"{APP_NAME}:fiveg_n4", relation2=f"{UPF_CHARM_NAME}:fiveg_n4"
     )
     await ops_test.model.wait_for_idle(
         apps=[APP_NAME],
         status="active",
-        timeout=1000,
+        timeout=TIMEOUT,
     )
 
 
 @pytest.mark.abort_on_fail
 async def test_given_fiveg_gnb_identity_created_when_deploy_charm_then_status_is_active(
-    ops_test,
+    ops_test: OpsTest,
 ):
     await deploy_sdcore_gnbsim(ops_test)
+    assert ops_test.model
     await ops_test.model.integrate(
         relation1=f"{APP_NAME}:fiveg_gnb_identity",
-        relation2=f"{GNBSIM_APP_NAME}:fiveg_gnb_identity",
+        relation2=f"{GNBSIM_CHARM_NAME}:fiveg_gnb_identity",
     )
     await ops_test.model.wait_for_idle(
-        apps=[APP_NAME, UPF_APP_NAME],
+        apps=[APP_NAME, UPF_CHARM_NAME],
         status="active",
-        timeout=1000,
+        timeout=TIMEOUT,
     )
 
 
 @pytest.mark.abort_on_fail
-async def test_given_traefik_deployed_when_relate_to_ingress_then_status_is_active(ops_test):
+async def test_given_traefik_deployed_when_relate_to_ingress_then_status_is_active(
+    ops_test: OpsTest,
+):
     await deploy_traefik(ops_test)
+    assert ops_test.model
     await ops_test.model.integrate(
-        relation1=f"{APP_NAME}:ingress", relation2=f"{TRAEFIK_APP_NAME}:ingress"
+        relation1=f"{APP_NAME}:ingress", relation2=f"{TRAEFIK_CHARM_NAME}:ingress"
     )
     await ops_test.model.wait_for_idle(
-        apps=[APP_NAME, TRAEFIK_APP_NAME],
+        apps=[APP_NAME, TRAEFIK_CHARM_NAME],
         status="active",
-        timeout=1000,
+        timeout=TIMEOUT,
     )
 
 
 @pytest.mark.abort_on_fail
-async def test_given_grafana_agent_deployed_when_relate_to_logging_then_status_is_active(ops_test):
+async def test_given_grafana_agent_deployed_when_relate_to_logging_then_status_is_active(
+    ops_test: OpsTest,
+):
     await deploy_grafana_agent(ops_test)
+    assert ops_test.model
     await ops_test.model.integrate(
-        relation1=f"{APP_NAME}:logging", relation2=GRAFANA_AGENT_APP_NAME
+        relation1=f"{APP_NAME}:logging", relation2=GRAFANA_AGENT_CHARM_NAME
     )
     await ops_test.model.wait_for_idle(
         apps=[APP_NAME],
         status="active",
-        timeout=1000,
+        timeout=TIMEOUT,
     )
 
 
 @pytest.mark.abort_on_fail
-async def test_given_related_to_traefik_when_fetch_ui_then_returns_html_content(ops_test):
+async def test_given_related_to_traefik_when_fetch_ui_then_returns_html_content(ops_test: OpsTest):
     nms_url = await get_sdcore_nms_endpoint(ops_test)
     traefik_ip = await get_traefik_ip(ops_test)
     nms_host = _get_host_from_url(nms_url)
