@@ -17,7 +17,14 @@ from charms.sdcore_webui_k8s.v0.sdcore_management import (  # type: ignore[impor
     SdcoreManagementRequires,
 )
 from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer  # type: ignore[import]
-from ops import ActiveStatus, BlockedStatus, CollectStatusEvent, ModelError, WaitingStatus
+from ops import (
+    ActiveStatus,
+    BlockedStatus,
+    CollectStatusEvent,
+    ModelError,
+    RelationBrokenEvent,
+    WaitingStatus,
+)
 from ops.charm import CharmBase
 from ops.framework import EventBase
 from ops.main import main
@@ -64,6 +71,14 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self.framework.observe(
             self._gnb_identity.on.fiveg_gnb_identity_available,
             self._configure_sdcore_nms,
+        )
+        self.framework.observe(
+            self.on[GNB_IDENTITY_RELATION_NAME].relation_broken,
+            self._on_fiveg_gnb_identity_relation_broken,
+        )
+        self.framework.observe(
+            self.on[FIVEG_N4_RELATION_NAME].relation_broken,
+            self._on_fiveg_n4_relation_broken,
         )
 
     def _configure_sdcore_nms(self, event: EventBase) -> None:
@@ -140,6 +155,22 @@ class SDCoreNMSOperatorCharm(CharmBase):
         except ModelError:
             return False
         return True
+
+    def _on_fiveg_gnb_identity_relation_broken(self, event: RelationBrokenEvent):
+        """Update the GNB config file."""
+        if not self._container.can_connect():
+            return
+        if not self._container.exists(path=CONFIG_DIR_PATH):
+            return
+        self._configure_gnb_information()
+
+    def _on_fiveg_n4_relation_broken(self, event: RelationBrokenEvent):
+        """Update the UPF config file."""
+        if not self._container.can_connect():
+            return
+        if not self._container.exists(path=CONFIG_DIR_PATH):
+            return
+        self._configure_upf_information()
 
     def _configure_upf_information(self) -> None:
         """Create the UPF config file.
