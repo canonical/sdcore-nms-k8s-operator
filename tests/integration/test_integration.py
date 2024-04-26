@@ -20,20 +20,21 @@ APP_NAME = METADATA["name"]
 TRAEFIK_CHARM_NAME = "traefik-k8s"
 TRAEFIK_CHARM_CHANNEL = "latest/stable"
 UPF_CHARM_NAME = "sdcore-upf-k8s"
-UPF_CHARM_CHANNEL = "1.4/edge"
+UPF_CHARM_CHANNEL = "1.5/edge"
 WEBUI_CHARM_NAME = "sdcore-webui-k8s"
-WEBUI_CHARM_CHANNEL = "1.4/edge"
+WEBUI_CHARM_CHANNEL = "1.5/edge"
 GNBSIM_CHARM_NAME = "sdcore-gnbsim-k8s"
-GNBSIM_CHARM_CHANNEL = "1.4/edge"
+GNBSIM_CHARM_CHANNEL = "1.5/edge"
 GRAFANA_AGENT_CHARM_NAME = "grafana-agent-k8s"
 GRAFANA_AGENT_CHARM_CHANNEL = "latest/stable"
 TIMEOUT = 15 * 60
 
 
+@pytest.fixture(scope="module")
 @pytest.mark.abort_on_fail
-async def build_and_deploy(ops_test: OpsTest):
-    """Build the charm-under-test and deploy it."""
-    charm = await ops_test.build_charm(".")
+async def deploy(ops_test: OpsTest, request):
+    """Deploy the charm-under-test."""
+    charm = Path(request.config.getoption("--charm_path")).resolve()
     resources = {
         "nms-image": METADATA["resources"]["nms-image"]["upstream-source"],
     }
@@ -161,9 +162,8 @@ def ui_is_running(ip: str, host: str) -> bool:
 
 @pytest.mark.abort_on_fail
 async def test_given_required_relations_not_created_when_deploy_charm_then_status_is_blocked(
-    ops_test: OpsTest,
+    ops_test: OpsTest, deploy
 ):
-    await build_and_deploy(ops_test)
     assert ops_test.model
     await ops_test.model.wait_for_idle(
         apps=[APP_NAME],
@@ -174,7 +174,7 @@ async def test_given_required_relations_not_created_when_deploy_charm_then_statu
 
 @pytest.mark.abort_on_fail
 async def test_given_sdcore_management_relation_created_when_deploy_charm_then_status_is_active(
-    ops_test: OpsTest,
+    ops_test: OpsTest, deploy
 ):
     await deploy_sdcore_webui(ops_test)
     assert ops_test.model
@@ -190,7 +190,9 @@ async def test_given_sdcore_management_relation_created_when_deploy_charm_then_s
 
 
 @pytest.mark.abort_on_fail
-async def test_given_fiveg_n4_relation_when_deploy_charm_then_status_is_active(ops_test: OpsTest):
+async def test_given_fiveg_n4_relation_when_deploy_charm_then_status_is_active(
+    ops_test: OpsTest, deploy
+):
     await deploy_sdcore_upf(ops_test)
     assert ops_test.model
     await ops_test.model.integrate(
@@ -205,7 +207,7 @@ async def test_given_fiveg_n4_relation_when_deploy_charm_then_status_is_active(o
 
 @pytest.mark.abort_on_fail
 async def test_given_fiveg_gnb_identity_created_when_deploy_charm_then_status_is_active(
-    ops_test: OpsTest,
+    ops_test: OpsTest, deploy
 ):
     await deploy_sdcore_gnbsim(ops_test)
     assert ops_test.model
@@ -222,7 +224,7 @@ async def test_given_fiveg_gnb_identity_created_when_deploy_charm_then_status_is
 
 @pytest.mark.abort_on_fail
 async def test_given_traefik_deployed_when_relate_to_ingress_then_status_is_active(
-    ops_test: OpsTest,
+    ops_test: OpsTest, deploy
 ):
     await deploy_traefik(ops_test)
     assert ops_test.model
@@ -238,7 +240,7 @@ async def test_given_traefik_deployed_when_relate_to_ingress_then_status_is_acti
 
 @pytest.mark.abort_on_fail
 async def test_given_grafana_agent_deployed_when_relate_to_logging_then_status_is_active(
-    ops_test: OpsTest,
+    ops_test: OpsTest, deploy
 ):
     await deploy_grafana_agent(ops_test)
     assert ops_test.model
@@ -253,7 +255,9 @@ async def test_given_grafana_agent_deployed_when_relate_to_logging_then_status_i
 
 
 @pytest.mark.abort_on_fail
-async def test_given_related_to_traefik_when_fetch_ui_then_returns_html_content(ops_test: OpsTest):
+async def test_given_related_to_traefik_when_fetch_ui_then_returns_html_content(
+    ops_test: OpsTest, deploy
+):
     nms_url = await get_sdcore_nms_endpoint(ops_test)
     traefik_ip = await get_traefik_ip(ops_test)
     nms_host = _get_host_from_url(nms_url)
