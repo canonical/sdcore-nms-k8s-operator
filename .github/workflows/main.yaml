@@ -37,7 +37,7 @@ jobs:
   integration-test:
     needs:
       - build
-    uses: canonical/sdcore-github-workflows/.github/workflows/integration-test.yaml@v1.0.0
+    uses: canonical/sdcore-github-workflows/.github/workflows/integration-test-with-multus.yaml@v1.0.0
 
   publish-charm:
     name: Publish Charm
