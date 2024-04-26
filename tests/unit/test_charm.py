@@ -813,7 +813,7 @@ class TestCharm(unittest.TestCase):
 
         self.harness.remove_relation(gnb_identity_relation_id)
 
-    def test_given_cannot_connet_to_container_when_n4_relation_broken_then_no_exception_is_raised(  # noqa: E501
+    def test_given_cannot_connect_to_container_when_n4_relation_broken_then_no_exception_is_raised(  # noqa: E501
         self
     ):
         fiveg_n4_relation_id = self.harness.add_relation(
