@@ -22,7 +22,6 @@ from ops import (
     BlockedStatus,
     CollectStatusEvent,
     ModelError,
-    RelationBrokenEvent,
     WaitingStatus,
 )
 from ops.charm import CharmBase
@@ -74,11 +73,11 @@ class SDCoreNMSOperatorCharm(CharmBase):
         )
         self.framework.observe(
             self.on[GNB_IDENTITY_RELATION_NAME].relation_broken,
-            self._on_fiveg_gnb_identity_relation_broken,
+            self._configure_sdcore_nms,
         )
         self.framework.observe(
             self.on[FIVEG_N4_RELATION_NAME].relation_broken,
-            self._on_fiveg_n4_relation_broken,
+            self._configure_sdcore_nms,
         )
 
     def _configure_sdcore_nms(self, event: EventBase) -> None:
@@ -89,14 +88,14 @@ class SDCoreNMSOperatorCharm(CharmBase):
         """
         if not self._container.can_connect():
             return
-        if not self.model.relations.get(SDCORE_MANAGEMENT_RELATION_NAME):
-            return
-        if not self._sdcore_management.management_url:
-            return
         if not self._container.exists(path=CONFIG_DIR_PATH):
             return
         self._configure_upf_information()
         self._configure_gnb_information()
+        if not self.model.relations.get(SDCORE_MANAGEMENT_RELATION_NAME):
+            return
+        if not self._sdcore_management.management_url:
+            return
         self._configure_pebble()
 
     def _configure_pebble(self) -> None:
@@ -155,22 +154,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
         except ModelError:
             return False
         return True
-
-    def _on_fiveg_gnb_identity_relation_broken(self, event: RelationBrokenEvent):
-        """Update the GNB config file."""
-        if not self._container.can_connect():
-            return
-        if not self._container.exists(path=CONFIG_DIR_PATH):
-            return
-        self._configure_gnb_information()
-
-    def _on_fiveg_n4_relation_broken(self, event: RelationBrokenEvent):
-        """Update the UPF config file."""
-        if not self._container.can_connect():
-            return
-        if not self._container.exists(path=CONFIG_DIR_PATH):
-            return
-        self._configure_upf_information()
 
     def _configure_upf_information(self) -> None:
         """Create the UPF config file.
