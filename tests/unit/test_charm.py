@@ -2,9 +2,8 @@
 # See LICENSE file for licensing details.
 
 import json
-import unittest
-from unittest.mock import Mock
 
+import pytest
 from charm import SDCoreNMSOperatorCharm
 from ops import testing
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
@@ -15,8 +14,11 @@ SDCORE_MANAGEMENT_RELATION_NAME = "sdcore-management"
 TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME = "sdcore_management_provider_app"
 GNB_IDENTITY_RELATION_NAME = "fiveg_gnb_identity"
 TEST_GNB_IDENTITY_PROVIDER_APP_NAME = "fiveg_gnb_identity_provider_app"
-TEST_UPF_CONFIG_PATH = "/nms/config/upf_config.json"
-TEST_GNB_CONFIG_PATH = "/nms/config/gnb_config.json"
+UPF_CONFIG_FILE= "nms/config/upf_config.json"
+TEST_UPF_CONFIG_PATH = f"/{UPF_CONFIG_FILE}"
+GNB_CONFIG_FILE = "nms/config/gnb_config.json"
+TEST_GNB_CONFIG_PATH = f"/{GNB_CONFIG_FILE}"
+REMOTE_APP_NAME = "some_app"
 
 
 def read_file(path: str) -> str:
@@ -32,249 +34,349 @@ def read_file(path: str) -> str:
         content = f.read()
     return content
 
+class TestCharm():
+    @pytest.fixture
+    def harness(self):
+        harness = testing.Harness(SDCoreNMSOperatorCharm)
+        harness.begin()
+        yield harness
+        harness.cleanup()
 
-class TestCharm(unittest.TestCase):
-    def setUp(self):
-        self.harness = testing.Harness(SDCoreNMSOperatorCharm)
-        self.addCleanup(self.harness.cleanup)
-        self.harness.begin()
+    def set_sdcore_management_relation_data(self, harness, management_url) -> int:
+        """Create the sdcore_management relation and set its data.
 
-    def test_given_cant_connect_to_container_when_configure_sdcore_nms_then_status_is_waiting(
-        self,
-    ):
-        self.harness.charm._configure_sdcore_nms(event=Mock())
-        self.harness.evaluate_status()
-        self.assertEqual(
-            self.harness.model.unit.status, WaitingStatus("Waiting for container to be ready")
+        Returns:
+            int: ID of the created relation
+        """
+        relation_id = harness.add_relation(
+            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
+            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
         )
+        harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
+            key_values={"management_url": management_url},
+        )
+        return relation_id
+
+    def set_gnb_identity_relation_data(self, harness, key_values) -> int:
+        """Create the fiveg_gnb_identity relation and set its data.
+
+        Returns:
+            int: ID of the created relation
+        """
+        gnb_identity_relation_id = harness.add_relation(
+            relation_name=GNB_IDENTITY_RELATION_NAME,
+            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
+        )
+        harness.update_relation_data(
+            relation_id=gnb_identity_relation_id,
+            app_or_unit=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
+            key_values=key_values,
+        )
+        return gnb_identity_relation_id
+
+    def set_n4_relation_data(self, harness, key_values) -> int:
+        """Create the fiveg_n4 relation and set its data.
+
+        Returns:
+            int: ID of the created relation
+        """
+        fiveg_n4_relation_id = harness.add_relation(
+            relation_name=FIVEG_N4_RELATION_NAME,
+            remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
+        )
+        harness.update_relation_data(
+            relation_id=fiveg_n4_relation_id,
+            app_or_unit=TEST_FIVEG_N4_PROVIDER_APP_NAME,
+            key_values=key_values,
+        )
+        return fiveg_n4_relation_id
+
+    def test_given_cant_connect_to_container_when_update_config_then_status_is_waiting(
+        self, harness
+    ):
+        harness.update_config(key_values={})
+        harness.evaluate_status()
+
+        assert harness.model.unit.status == WaitingStatus("Waiting for container to be ready")
+
+    def test_given_storage_not_available_when_pebble_ready_then_status_is_waiting(self, harness):
+        self.set_sdcore_management_relation_data(harness, "http://10.0.0.1:5000")
+
+        harness.container_pebble_ready("nms")
+        harness.evaluate_status()
+
+        assert harness.model.unit.status == WaitingStatus("Waiting for storage to be attached")
 
     def test_given_sdcore_management_relation_not_created_when_pebble_ready_then_status_is_blocked(
-        self,
+        self, harness,
     ):
-        self.harness.add_relation(
-            relation_name=FIVEG_N4_RELATION_NAME,
-            remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-        )
-        self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-        )
-        self.harness.container_pebble_ready("nms")
-        self.harness.evaluate_status()
-        self.assertEqual(
-            self.harness.model.unit.status,
-            BlockedStatus(
+        harness.container_pebble_ready("nms")
+        harness.evaluate_status()
+
+        assert harness.model.unit.status == BlockedStatus(
                 f"Waiting for `{SDCORE_MANAGEMENT_RELATION_NAME}` relation to be created"
+            )
+
+    def test_given_management_url_not_available_when_pebble_ready_then_status_is_waiting(
+        self, harness
+    ):
+        harness.add_relation(
+            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
+            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
+        )
+
+        harness.container_pebble_ready("nms")
+        harness.evaluate_status()
+
+        assert harness.model.unit.status == WaitingStatus(
+                                "Waiting for webui management URL to be available"
+                                )
+
+    def test_given_management_url_available_when_pebble_ready_then_status_is_active(self, harness):
+        root = harness.get_filesystem_root("nms")
+        (root / "nms/config/").mkdir(parents=True)
+        self.set_sdcore_management_relation_data(harness, "http://10.0.0.1:5000")
+
+        harness.container_pebble_ready("nms")
+        harness.evaluate_status()
+
+        assert harness.model.unit.status == ActiveStatus()
+
+    @pytest.mark.parametrize(
+        "relation_name",
+        [
+            (FIVEG_N4_RELATION_NAME),
+            (GNB_IDENTITY_RELATION_NAME)
+        ]
+    )
+    def test_given_data_from_not_mandatory_relation_not_available_when_pebble_ready_then_status_is_active(  # noqa: E501
+        self, harness, relation_name
+    ):
+        self.set_sdcore_management_relation_data(harness, "http://10.0.0.1:5000")
+        root = harness.get_filesystem_root("nms")
+        (root / "nms/config/").mkdir(parents=True)
+        harness.add_relation(
+            relation_name=relation_name,
+            remote_app=REMOTE_APP_NAME,
+        )
+
+        harness.container_pebble_ready("nms")
+        harness.evaluate_status()
+
+        assert harness.model.unit.status == ActiveStatus()
+
+    @pytest.mark.parametrize(
+        "relation_name,relation_data",
+        [
+            pytest.param(
+                GNB_IDENTITY_RELATION_NAME,
+                {"tac": "1234"},
+                id="missing_gnb_name_in_gNB_config"
             ),
-        )
-
-    def test_given_management_url_not_available_when_pebble_ready_then_status_is_waiting(self):
-        self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-
-        self.harness.container_pebble_ready("nms")
-        self.harness.evaluate_status()
-        self.assertEqual(
-            self.harness.model.unit.status,
-            WaitingStatus("Waiting for webui management URL to be available"),
-        )
-
-    def test_given_management_url_available_when_pebble_ready_then_status_is_active(self):
-        root = self.harness.get_filesystem_root("nms")
-        (root / "nms/config/").mkdir(parents=True)
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": "http://10.0.0.1:5000"},
-        )
-        self.harness.container_pebble_ready("nms")
-        self.harness.evaluate_status()
-        self.assertEqual(self.harness.model.unit.status, ActiveStatus())
-
-    def test_given_n4_information_not_available_when_pebble_ready_then_status_is_active(
-        self,
+            pytest.param(
+                GNB_IDENTITY_RELATION_NAME,
+                {"gnb_name": "some.gnb"},
+                id="missing_tac_in_gNB_config"
+            ),
+            pytest.param(
+                FIVEG_N4_RELATION_NAME,
+                {"upf_hostname": "some.host.name"},
+                id="missing_upf_port_in_UPF_config"
+            ),
+            pytest.param(
+                FIVEG_N4_RELATION_NAME,
+                {"upf_port": "1234"},
+                id="missing_upf_hostname_in_UPF_config"
+            ),
+        ]
+    )
+    def test_given_incomplete_data_in_not_mandatory_relation_when_pebble_ready_then_status_is_active(  # noqa: E501
+        self, harness, relation_name, relation_data
     ):
-        root = self.harness.get_filesystem_root("nms")
+        self.set_sdcore_management_relation_data(harness, "http://10.0.0.1:5000")
+        root = harness.get_filesystem_root("nms")
         (root / "nms/config/").mkdir(parents=True)
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
+        relation_id = harness.add_relation(
+            relation_name=relation_name,
+            remote_app=REMOTE_APP_NAME,
         )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": "http://10.0.0.1:5000"},
-        )
-
-        self.harness.add_relation(
-            relation_name=FIVEG_N4_RELATION_NAME,
-            remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
+        harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=REMOTE_APP_NAME,
+            key_values=relation_data,
         )
 
-        self.harness.container_pebble_ready("nms")
-        self.harness.evaluate_status()
-        self.assertEqual(self.harness.model.unit.status, ActiveStatus())
+        harness.container_pebble_ready("nms")
+        harness.evaluate_status()
 
-    def test_given_gnb_identity_information_not_available_when_pebble_ready_then_status_is_active(
-        self,
+        assert harness.model.unit.status == ActiveStatus()
+
+    def test_given_service_is_not_running_when_evaluate_status_then_status_is_waiting(
+        self, harness
     ):
-        root = self.harness.get_filesystem_root("nms")
+        self.set_sdcore_management_relation_data(harness, "http://10.0.0.1:5000")
+        root = harness.get_filesystem_root("nms")
         (root / "nms/config/").mkdir(parents=True)
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": "http://10.0.0.1:5000"},
-        )
+        (root / UPF_CONFIG_FILE).write_text("some")
+        (root / GNB_CONFIG_FILE).write_text("content")
 
-        self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-        )
+        harness.set_can_connect(container="nms", val=True)
+        harness.evaluate_status()
 
-        self.harness.container_pebble_ready("nms")
-        self.harness.evaluate_status()
-        self.assertEqual(self.harness.model.unit.status, ActiveStatus())
+        assert harness.model.unit.status == WaitingStatus("Waiting for NMS service to start")
 
-    def test_given_gnb_identity_gnb_name_not_available_when_pebble_ready_then_status_is_active(
-        self,
+    @pytest.mark.parametrize(
+        "existing_config_file,app_name",
+        [
+            pytest.param(
+                UPF_CONFIG_FILE, "GNB", id="gNB_config_file_is_missing"
+            ),
+            pytest.param(
+                GNB_CONFIG_FILE, "UPF", id="UPF_config_file_is_missing"
+            ),
+        ]
+    )
+    def test_given_config_file_not_available_when_evaluate_status_then_status_is_waiting(
+        self, harness, existing_config_file, app_name
     ):
-        root = self.harness.get_filesystem_root("nms")
+        self.set_sdcore_management_relation_data(harness, "http://10.0.0.1:5000")
+        root = harness.get_filesystem_root("nms")
         (root / "nms/config/").mkdir(parents=True)
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": "http://10.0.0.1:5000"},
-        )
+        (root / existing_config_file).write_text("something")
 
-        gnb_identity_relation_id = self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=gnb_identity_relation_id,
-            app_or_unit=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-            key_values={"tac": "1234"},
-        )
+        harness.set_can_connect(container="nms", val=True)
+        harness.evaluate_status()
 
-        self.harness.container_pebble_ready("nms")
-        self.harness.evaluate_status()
-        self.assertEqual(self.harness.model.unit.status, ActiveStatus())
+        assert harness.model.unit.status == WaitingStatus(
+                                            f"Waiting for {app_name} config file to be stored"
+                                            )
 
-    def test_given_gnb_identity_tac_not_available_when_pebble_ready_then_status_is_active(
-        self,
+    @pytest.mark.parametrize(
+        "relation_name,config_file,relation_data",
+        [
+            pytest.param(
+                GNB_IDENTITY_RELATION_NAME,
+                GNB_CONFIG_FILE,
+                {"tac": "1234"},
+                id="missing_gnb_name_in_gNB_config"
+            ),
+            pytest.param(
+                GNB_IDENTITY_RELATION_NAME,
+                GNB_CONFIG_FILE,
+                {"gnb_name": "some.gnb"},
+                id="missing_tac_in_gNB_config"
+            ),
+            pytest.param(
+                GNB_IDENTITY_RELATION_NAME,
+                GNB_CONFIG_FILE,
+                {"tac": "", "gnb_name": ""},
+                id="gnb_name_and_tac_are_empty_strings_in_gNB_config"
+            ),
+            pytest.param(
+                GNB_IDENTITY_RELATION_NAME,
+                GNB_CONFIG_FILE,
+                {"gnb_name": "something","some": "key"},
+                id="invalid_key_in_gNB_config"
+            ),
+            pytest.param(
+                FIVEG_N4_RELATION_NAME,
+                UPF_CONFIG_FILE,
+                {"upf_hostname": "some.host.name"},
+                id="missing_upf_port_in_UPF_config"
+            ),
+            pytest.param(
+                FIVEG_N4_RELATION_NAME,
+                UPF_CONFIG_FILE,
+                {"upf_port": "1234"},
+                id="missing_upf_hostname_in_UPF_config"
+            ),
+            pytest.param(
+                FIVEG_N4_RELATION_NAME,
+                UPF_CONFIG_FILE,
+                {"upf_hostname": "", "upf_port": ""},
+                id="upf_hostname_and_upf_port_are_empty_strings_in_UPF_config"
+            ),
+            pytest.param(
+                FIVEG_N4_RELATION_NAME,
+                UPF_CONFIG_FILE,
+                {"some": "key"},
+                id="invalid_key_in_UPF_config"
+            ),
+        ]
+    )
+    def test_given_incomplete_data_in_relation_when_pebble_ready_then_is_not_written_in_config_file(  # noqa: E501
+        self, harness, relation_name, config_file,relation_data
     ):
-        root = self.harness.get_filesystem_root("nms")
+        self.set_sdcore_management_relation_data(harness, "http://10.0.0.1:5000")
+        root = harness.get_filesystem_root("nms")
         (root / "nms/config/").mkdir(parents=True)
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
+        relation_id = harness.add_relation(
+            relation_name=relation_name,
+            remote_app=REMOTE_APP_NAME,
         )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": "http://10.0.0.1:5000"},
-        )
-
-        gnb_identity_relation_id = self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=gnb_identity_relation_id,
-            app_or_unit=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-            key_values={"gnb_name": "some.gnb"},
+        harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=REMOTE_APP_NAME,
+            key_values=relation_data,
         )
 
-        self.harness.container_pebble_ready("nms")
-        self.harness.evaluate_status()
-        self.assertEqual(self.harness.model.unit.status, ActiveStatus())
+        harness.container_pebble_ready("nms")
+        harness.evaluate_status()
 
-    def test_given_gnb_identity_information_not_available_in_one_relation_when_pebble_ready_then_status_is_active(  # noqa: E501
-        self,
+        assert json.loads((root / config_file).read_text()) == []
+
+    def test_given_information_available_all_relations_created_when_pebble_ready_then_status_is_active(  # noqa: E501
+        self, harness,
     ):
-        root = self.harness.get_filesystem_root("nms")
+        self.set_sdcore_management_relation_data(harness, "http://10.0.0.1:5000")
+        root = harness.get_filesystem_root("nms")
         (root / "nms/config/").mkdir(parents=True)
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": "http://10.0.0.1:5000"},
-        )
+        harness.set_can_connect(container="nms", val=True)
+        self.set_n4_relation_data(harness, {"upf_hostname": "some.host.name", "upf_port": "1234"})
+        self.set_gnb_identity_relation_data(harness, {"gnb_name": "some.gnb.name", "tac": "1234"})
 
-        gnb_identity_relation_id = self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=gnb_identity_relation_id,
-            app_or_unit=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-            key_values={"gnb_name": "some.gnb", "tac": "1234"},
-        )
+        harness.evaluate_status()
 
-        second_gnb_identity_app = "some_app"
-        self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=second_gnb_identity_app,
-        )
-
-        self.harness.container_pebble_ready("nms")
-        self.harness.evaluate_status()
-        self.assertEqual(self.harness.model.unit.status, ActiveStatus())
+        assert harness.model.unit.status == ActiveStatus()
 
     def test_given_all_relations_created_when_pebble_ready_then_pebble_plan_is_applied(
-        self,
+        self, harness
     ):
-        root = self.harness.get_filesystem_root("nms")
+        root = harness.get_filesystem_root("nms")
         (root / "nms/config/").mkdir(parents=True)
-        test_upf_hostname = "some.host.name"
-        test_upf_port = "1234"
-        test_management_url = "http://10.0.0.1:5000"
-        fiveg_n4_relation_id = self.harness.add_relation(
-            relation_name=FIVEG_N4_RELATION_NAME,
-            remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=fiveg_n4_relation_id,
-            app_or_unit=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-            key_values={"upf_hostname": test_upf_hostname, "upf_port": test_upf_port},
-        )
+        test_management_url = "http://10.0.0.2:5000"
+        self.set_sdcore_management_relation_data(harness, test_management_url)
+        self.set_n4_relation_data(harness, {"upf_hostname": "some.host.name", "upf_port": "1234"})
+        self.set_gnb_identity_relation_data(harness, {"gnb_name": "some.gnb.name", "tac": "1234"})
+        expected_plan = {
+            "services": {
+                "nms": {
+                    "startup": "enabled",
+                    "override": "replace",
+                    "command": "/bin/bash -c 'cd /app && npm run start'",
+                    "environment": {
+                        "UPF_CONFIG_PATH": TEST_UPF_CONFIG_PATH,
+                        "GNB_CONFIG_PATH": TEST_GNB_CONFIG_PATH,
+                        "WEBUI_ENDPOINT": test_management_url,
+                    },
+                }
+            }
+        }
 
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": test_management_url},
-        )
+        harness.container_pebble_ready("nms")
+        updated_plan = harness.get_container_pebble_plan("nms").to_dict()
 
-        gnb_identity_relation_id = self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=gnb_identity_relation_id,
-            app_or_unit=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-            key_values={"gnb_name": "some.gnb", "tac": "1234"},
-        )
+        assert expected_plan == updated_plan
+
+    def test_given_only_sdcore_management_relation_when_pebble_ready_then_pebble_plan_is_applied(  # noqa: E501
+        self, harness,
+    ):
+        root = harness.get_filesystem_root("nms")
+        (root / "nms/config/").mkdir(parents=True)
+        test_management_url = "http://10.11.0.1:5000"
+        self.set_sdcore_management_relation_data(harness, test_management_url)
 
         expected_plan = {
             "services": {
@@ -290,333 +392,74 @@ class TestCharm(unittest.TestCase):
                 }
             }
         }
-        self.harness.container_pebble_ready("nms")
-        updated_plan = self.harness.get_container_pebble_plan("nms").to_dict()
+        harness.container_pebble_ready("nms")
+        updated_plan = harness.get_container_pebble_plan("nms").to_dict()
 
-        self.assertEqual(expected_plan, updated_plan)
+        assert expected_plan == updated_plan
 
-    def test_given_required_relations_created_without_fiveg_n4_relation_when_pebble_ready_then_pebble_plan_is_applied(  # noqa: E501
-        self,
+    def test_given_no_sdcore_management_relation_when_pebble_ready_then_upf_config_file_is_generated_and_pushed(  # noqa: E501
+        self, harness
     ):
-        root = self.harness.get_filesystem_root("nms")
+        root = harness.get_filesystem_root("nms")
         (root / "nms/config/").mkdir(parents=True)
-        test_management_url = "http://10.0.0.1:5000"
+        self.set_n4_relation_data(harness, {"upf_hostname": "some.host.name", "upf_port": "1234"})
 
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": test_management_url},
-        )
+        harness.container_pebble_ready("nms")
 
-        expected_plan = {
-            "services": {
-                "nms": {
-                    "startup": "enabled",
-                    "override": "replace",
-                    "command": "/bin/bash -c 'cd /app && npm run start'",
-                    "environment": {
-                        "UPF_CONFIG_PATH": TEST_UPF_CONFIG_PATH,
-                        "GNB_CONFIG_PATH": TEST_GNB_CONFIG_PATH,
-                        "WEBUI_ENDPOINT": test_management_url,
-                    },
-                }
-            }
-        }
-        self.harness.container_pebble_ready("nms")
-        updated_plan = self.harness.get_container_pebble_plan("nms").to_dict()
+        expected_config= [{"hostname": "some.host.name","port": "1234"}]
+        assert json.loads((root / UPF_CONFIG_FILE).read_text()) == expected_config
 
-        self.assertEqual(expected_plan, updated_plan)
-
-    def test_given_environment_information_available_all_relations_created_when_pebble_ready_then_status_is_active(  # noqa: E501
-        self,
+    def test_given_no_sdcore_management_relation_when_pebble_ready_then_gnb_config_file_is_generated_and_pushed(  # noqa: E501
+        self, harness
     ):
-        root = self.harness.get_filesystem_root("nms")
+        root = harness.get_filesystem_root("nms")
         (root / "nms/config/").mkdir(parents=True)
-        self.harness.set_can_connect(container="nms", val=True)
-        fiveg_n4_relation_id = self.harness.add_relation(
-            relation_name=FIVEG_N4_RELATION_NAME,
-            remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=fiveg_n4_relation_id,
-            app_or_unit=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-            key_values={"upf_hostname": "some.host.name", "upf_port": "1234"},
-        )
+        self.set_n4_relation_data(harness, {"upf_hostname": "some.host.name", "upf_port": "1234"})
+        self.set_gnb_identity_relation_data(harness,{"gnb_name": "some.gnb.name", "tac": "1234"})
 
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": "http://10.0.0.1:5000"},
-        )
+        harness.container_pebble_ready("nms")
 
-        gnb_identity_relation_id = self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=gnb_identity_relation_id,
-            app_or_unit=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-            key_values={"gnb_name": "some.gnb", "tac": "1234"},
-        )
-        self.harness.evaluate_status()
+        expected_config = [{"name": "some.gnb.name","tac": "1234"}]
+        assert json.loads((root / GNB_CONFIG_FILE).read_text()) == expected_config
 
-        self.assertEqual(self.harness.model.unit.status, ActiveStatus())
-
-    def test_given_no_sdcore_management_relation_when_pebble_ready_then_upf_config_generated_and_pushed(  # noqa: E501
-        self,
+    def test_given_sdcore_management_relation_when_pebble_ready_then_upf_config_file_is_generated_and_pushed(  # noqa: E501
+        self, harness
     ):
-        root = self.harness.get_filesystem_root("nms")
+        self.set_sdcore_management_relation_data(harness, "http://10.0.0.1:5000")
+        root = harness.get_filesystem_root("nms")
         (root / "nms/config/").mkdir(parents=True)
-        expected_upf_config = [
-            {
-                "hostname": "some.host.name",
-                "port": "1234",
-            }
-        ]
-        fiveg_n4_relation_id = self.harness.add_relation(
-            relation_name=FIVEG_N4_RELATION_NAME,
-            remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=fiveg_n4_relation_id,
-            app_or_unit=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-            key_values={"upf_hostname": "some.host.name", "upf_port": "1234"},
-        )
+        self.set_n4_relation_data(harness, {"upf_hostname": "some.host.name", "upf_port": "1234"})
 
-        self.harness.container_pebble_ready("nms")
+        harness.container_pebble_ready("nms")
 
-        self.assertEqual(
-            json.loads((root / "nms/config/upf_config.json").read_text()), expected_upf_config
-        )
+        expected_config= [{"hostname": "some.host.name","port": "1234"}]
+        assert json.loads((root / UPF_CONFIG_FILE).read_text()) == expected_config
 
-    def test_given_no_sdcore_management_relation_when_pebble_ready_then_gnb_config_generated_and_pushed(  # noqa: E501
-        self,
+    def test_given_sdcore_management_relation_when_pebble_ready_then_gnb_config_file_is_generated_and_pushed(  # noqa: E501
+        self, harness
     ):
-        root = self.harness.get_filesystem_root("nms")
+        self.set_sdcore_management_relation_data(harness, "http://10.0.0.1:5000")
+        root = harness.get_filesystem_root("nms")
         (root / "nms/config/").mkdir(parents=True)
-        expected_gnb_config = [
-            {
-                "name": "some.gnb",
-                "tac": "1234",
-            }
-        ]
-        gnb_identity_relation_id = self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=gnb_identity_relation_id,
-            app_or_unit=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-            key_values={"gnb_name": "some.gnb", "tac": "1234"},
-        )
+        self.set_n4_relation_data(harness, {"upf_hostname": "some.host.name", "upf_port": "1234"})
+        self.set_gnb_identity_relation_data(harness,{"gnb_name": "some.gnb.name", "tac": "1234"})
 
-        self.harness.container_pebble_ready("nms")
+        harness.container_pebble_ready("nms")
 
-        self.assertEqual(
-            json.loads((root / "nms/config/gnb_config.json").read_text()), expected_gnb_config
-        )
+        expected_config = [{"name": "some.gnb.name","tac": "1234"}]
+        assert json.loads((root / GNB_CONFIG_FILE).read_text()) == expected_config
 
-    def test_given_n4_information_available_when_pebble_ready_then_upf_config_generated_and_pushed(  # noqa: E501
-        self,
+    def test_given_multiple_n4_relations_when_pebble_ready_then_upf_config_generated_and_pushed(
+        self, harness
     ):
-        root = self.harness.get_filesystem_root("nms")
+        self.set_sdcore_management_relation_data(harness, "http://10.0.0.1:5000")
+        root = harness.get_filesystem_root("nms")
         (root / "nms/config/").mkdir(parents=True)
-        expected_upf_config = [
-            {
-                "hostname": "some.host.name",
-                "port": "1234",
-            },
-            {
-                "hostname": "some.other.host.name",
-                "port": "4567",
-            },
-        ]
-        self.harness.set_can_connect(container="nms", val=True)
-        fiveg_n4_relation_1_id = self.harness.add_relation(
-            relation_name=FIVEG_N4_RELATION_NAME,
-            remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=fiveg_n4_relation_1_id,
-            app_or_unit=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-            key_values={"upf_hostname": "some.host.name", "upf_port": "1234"},
-        )
-        fiveg_n4_relation_2_id = self.harness.add_relation(
-            relation_name=FIVEG_N4_RELATION_NAME,
-            remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=fiveg_n4_relation_2_id,
-            app_or_unit=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-            key_values={"upf_hostname": "some.other.host.name", "upf_port": "4567"},
-        )
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": "http://10.0.0.1:5000"},
-        )
+        harness.set_can_connect(container="nms", val=True)
+        self.set_n4_relation_data(harness,{"upf_hostname": "some.host.name", "upf_port": "1234"})
+        self.set_n4_relation_data(harness,{"upf_hostname": "my_host", "upf_port": "77"})
 
-        self.harness.container_pebble_ready("nms")
-
-        self.assertEqual(
-            json.loads((root / "nms/config/upf_config.json").read_text()), expected_upf_config
-        )
-
-    def test_given_gnb_identity_information_available_when_pebble_ready_then_gnb_config_generated_and_pushed(  # noqa: E501
-        self,
-    ):
-        root = self.harness.get_filesystem_root("nms")
-        (root / "nms/config/").mkdir(parents=True)
-        expected_gnb_config = [
-            {
-                "name": "some.gnb",
-                "tac": "1234",
-            }
-        ]
-        gnb_identity_relation_id = self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=gnb_identity_relation_id,
-            app_or_unit=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-            key_values={"gnb_name": "some.gnb", "tac": "1234"},
-        )
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": "http://10.0.0.1:5000"},
-        )
-
-        self.harness.container_pebble_ready("nms")
-
-        self.assertEqual(
-            json.loads((root / "nms/config/gnb_config.json").read_text()), expected_gnb_config
-        )
-
-    def test_given_gnb_config_already_pushed_and_content_matches_when_pebble_ready_then_gnb_config_is_not_changed(  # noqa: E501
-        self,
-    ):
-        root = self.harness.get_filesystem_root("nms")
-        (root / "nms/config/").mkdir(parents=True)
-        expected_gnb_content = read_file("tests/unit/expected_gnb.json")
-        (root / "nms/config/upf_config.json").write_text(expected_gnb_content)
-
-        gnb_identity_relation_id = self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=gnb_identity_relation_id,
-            app_or_unit=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-            key_values={"gnb_name": "some.gnb.name", "tac": "1234"},
-        )
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": "http://10.0.0.1:5000"},
-        )
-
-        self.harness.container_pebble_ready("nms")
-
-        self.assertEqual(
-            json.loads((root / "nms/config/gnb_config.json").read_text()),
-            json.loads(expected_gnb_content),
-        )
-
-    def test_given_no_n4_relation_when_pebble_ready_then_config_file_pushed(self):
-        self.harness.set_can_connect(container="nms", val=True)
-        root = self.harness.get_filesystem_root("nms")
-        (root / "nms/config/").mkdir(parents=True)
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": "http://10.0.0.1:5000"},
-        )
-
-        self.harness.container_pebble_ready("nms")
-
-        self.assertEqual((root / "nms/config/upf_config.json").read_text(), "[]")
-
-    def test_given_no_gnb_relation_when_pebble_ready_then_config_file_pushed(self):
-        self.harness.set_can_connect(container="nms", val=True)
-        root = self.harness.get_filesystem_root("nms")
-        (root / "nms/config/").mkdir(parents=True)
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": "http://10.0.0.1:5000"},
-        )
-
-        self.harness.container_pebble_ready("nms")
-
-        self.assertEqual((root / "nms/config/gnb_config.json").read_text(), "[]")
-
-    def test_given_upf_config_already_pushed_and_content_matches_when_pebble_ready_then_upf_config_is_not_changed(  # noqa: E501
-        self,
-    ):
-        root = self.harness.get_filesystem_root("nms")
-        (root / "nms/config/").mkdir(parents=True)
-        expected_upf_content = read_file("tests/unit/expected_upf.json")
-        (root / "nms/config/upf_config.json").write_text(expected_upf_content)
-
-        fiveg_n4_relation_id = self.harness.add_relation(
-            relation_name=FIVEG_N4_RELATION_NAME,
-            remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=fiveg_n4_relation_id,
-            app_or_unit=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-            key_values={"upf_hostname": "some.host.name", "upf_port": "1234"},
-        )
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": "http://10.0.0.1:5000"},
-        )
-        self.harness.container_pebble_ready("nms")
-
-        self.assertEqual((root / "nms/config/upf_config.json").read_text(), expected_upf_content)
-
-    def test_given_upf_config_already_pushed_and_content_changes_when_pebble_ready_then_upf_config_is_pushed(  # noqa: E501
-        self,
-    ):
-        root = self.harness.get_filesystem_root("nms")
-        (root / "nms/config/").mkdir(parents=True)
-        existing_upf_config = read_file("tests/unit/expected_upf.json")
-        (root / "nms/config/upf_config.json").write_text(existing_upf_config)
+        harness.container_pebble_ready("nms")
 
         expected_upf_config = [
             {
@@ -624,367 +467,253 @@ class TestCharm(unittest.TestCase):
                 "port": "1234",
             },
             {
-                "hostname": "some.other.host.name",
-                "port": "4567",
+                "hostname": "my_host",
+                "port": "77",
             },
         ]
+        assert json.loads((root / UPF_CONFIG_FILE).read_text()) == expected_upf_config
 
-        fiveg_n4_relation_1_id = self.harness.add_relation(
-            relation_name=FIVEG_N4_RELATION_NAME,
-            remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=fiveg_n4_relation_1_id,
-            app_or_unit=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-            key_values={"upf_hostname": "some.host.name", "upf_port": "1234"},
-        )
-        fiveg_n4_relation_2_id = self.harness.add_relation(
-            relation_name=FIVEG_N4_RELATION_NAME,
-            remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=fiveg_n4_relation_2_id,
-            app_or_unit=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-            key_values={"upf_hostname": "some.other.host.name", "upf_port": "4567"},
-        )
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": "http://10.0.0.1:5000"},
-        )
-        self.harness.container_pebble_ready("nms")
-
-        self.assertEqual(
-            json.loads((root / "nms/config/upf_config.json").read_text()), expected_upf_config
-        )
-
-    def test_given_gnb_config_already_pushed_and_content_changes_when_pebble_ready_then_gnb_config_is_pushed(  # noqa: E501
-        self,
+    def test_given_multiple_gnb_config_relations_when_pebble_ready_then_gnb_config_is_pushed(
+        self, harness,
     ):
-        root = self.harness.get_filesystem_root("nms")
+        self.set_sdcore_management_relation_data(harness, "http://10.0.0.1:5000")
+        root = harness.get_filesystem_root("nms")
         (root / "nms/config/").mkdir(parents=True)
-        existing_gnb_config = read_file("tests/unit/expected_gnb.json")
-        (root / "nms/config/upf_config.json").write_text(existing_gnb_config)
+        self.set_gnb_identity_relation_data(harness, {"gnb_name": "some.gnb.name", "tac": "1234"})
+        self.set_gnb_identity_relation_data(harness, {"gnb_name": "my_gnb", "tac": "4567"})
+
+        harness.container_pebble_ready("nms")
+
         expected_gnb_config = [
             {
                 "name": "some.gnb.name",
                 "tac": "1234",
             },
             {
-                "name": "some.other.gnb.name",
+                "name": "my_gnb",
                 "tac": "4567",
             },
         ]
+        assert json.loads((root / GNB_CONFIG_FILE).read_text()) == expected_gnb_config
 
-        gnb_identity_relation_1_id = self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=gnb_identity_relation_1_id,
-            app_or_unit=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-            key_values={"gnb_name": "some.gnb.name", "tac": "1234"},
-        )
-        gnb_identity_relation_2_id = self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=gnb_identity_relation_2_id,
-            app_or_unit=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-            key_values={"gnb_name": "some.other.gnb.name", "tac": "4567"},
-        )
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": "http://10.0.0.1:5000"},
-        )
+    def test_given_gnb_config_already_pushed_and_content_matches_when_pebble_ready_then_gnb_config_is_not_changed(  # noqa: E501
+        self, harness,
+    ):
+        self.set_sdcore_management_relation_data(harness, "http://10.0.0.1:5000")
+        root = harness.get_filesystem_root("nms")
+        (root / "nms/config/").mkdir(parents=True)
+        expected_gnb_content = read_file("tests/unit/expected_gnb.json")
+        (root / GNB_CONFIG_FILE).write_text(expected_gnb_content)
+        self.set_gnb_identity_relation_data(harness, {"gnb_name": "some.gnb.name", "tac": "1234"})
 
-        self.harness.container_pebble_ready("nms")
+        harness.container_pebble_ready("nms")
 
-        self.assertEqual(
-            json.loads((root / "nms/config/gnb_config.json").read_text()), expected_gnb_config
-        )
+        assert json.loads((root / GNB_CONFIG_FILE).read_text()) == json.loads(expected_gnb_content)
 
-    def test_given_2_n4_relations_when_n4_relation_broken_then_upf_config_file_is_updated(self):
-        root = self.harness.get_filesystem_root("nms")
+    def test_given_upf_config_already_pushed_and_content_matches_when_pebble_ready_then_upf_config_is_not_changed(  # noqa: E501
+        self, harness,
+    ):
+        self.set_sdcore_management_relation_data(harness, "http://10.0.0.1:5000")
+        root = harness.get_filesystem_root("nms")
+        (root / "nms/config/").mkdir(parents=True)
+        expected_upf_content = read_file("tests/unit/expected_upf.json")
+        (root / UPF_CONFIG_FILE).write_text(expected_upf_content)
+        self.set_n4_relation_data(harness, {"upf_hostname": "some.host.name", "upf_port": "1234"})
+
+        harness.container_pebble_ready("nms")
+
+        assert json.loads((root / UPF_CONFIG_FILE).read_text()) == json.loads(expected_upf_content)
+
+    @pytest.mark.parametrize("config_file", [(UPF_CONFIG_FILE), (GNB_CONFIG_FILE)])
+    def test_given_no_relation_when_pebble_ready_then_config_file_pushed(
+        self, harness, config_file
+    ):
+        self.set_sdcore_management_relation_data(harness, "http://10.0.0.1:5000")
+        harness.set_can_connect(container="nms", val=True)
+        root = harness.get_filesystem_root("nms")
         (root / "nms/config/").mkdir(parents=True)
 
-        fiveg_n4_relation_1_id = self.harness.add_relation(
-            relation_name=FIVEG_N4_RELATION_NAME,
-            remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=fiveg_n4_relation_1_id,
-            app_or_unit=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-            key_values={"upf_hostname": "some.host.name", "upf_port": "1234"},
-        )
-        fiveg_n4_relation_2_id = self.harness.add_relation(
-            relation_name=FIVEG_N4_RELATION_NAME,
-            remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=fiveg_n4_relation_2_id,
-            app_or_unit=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-            key_values={"upf_hostname": "some.other.host.name", "upf_port": "4567"},
-        )
-        self.harness.container_pebble_ready("nms")
+        harness.container_pebble_ready("nms")
 
-        self.harness.remove_relation(fiveg_n4_relation_1_id)
+        assert (root / config_file).read_text() == "[]"
+
+    def test_given_upf_config_already_pushed_and_content_changes_when_pebble_ready_then_upf_config_is_updated(  # noqa: E501
+        self, harness,
+    ):
+        root = harness.get_filesystem_root("nms")
+        (root / "nms/config/").mkdir(parents=True)
+        (root / UPF_CONFIG_FILE).write_text("some_config")
+        self.set_n4_relation_data(harness, {"upf_hostname": "some.host.name", "upf_port": "1234"})
+        self.set_n4_relation_data(harness, {"upf_hostname": "my_host", "upf_port": "4567"})
+
+        harness.container_pebble_ready("nms")
+
+        expected_upf_config = [
+            {
+                "hostname": "some.host.name",
+                "port": "1234",
+            },
+            {
+                "hostname": "my_host",
+                "port": "4567",
+            },
+        ]
+        assert json.loads((root / UPF_CONFIG_FILE).read_text()) == expected_upf_config
+
+    def test_given_gnb_config_already_pushed_and_content_changes_when_pebble_ready_then_gnb_config_is_updated(  # noqa: E501
+        self, harness,
+    ):
+        self.set_sdcore_management_relation_data(harness, "http://10.0.0.1:5000")
+        root = harness.get_filesystem_root("nms")
+        (root / "nms/config/").mkdir(parents=True)
+        (root / GNB_CONFIG_FILE).write_text("some configuration")
+        self.set_gnb_identity_relation_data(harness, {"gnb_name": "some.gnb.name", "tac": "1234"})
+        self.set_gnb_identity_relation_data(harness, {"gnb_name": "my_gnb", "tac": "4567"})
+
+        harness.container_pebble_ready("nms")
+
+        expected_gnb_config = [
+            {
+                "name": "some.gnb.name",
+                "tac": "1234",
+            },
+            {
+                "name": "my_gnb",
+                "tac": "4567",
+            },
+        ]
+        assert json.loads((root / GNB_CONFIG_FILE).read_text()) == expected_gnb_config
+
+    def test_given_2_n4_relations_when_n4_relation_broken_then_upf_config_file_is_updated(
+        self, harness
+    ):
+        root = harness.get_filesystem_root("nms")
+        (root / "nms/config/").mkdir(parents=True)
+        fiveg_n4_relation_1_id = self.set_n4_relation_data(
+            harness,
+            {"upf_hostname": "some.host.name", "upf_port": "1234"}
+        )
+        self.set_n4_relation_data(harness, {"upf_hostname": "some.host", "upf_port": "22"})
+        harness.container_pebble_ready("nms")
+
+        harness.remove_relation(fiveg_n4_relation_1_id)
 
         expected_upf_config = [{
-                "hostname": "some.other.host.name",
-                "port": "4567",
+                "hostname": "some.host",
+                "port": "22",
         }]
-        self.assertEqual(
-            json.loads((root / "nms/config/upf_config.json").read_text()), expected_upf_config
-        )
+        assert json.loads((root / UPF_CONFIG_FILE).read_text()) == expected_upf_config
 
-    def test_given_2_gnb_identity_relations_when_gnb_identity_relation_broken_then_gnb_config_file_is_updated(  # noqa: E501
-        self,
+    def test_given_2_gnb_identity_relations_when_relation_broken_then_gnb_config_file_is_updated(
+        self, harness,
     ):
-        root = self.harness.get_filesystem_root("nms")
+        root = harness.get_filesystem_root("nms")
         (root / "nms/config/").mkdir(parents=True)
+        gnb_identity_relation_1_id = self.set_gnb_identity_relation_data(
+            harness,
+            {"gnb_name": "some.gnb.name", "tac": "1234"}
+        )
+        self.set_gnb_identity_relation_data(harness, {"gnb_name": "gnb.name", "tac": "333"})
+        harness.container_pebble_ready("nms")
 
-        gnb_identity_relation_1_id = self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=gnb_identity_relation_1_id,
-            app_or_unit=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-            key_values={"gnb_name": "some.gnb.name", "tac": "1234"},
-        )
-        gnb_identity_relation_2_id = self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=gnb_identity_relation_2_id,
-            app_or_unit=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-            key_values={"gnb_name": "some.other.gnb.name", "tac": "4567"},
-        )
-        self.harness.container_pebble_ready("nms")
-
-        self.harness.remove_relation(gnb_identity_relation_1_id)
+        harness.remove_relation(gnb_identity_relation_1_id)
 
         expected_gnb_config = [{
-            "name": "some.other.gnb.name",
-            "tac": "4567",
+            "name": "gnb.name",
+            "tac": "333",
         }]
-        self.assertEqual(
-            json.loads((root / "nms/config/gnb_config.json").read_text()), expected_gnb_config
-        )
+        assert json.loads((root / GNB_CONFIG_FILE).read_text()) == expected_gnb_config
 
-    def test_given_not_sdcore_management_relation_and_existing_gnb_config_when_gnb_identity_relation_broken_then_gnb_config_file_is_updated(  # noqa: E501
-        self
+    @pytest.mark.parametrize(
+        "relation_name,config_file",
+        [
+            pytest.param(
+                FIVEG_N4_RELATION_NAME, UPF_CONFIG_FILE, id="UPF_config"
+            ),
+            pytest.param(
+                GNB_IDENTITY_RELATION_NAME, GNB_CONFIG_FILE, id="gNB_config"
+            ),
+        ]
+    )
+    def test_given_not_sdcore_management_relation_and_existing_config_file_when_relation_broken_then_config_file_is_updated(  # noqa: E501
+        self, harness, relation_name, config_file
     ):
-        root = self.harness.get_filesystem_root("nms")
+        root = harness.get_filesystem_root("nms")
         (root / "nms/config/").mkdir(parents=True)
-        (root / "nms/config/gnb_config.json").write_text("Some gnb config")
+        (root / config_file).write_text("Some random config")
 
-        gnb_identity_relation_id = self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
+        relation_id = harness.add_relation(
+            relation_name=relation_name,
+            remote_app=REMOTE_APP_NAME,
         )
-        self.harness.set_can_connect(container="nms", val=True)
+        harness.set_can_connect(container="nms", val=True)
 
-        self.harness.remove_relation(gnb_identity_relation_id)
+        harness.remove_relation(relation_id)
 
-        self.assertEqual((root / "nms/config/gnb_config.json").read_text(), "[]")
+        assert (root / config_file).read_text() == "[]"
 
-    def test_given_not_sdcore_management_relation_and_existing_upf_config_when_fiveg_n4_relation_broken_then_upf_config_file_is_updated(  # noqa: E501
-        self
+
+    @pytest.mark.parametrize(
+        "relation_name",
+        [
+            (FIVEG_N4_RELATION_NAME),
+            (GNB_IDENTITY_RELATION_NAME)
+        ]
+    )
+    def test_given_storage_not_attached_when_relation_broken_then_no_exception_is_raised(
+        self, harness, relation_name
     ):
-        root = self.harness.get_filesystem_root("nms")
-        (root / "nms/config/").mkdir(parents=True)
-        (root / "nms/config/upf_config.json").write_text("Some upf config")
-
-        fiveg_n4_relation_id = self.harness.add_relation(
-            relation_name=FIVEG_N4_RELATION_NAME,
-            remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
+        relation_id = harness.add_relation(
+            relation_name=relation_name,
+            remote_app=REMOTE_APP_NAME,
         )
-        self.harness.set_can_connect(container="nms", val=True)
+        harness.set_can_connect(container="nms", val=True)
 
-        self.harness.remove_relation(fiveg_n4_relation_id)
+        harness.remove_relation(relation_id)
 
-        self.assertEqual((root / "nms/config/upf_config.json").read_text(), "[]")
-
-    def test_given_storage_not_attached_when_gnb_identity_relation_broken_then_no_exception_is_raised(  # noqa: E501
-        self
+    @pytest.mark.parametrize(
+        "relation_name",
+        [
+            (FIVEG_N4_RELATION_NAME),
+            (GNB_IDENTITY_RELATION_NAME)
+        ]
+    )
+    def test_given_cannot_connect_to_container_when_relation_broken_then_no_exception_is_raised(
+        self, harness, relation_name
     ):
-        gnb_identity_relation_id = self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
+        root = harness.get_filesystem_root("nms")
+        (root / "nms/config/").mkdir(parents=True)
+        relation_id = harness.add_relation(
+            relation_name=relation_name,
+            remote_app=REMOTE_APP_NAME,
         )
-        self.harness.set_can_connect(container="nms", val=True)
+        harness.set_can_connect(container="nms", val=False)
 
-        self.harness.remove_relation(gnb_identity_relation_id)
+        harness.remove_relation(relation_id)
 
-    def test_given_storage_not_attached_when_n4_relation_broken_then_no_exception_is_raised(self):
-        fiveg_n4_relation_id = self.harness.add_relation(
-            relation_name=FIVEG_N4_RELATION_NAME,
-            remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-        )
-        self.harness.set_can_connect(container="nms", val=True)
-
-        self.harness.remove_relation(fiveg_n4_relation_id)
-
-    def test_given_cannot_connect_to_container_when_gnb_identity_relation_broken_then_no_exception_is_raised(  # noqa: E501
-        self
+    @pytest.mark.parametrize(
+        "relation_name,config_file",
+        [
+            pytest.param(
+                FIVEG_N4_RELATION_NAME, UPF_CONFIG_FILE, id="UPF_config"
+            ),
+            pytest.param(
+                GNB_IDENTITY_RELATION_NAME, GNB_CONFIG_FILE, id="gNB_config"
+            ),
+        ]
+    )
+    def test_given_config_file_does_not_exist_when_relation_broken_then_file_is_created(
+        self, harness, relation_name, config_file
     ):
-        gnb_identity_relation_id = self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-        )
-        self.harness.set_can_connect(container="nms", val=False)
-
-        self.harness.remove_relation(gnb_identity_relation_id)
-
-    def test_given_cannot_connect_to_container_when_n4_relation_broken_then_no_exception_is_raised(  # noqa: E501
-        self
-    ):
-        fiveg_n4_relation_id = self.harness.add_relation(
-            relation_name=FIVEG_N4_RELATION_NAME,
-            remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-        )
-        self.harness.set_can_connect(container="nms", val=False)
-
-        self.harness.remove_relation(fiveg_n4_relation_id)
-
-    def test_given_gnb_config_file_does_not_exist_when_gnb_identity_relation_broken_then_gnb_config_file_is_created(  # noqa: E501
-        self
-    ):
-        root = self.harness.get_filesystem_root("nms")
+        root = harness.get_filesystem_root("nms")
         (root / "nms/config/").mkdir(parents=True)
-        gnb_identity_relation_id = self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
+        relation_id = harness.add_relation(
+            relation_name=relation_name,
+            remote_app=REMOTE_APP_NAME,
         )
-        self.harness.set_can_connect(container="nms", val=True)
-        self.assertFalse((root / "nms/config/gnb_config.json").exists())
+        harness.set_can_connect(container="nms", val=True)
+        assert not (root / config_file).exists()
 
-        self.harness.remove_relation(gnb_identity_relation_id)
+        harness.remove_relation(relation_id)
 
-        self.assertEqual((root / "nms/config/gnb_config.json").read_text(), "[]")
-
-    def test_given_upf_config_file_does_not_exist_when_fiveg_n4_relation_broken_then_upf_config_file_is_created(  # noqa: E501
-        self
-    ):
-        root = self.harness.get_filesystem_root("nms")
-        (root / "nms/config/").mkdir(parents=True)
-        fiveg_n4_relation_id = self.harness.add_relation(
-            relation_name=FIVEG_N4_RELATION_NAME,
-            remote_app=TEST_FIVEG_N4_PROVIDER_APP_NAME,
-        )
-        self.harness.set_can_connect(container="nms", val=True)
-        self.assertFalse((root / "nms/config/upf_config.json").exists())
-
-        self.harness.remove_relation(fiveg_n4_relation_id)
-
-        self.assertEqual((root / "nms/config/upf_config.json").read_text(), "[]")
-
-
-    def test_given_storage_not_available_when_pebble_ready_then_status_is_waiting(self):
-        gnb_identity_relation_id = self.harness.add_relation(
-            relation_name=GNB_IDENTITY_RELATION_NAME,
-            remote_app=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=gnb_identity_relation_id,
-            app_or_unit=TEST_GNB_IDENTITY_PROVIDER_APP_NAME,
-            key_values={"gnb_name": "some.gnb", "tac": "1234"},
-        )
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": "http://10.0.0.1:5000"},
-        )
-
-        self.harness.container_pebble_ready("nms")
-        self.harness.evaluate_status()
-
-        self.assertEqual(
-            self.harness.model.unit.status, WaitingStatus("Waiting for storage to be attached")
-        )
-
-    def test_given_upf_config_file_not_available_when_evaluate_status_then_status_is_waiting(self):
-        root = self.harness.get_filesystem_root("nms")
-        (root / "nms/config/").mkdir(parents=True)
-        (root / "nms/config/gnb_config.json").write_text("[]")
-
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": "http://10.0.0.1:5000"},
-        )
-
-        self.harness.set_can_connect(container="nms", val=True)
-        self.harness.evaluate_status()
-
-        self.assertEqual(
-            self.harness.model.unit.status,
-            WaitingStatus("Waiting for UPF config file to be stored"),
-        )
-
-    def test_given_gnb_config_file_not_available_when_evaluate_status_then_status_is_waiting(self):
-        root = self.harness.get_filesystem_root("nms")
-        (root / "nms/config/").mkdir(parents=True)
-        (root / "nms/config/upf_config.json").write_text("[]")
-
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": "http://10.0.0.1:5000"},
-        )
-
-        self.harness.set_can_connect(container="nms", val=True)
-        self.harness.evaluate_status()
-
-        self.assertEqual(
-            self.harness.model.unit.status,
-            WaitingStatus("Waiting for GNB config file to be stored"),
-        )
-
-    def test_given_service_is_not_running_when_evaluate_status_then_status_is_waiting(self):
-        root = self.harness.get_filesystem_root("nms")
-        (root / "nms/config/").mkdir(parents=True)
-        (root / "nms/config/upf_config.json").write_text("[]")
-        (root / "nms/config/gnb_config.json").write_text("[]")
-
-        sdcore_management_relation_id = self.harness.add_relation(
-            relation_name=SDCORE_MANAGEMENT_RELATION_NAME,
-            remote_app=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-        )
-        self.harness.update_relation_data(
-            relation_id=sdcore_management_relation_id,
-            app_or_unit=TEST_SDCORE_MANAGEMENT_PROVIDER_APP_NAME,
-            key_values={"management_url": "http://10.0.0.1:5000"},
-        )
-
-        self.harness.set_can_connect(container="nms", val=True)
-        self.harness.evaluate_status()
-
-        self.assertEqual(
-            self.harness.model.unit.status, WaitingStatus("Waiting for NMS service to start")
-        )
+        assert (root / config_file).read_text() == "[]"
