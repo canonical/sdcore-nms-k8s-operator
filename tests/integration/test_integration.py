@@ -89,10 +89,10 @@ async def deploy_sdcore_webui(ops_test: OpsTest):
         channel=WEBUI_CHARM_CHANNEL,
     )
     await ops_test.model.integrate(
-        relation1=f"{APP_NAME}:common_database", relation2=f"{DATABASE_CHARM_NAME}"
+        relation1=f"{WEBUI_CHARM_NAME}:common_database", relation2=f"{DATABASE_CHARM_NAME}"
     )
     await ops_test.model.integrate(
-        relation1=f"{APP_NAME}:auth_database", relation2=f"{DATABASE_CHARM_NAME}"
+        relation1=f"{WEBUI_CHARM_NAME}:auth_database", relation2=f"{DATABASE_CHARM_NAME}"
     )
 
 
