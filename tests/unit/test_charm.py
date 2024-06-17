@@ -2,6 +2,7 @@
 # See LICENSE file for licensing details.
 
 import json
+import os
 
 import pytest
 from charm import SDCoreNMSOperatorCharm
@@ -34,7 +35,8 @@ def read_file(path: str) -> str:
         content = f.read()
     return content
 
-class TestCharm():
+
+class TestCharm:
     @pytest.fixture(autouse=True)
     def harness(self):
         self.harness = testing.Harness(SDCoreNMSOperatorCharm)
@@ -106,8 +108,8 @@ class TestCharm():
         self.harness.evaluate_status()
 
         assert self.harness.model.unit.status == WaitingStatus(
-                                                    "Waiting for storage to be attached"
-                                                )
+            "Waiting for storage to be attached"
+        )
 
     def test_given_sdcore_management_relation_not_created_when_pebble_ready_then_status_is_blocked(
         self,
@@ -116,8 +118,8 @@ class TestCharm():
         self.harness.evaluate_status()
 
         assert self.harness.model.unit.status == BlockedStatus(
-                f"Waiting for `{SDCORE_MANAGEMENT_RELATION_NAME}` relation to be created"
-            )
+            f"Waiting for `{SDCORE_MANAGEMENT_RELATION_NAME}` relation to be created"
+        )
 
     def test_given_management_url_not_available_when_pebble_ready_then_status_is_waiting(self):
         self.harness.add_relation(
@@ -129,8 +131,8 @@ class TestCharm():
         self.harness.evaluate_status()
 
         assert self.harness.model.unit.status == WaitingStatus(
-                                "Waiting for webui management URL to be available"
-                                )
+            "Waiting for webui management URL to be available"
+        )
 
     def test_given_management_url_available_when_pebble_ready_then_status_is_active(self):
         root = self.harness.get_filesystem_root("nms")
@@ -143,11 +145,7 @@ class TestCharm():
         assert self.harness.model.unit.status == ActiveStatus()
 
     @pytest.mark.parametrize(
-        "relation_name",
-        [
-            (FIVEG_N4_RELATION_NAME),
-            (GNB_IDENTITY_RELATION_NAME)
-        ]
+        "relation_name", [(FIVEG_N4_RELATION_NAME), (GNB_IDENTITY_RELATION_NAME)]
     )
     def test_given_data_from_not_mandatory_relation_not_available_when_pebble_ready_then_status_is_active(  # noqa: E501
         self, relation_name
@@ -169,26 +167,24 @@ class TestCharm():
         "relation_name,relation_data",
         [
             pytest.param(
-                GNB_IDENTITY_RELATION_NAME,
-                {"tac": "1234"},
-                id="missing_gnb_name_in_gNB_config"
+                GNB_IDENTITY_RELATION_NAME, {"tac": "1234"}, id="missing_gnb_name_in_gNB_config"
             ),
             pytest.param(
                 GNB_IDENTITY_RELATION_NAME,
                 {"gnb_name": "some.gnb"},
-                id="missing_tac_in_gNB_config"
+                id="missing_tac_in_gNB_config",
             ),
             pytest.param(
                 FIVEG_N4_RELATION_NAME,
                 {"upf_hostname": "some.host.name"},
-                id="missing_upf_port_in_UPF_config"
+                id="missing_upf_port_in_UPF_config",
             ),
             pytest.param(
                 FIVEG_N4_RELATION_NAME,
                 {"upf_port": "1234"},
-                id="missing_upf_hostname_in_UPF_config"
+                id="missing_upf_hostname_in_UPF_config",
             ),
-        ]
+        ],
     )
     def test_given_incomplete_data_in_not_mandatory_relation_when_pebble_ready_then_status_is_active(  # noqa: E501
         self, relation_name, relation_data
@@ -226,13 +222,9 @@ class TestCharm():
     @pytest.mark.parametrize(
         "existing_config_file,app_name",
         [
-            pytest.param(
-                UPF_CONFIG_FILE, "GNB", id="gNB_config_file_is_missing"
-            ),
-            pytest.param(
-                GNB_CONFIG_FILE, "UPF", id="UPF_config_file_is_missing"
-            ),
-        ]
+            pytest.param(UPF_CONFIG_FILE, "GNB", id="gNB_config_file_is_missing"),
+            pytest.param(GNB_CONFIG_FILE, "UPF", id="UPF_config_file_is_missing"),
+        ],
     )
     def test_given_config_file_not_available_when_evaluate_status_then_status_is_waiting(
         self, existing_config_file, app_name
@@ -246,8 +238,8 @@ class TestCharm():
         self.harness.evaluate_status()
 
         assert self.harness.model.unit.status == WaitingStatus(
-                                            f"Waiting for {app_name} config file to be stored"
-                                            )
+            f"Waiting for {app_name} config file to be stored"
+        )
 
     @pytest.mark.parametrize(
         "relation_name,config_file,relation_data",
@@ -256,54 +248,54 @@ class TestCharm():
                 GNB_IDENTITY_RELATION_NAME,
                 GNB_CONFIG_FILE,
                 {"tac": "1234"},
-                id="missing_gnb_name_in_gNB_config"
+                id="missing_gnb_name_in_gNB_config",
             ),
             pytest.param(
                 GNB_IDENTITY_RELATION_NAME,
                 GNB_CONFIG_FILE,
                 {"gnb_name": "some.gnb"},
-                id="missing_tac_in_gNB_config"
+                id="missing_tac_in_gNB_config",
             ),
             pytest.param(
                 GNB_IDENTITY_RELATION_NAME,
                 GNB_CONFIG_FILE,
                 {"tac": "", "gnb_name": ""},
-                id="gnb_name_and_tac_are_empty_strings_in_gNB_config"
+                id="gnb_name_and_tac_are_empty_strings_in_gNB_config",
             ),
             pytest.param(
                 GNB_IDENTITY_RELATION_NAME,
                 GNB_CONFIG_FILE,
-                {"gnb_name": "something","some": "key"},
-                id="invalid_key_in_gNB_config"
+                {"gnb_name": "something", "some": "key"},
+                id="invalid_key_in_gNB_config",
             ),
             pytest.param(
                 FIVEG_N4_RELATION_NAME,
                 UPF_CONFIG_FILE,
                 {"upf_hostname": "some.host.name"},
-                id="missing_upf_port_in_UPF_config"
+                id="missing_upf_port_in_UPF_config",
             ),
             pytest.param(
                 FIVEG_N4_RELATION_NAME,
                 UPF_CONFIG_FILE,
                 {"upf_port": "1234"},
-                id="missing_upf_hostname_in_UPF_config"
+                id="missing_upf_hostname_in_UPF_config",
             ),
             pytest.param(
                 FIVEG_N4_RELATION_NAME,
                 UPF_CONFIG_FILE,
                 {"upf_hostname": "", "upf_port": ""},
-                id="upf_hostname_and_upf_port_are_empty_strings_in_UPF_config"
+                id="upf_hostname_and_upf_port_are_empty_strings_in_UPF_config",
             ),
             pytest.param(
                 FIVEG_N4_RELATION_NAME,
                 UPF_CONFIG_FILE,
                 {"some": "key"},
-                id="invalid_key_in_UPF_config"
+                id="invalid_key_in_UPF_config",
             ),
-        ]
+        ],
     )
     def test_given_incomplete_data_in_relation_when_pebble_ready_then_is_not_written_in_config_file(  # noqa: E501
-        self, relation_name, config_file,relation_data
+        self, relation_name, config_file, relation_data
     ):
         self.set_sdcore_management_relation_data("http://10.0.0.1:5000")
         root = self.harness.get_filesystem_root("nms")
@@ -392,7 +384,7 @@ class TestCharm():
         assert expected_plan == updated_plan
 
     def test_given_no_sdcore_management_relation_when_pebble_ready_then_upf_config_file_is_generated_and_pushed(  # noqa: E501
-        self
+        self,
     ):
         root = self.harness.get_filesystem_root("nms")
         (root / "nms/config/").mkdir(parents=True)
@@ -400,11 +392,11 @@ class TestCharm():
 
         self.harness.container_pebble_ready("nms")
 
-        expected_config= [{"hostname": "some.host.name","port": "1234"}]
+        expected_config = [{"hostname": "some.host.name", "port": "1234"}]
         assert json.loads((root / UPF_CONFIG_FILE).read_text()) == expected_config
 
     def test_given_no_sdcore_management_relation_when_pebble_ready_then_gnb_config_file_is_generated_and_pushed(  # noqa: E501
-        self
+        self,
     ):
         root = self.harness.get_filesystem_root("nms")
         (root / "nms/config/").mkdir(parents=True)
@@ -413,11 +405,11 @@ class TestCharm():
 
         self.harness.container_pebble_ready("nms")
 
-        expected_config = [{"name": "some.gnb.name","tac": "1234"}]
+        expected_config = [{"name": "some.gnb.name", "tac": "1234"}]
         assert json.loads((root / GNB_CONFIG_FILE).read_text()) == expected_config
 
     def test_given_sdcore_management_relation_when_pebble_ready_then_upf_config_file_is_generated_and_pushed(  # noqa: E501
-        self
+        self,
     ):
         self.set_sdcore_management_relation_data("http://10.0.0.1:5000")
         root = self.harness.get_filesystem_root("nms")
@@ -426,11 +418,11 @@ class TestCharm():
 
         self.harness.container_pebble_ready("nms")
 
-        expected_config= [{"hostname": "some.host.name","port": "1234"}]
+        expected_config = [{"hostname": "some.host.name", "port": "1234"}]
         assert json.loads((root / UPF_CONFIG_FILE).read_text()) == expected_config
 
     def test_given_sdcore_management_relation_when_pebble_ready_then_gnb_config_file_is_generated_and_pushed(  # noqa: E501
-        self
+        self,
     ):
         self.set_sdcore_management_relation_data("http://10.0.0.1:5000")
         root = self.harness.get_filesystem_root("nms")
@@ -440,11 +432,11 @@ class TestCharm():
 
         self.harness.container_pebble_ready("nms")
 
-        expected_config = [{"name": "some.gnb.name","tac": "1234"}]
+        expected_config = [{"name": "some.gnb.name", "tac": "1234"}]
         assert json.loads((root / GNB_CONFIG_FILE).read_text()) == expected_config
 
     def test_given_multiple_n4_relations_when_pebble_ready_then_upf_config_generated_and_pushed(
-        self
+        self,
     ):
         self.set_sdcore_management_relation_data("http://10.0.0.1:5000")
         root = self.harness.get_filesystem_root("nms")
@@ -587,10 +579,12 @@ class TestCharm():
 
         self.harness.remove_relation(fiveg_n4_relation_1_id)
 
-        expected_upf_config = [{
+        expected_upf_config = [
+            {
                 "hostname": "some.host",
                 "port": "22",
-        }]
+            }
+        ]
         assert json.loads((root / UPF_CONFIG_FILE).read_text()) == expected_upf_config
 
     def test_given_2_gnb_identity_relations_when_relation_broken_then_gnb_config_file_is_updated(
@@ -606,22 +600,20 @@ class TestCharm():
 
         self.harness.remove_relation(gnb_identity_relation_1_id)
 
-        expected_gnb_config = [{
-            "name": "gnb.name",
-            "tac": "333",
-        }]
+        expected_gnb_config = [
+            {
+                "name": "gnb.name",
+                "tac": "333",
+            }
+        ]
         assert json.loads((root / GNB_CONFIG_FILE).read_text()) == expected_gnb_config
 
     @pytest.mark.parametrize(
         "relation_name,config_file",
         [
-            pytest.param(
-                FIVEG_N4_RELATION_NAME, UPF_CONFIG_FILE, id="UPF_config"
-            ),
-            pytest.param(
-                GNB_IDENTITY_RELATION_NAME, GNB_CONFIG_FILE, id="gNB_config"
-            ),
-        ]
+            pytest.param(FIVEG_N4_RELATION_NAME, UPF_CONFIG_FILE, id="UPF_config"),
+            pytest.param(GNB_IDENTITY_RELATION_NAME, GNB_CONFIG_FILE, id="gNB_config"),
+        ],
     )
     def test_given_not_sdcore_management_relation_and_existing_config_file_when_relation_broken_then_config_file_is_updated(  # noqa: E501
         self, relation_name, config_file
@@ -640,13 +632,8 @@ class TestCharm():
 
         assert (root / config_file).read_text() == "[]"
 
-
     @pytest.mark.parametrize(
-        "relation_name",
-        [
-            (FIVEG_N4_RELATION_NAME),
-            (GNB_IDENTITY_RELATION_NAME)
-        ]
+        "relation_name", [(FIVEG_N4_RELATION_NAME), (GNB_IDENTITY_RELATION_NAME)]
     )
     def test_given_storage_not_attached_when_relation_broken_then_no_exception_is_raised(
         self, relation_name
@@ -660,11 +647,7 @@ class TestCharm():
         self.harness.remove_relation(relation_id)
 
     @pytest.mark.parametrize(
-        "relation_name",
-        [
-            (FIVEG_N4_RELATION_NAME),
-            (GNB_IDENTITY_RELATION_NAME)
-        ]
+        "relation_name", [(FIVEG_N4_RELATION_NAME), (GNB_IDENTITY_RELATION_NAME)]
     )
     def test_given_cannot_connect_to_container_when_relation_broken_then_no_exception_is_raised(
         self, relation_name
@@ -682,13 +665,9 @@ class TestCharm():
     @pytest.mark.parametrize(
         "relation_name,config_file",
         [
-            pytest.param(
-                FIVEG_N4_RELATION_NAME, UPF_CONFIG_FILE, id="UPF_config"
-            ),
-            pytest.param(
-                GNB_IDENTITY_RELATION_NAME, GNB_CONFIG_FILE, id="gNB_config"
-            ),
-        ]
+            pytest.param(FIVEG_N4_RELATION_NAME, UPF_CONFIG_FILE, id="UPF_config"),
+            pytest.param(GNB_IDENTITY_RELATION_NAME, GNB_CONFIG_FILE, id="gNB_config"),
+        ],
     )
     def test_given_config_file_does_not_exist_when_relation_broken_then_file_is_created(
         self, relation_name, config_file
@@ -705,3 +684,23 @@ class TestCharm():
         self.harness.remove_relation(relation_id)
 
         assert (root / config_file).read_text() == "[]"
+
+    def test_given_no_workload_version_file_when_pebble_ready_then_workload_version_not_set(
+        self,
+    ):
+        self.harness.set_can_connect(container="nms", val=True)
+        self.harness.evaluate_status()
+        version = self.harness.get_workload_version()
+        assert version == ""
+
+    def test_given_workload_version_file_when_pebble_ready_then_workload_version_set(
+        self,
+    ):
+        expected_version = "1.2.3"
+        root = self.harness.get_filesystem_root("nms")
+        os.mkdir(f"{root}/etc")
+        (root / "etc/workload-version").write_text(expected_version)
+        self.harness.set_can_connect(container="nms", val=True)
+        self.harness.evaluate_status()
+        version = self.harness.get_workload_version()
+        assert version == expected_version
