@@ -39,6 +39,7 @@ CONFIG_DIR_PATH = "/nms/config"
 GNB_CONFIG_PATH = f"{CONFIG_DIR_PATH}/gnb_config.json"
 UPF_CONFIG_PATH = f"{CONFIG_DIR_PATH}/upf_config.json"
 LOGGING_RELATION_NAME = "logging"
+WORKLOAD_VERSION_FILE_NAME = "/etc/workload-version"
 
 
 class SDCoreNMSOperatorCharm(CharmBase):
@@ -116,6 +117,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             event.add_status(WaitingStatus("Waiting for container to be ready"))
             logger.info("Waiting for container to be ready")
             return
+        self.unit.set_workload_version(self._get_workload_version())
         if not self.model.relations.get(SDCORE_MANAGEMENT_RELATION_NAME):
             event.add_status(
                 BlockedStatus(
@@ -273,6 +275,24 @@ class SDCoreNMSOperatorCharm(CharmBase):
             gnb_config.append(gnb_conf_entry)
 
         return json.dumps(gnb_config, sort_keys=True)
+
+    def _get_workload_version(self) -> str:
+        """Return the workload version.
+
+        Checks for the presence of /etc/workload-version file
+        and if present, returns the contents of that file. If
+        the file is not present, an empty string is returned.
+
+        Returns:
+            string: A human readable string representing the
+            version of the workload
+        """
+        if self._container.exists(path=f"{WORKLOAD_VERSION_FILE_NAME}"):
+            version_file_content = self._container.pull(
+                path=f"{WORKLOAD_VERSION_FILE_NAME}"
+            ).read()
+            return version_file_content
+        return ""
 
     def _push_upf_config_file_to_workload(self, content: str):
         """Push the upf config files to the NMS workload."""
