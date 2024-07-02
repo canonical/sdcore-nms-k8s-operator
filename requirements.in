@@ -2,6 +2,6 @@ jsonschema
 jinja2
 juju
 ops
-pydantic
+pydantic<2
 pytest-interface-tester
 cosl
