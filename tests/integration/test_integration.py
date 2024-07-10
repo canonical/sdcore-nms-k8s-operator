@@ -59,6 +59,7 @@ async def deploy_traefik(ops_test: OpsTest):
         trust=True,
     )
 
+
 async def configure_traefik(ops_test: OpsTest, traefik_ip: str) ->  None:
     assert ops_test.model
     await ops_test.model.applications[TRAEFIK_CHARM_NAME].set_config(
@@ -72,6 +73,7 @@ async def configure_traefik(ops_test: OpsTest, traefik_ip: str) ->  None:
         status="active",
         timeout=TIMEOUT,
     )
+
 
 @pytest.mark.abort_on_fail
 async def deploy_sdcore_upf(ops_test: OpsTest):
@@ -131,7 +133,7 @@ async def deploy_grafana_agent(ops_test: OpsTest):
     )
 
 
-async def get_traefik_proxied_endpoints(ops_test: OpsTest):
+async def get_traefik_proxied_endpoints(ops_test: OpsTest) -> dict:
     """Retrieve the endpoints by using Traefik's `show-proxied-endpoints` action."""
     assert ops_test.model
     traefik = ops_test.model.applications[TRAEFIK_CHARM_NAME]
