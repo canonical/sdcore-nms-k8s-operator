@@ -131,7 +131,7 @@ async def deploy_grafana_agent(ops_test: OpsTest):
     )
 
 
-async def get_traefik_proxied_endpoints(ops_test: OpsTest) -> str:
+async def get_traefik_proxied_endpoints(ops_test: OpsTest):
     """Retrieve the endpoints by using Traefik's `show-proxied-endpoints` action."""
     assert ops_test.model
     traefik = ops_test.model.applications[TRAEFIK_CHARM_NAME]
