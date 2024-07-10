@@ -131,8 +131,8 @@ async def deploy_grafana_agent(ops_test: OpsTest):
     )
 
 
-async def get_sdcore_nms_endpoint(ops_test: OpsTest) -> str:
-    """Retrieve the SD-Core NMS endpoint by using Traefik's `show-proxied-endpoints` action."""
+async def get_traefik_proxied_endpoints(ops_test: OpsTest) -> str:
+    """Retrieve the endpoints by using Traefik's `show-proxied-endpoints` action."""
     assert ops_test.model
     traefik = ops_test.model.applications[TRAEFIK_CHARM_NAME]
     traefik_unit = traefik.units[0]
@@ -148,7 +148,7 @@ async def get_sdcore_nms_endpoint(ops_test: OpsTest) -> str:
 
         if "proxied-endpoints" in action_output:
             proxied_endpoints = json.loads(action_output["proxied-endpoints"])
-            return proxied_endpoints[APP_NAME]["url"]
+            return proxied_endpoints
         else:
             logger.info("Traefik did not return proxied endpoints yet")
         time.sleep(2)
@@ -156,16 +156,18 @@ async def get_sdcore_nms_endpoint(ops_test: OpsTest) -> str:
     raise TimeoutError("Traefik did not return proxied endpoints")
 
 
-async def get_traefik_ip(ops_test: OpsTest) -> str:
-    """Retrieve the IP of the Traefik Application from the status message.
+async def get_traefik_ip_address(ops_test: OpsTest) -> str:
+    endpoints = await get_traefik_proxied_endpoints(ops_test)
+    return _get_host_from_url(endpoints[TRAEFIK_CHARM_NAME]["url"])
 
-    The status message looks like this: Serving at 10.0.0.7
-    """
-    assert ops_test.model
-    app_status = await ops_test.model.get_status(filters=[TRAEFIK_CHARM_NAME])
-    ip_address = app_status.applications[TRAEFIK_CHARM_NAME].status["info"].split()[-1]
-    return ip_address
+async def get_sdcore_nms_endpoint(ops_test: OpsTest) -> str:
+    """Retrieve the SD-Core NMS endpoint by using Traefik's `show-proxied-endpoints` action."""
+    endpoints = await get_traefik_proxied_endpoints(ops_test)
+    return endpoints[APP_NAME]["url"]
 
+def _get_host_from_url(url: str) -> str:
+    """Return the host from a URL formatted as http://<host>:<port>/ or as http://<host>/."""
+    return url.split("//")[1].split(":")[0].split("/")[0]
 
 def ui_is_running(nms_endpoint: str) -> bool:
     """Return whether the UI is running."""
@@ -212,6 +214,7 @@ async def test_given_sdcore_management_relation_created_when_deploy_charm_then_s
         timeout=TIMEOUT,
     )
 
+
 @pytest.mark.abort_on_fail
 async def test_given_fiveg_n4_relation_when_deploy_charm_then_status_is_active(
     ops_test: OpsTest, deploy
@@ -226,6 +229,7 @@ async def test_given_fiveg_n4_relation_when_deploy_charm_then_status_is_active(
         status="active",
         timeout=TIMEOUT,
     )
+
 
 @pytest.mark.abort_on_fail
 async def test_given_fiveg_gnb_identity_created_when_deploy_charm_then_status_is_active(
@@ -280,7 +284,9 @@ async def test_given_grafana_agent_deployed_when_relate_to_logging_then_status_i
 async def test_given_related_to_traefik_when_fetch_ui_then_returns_html_content(
     ops_test: OpsTest, deploy
 ):
-    traefik_ip = await get_traefik_ip(ops_test)
+    # Workaround for Traefik issue: https://github.com/canonical/traefik-k8s-operator/issues/361
+    traefik_ip = await get_traefik_ip_address(ops_test)
+    logger.info(traefik_ip)
     await configure_traefik(ops_test, traefik_ip)
     nms_url = await get_sdcore_nms_endpoint(ops_test)
     assert ui_is_running(nms_endpoint=nms_url)
