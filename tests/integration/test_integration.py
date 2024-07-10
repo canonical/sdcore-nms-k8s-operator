@@ -60,6 +60,7 @@ async def deploy_traefik(ops_test: OpsTest):
     )
 
 async def configure_traefik(ops_test: OpsTest, traefik_ip: str) ->  None:
+    assert ops_test.model
     await ops_test.model.applications[TRAEFIK_CHARM_NAME].set_config(
         {
             "external_hostname": f"{traefik_ip}.nip.io",
