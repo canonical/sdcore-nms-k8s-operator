@@ -55,11 +55,22 @@ async def deploy_traefik(ops_test: OpsTest):
     await ops_test.model.deploy(
         TRAEFIK_CHARM_NAME,
         application_name=TRAEFIK_CHARM_NAME,
-        config={"external_hostname": "pizza.com", "routing_mode": "subdomain"},
         channel=TRAEFIK_CHARM_CHANNEL,
         trust=True,
     )
 
+async def configure_traefik(ops_test: OpsTest, traefik_ip: str) ->  None:
+    await ops_test.model.applications[TRAEFIK_CHARM_NAME].set_config(
+        {
+            "external_hostname": f"{traefik_ip}.nip.io",
+            "routing_mode": "subdomain"
+        }
+    )
+    await ops_test.model.wait_for_idle(
+        apps=[TRAEFIK_CHARM_NAME],
+        status="active",
+        timeout=TIMEOUT,
+    )
 
 @pytest.mark.abort_on_fail
 async def deploy_sdcore_upf(ops_test: OpsTest):
@@ -145,26 +156,24 @@ async def get_sdcore_nms_endpoint(ops_test: OpsTest) -> str:
 
 
 async def get_traefik_ip(ops_test: OpsTest) -> str:
-    """Retrieve the IP of the Traefik Application."""
+    """Retrieve the IP of the Traefik Application from the status message.
+
+    The status message looks like this: Serving at 10.0.0.7
+    """
     assert ops_test.model
     app_status = await ops_test.model.get_status(filters=[TRAEFIK_CHARM_NAME])
-    return app_status.applications[TRAEFIK_CHARM_NAME].public_address
+    ip_address = app_status.applications[TRAEFIK_CHARM_NAME].status["info"].split()[-1]
+    return ip_address
 
 
-def _get_host_from_url(url: str) -> str:
-    """Return the host from a URL formatted as http://<host>:<port>/ or as http://<host>/."""
-    return url.split("//")[1].split(":")[0].split("/")[0]
-
-
-def ui_is_running(ip: str, host: str) -> bool:
+def ui_is_running(nms_endpoint: str) -> bool:
     """Return whether the UI is running."""
-    url = f"http://{ip}/network-configuration"
-    headers = {"Host": host}
+    url = f"{nms_endpoint}network-configuration"
     t0 = time.time()
     timeout = 300  # seconds
     while time.time() - t0 < timeout:
         try:
-            response = requests.get(url=url, headers=headers, timeout=5)
+            response = requests.get(url=url, timeout=5)
             response.raise_for_status()
             if "5G NMS" in response.content.decode("utf-8"):
                 return True
@@ -202,7 +211,6 @@ async def test_given_sdcore_management_relation_created_when_deploy_charm_then_s
         timeout=TIMEOUT,
     )
 
-
 @pytest.mark.abort_on_fail
 async def test_given_fiveg_n4_relation_when_deploy_charm_then_status_is_active(
     ops_test: OpsTest, deploy
@@ -218,7 +226,6 @@ async def test_given_fiveg_n4_relation_when_deploy_charm_then_status_is_active(
         timeout=TIMEOUT,
     )
 
-
 @pytest.mark.abort_on_fail
 async def test_given_fiveg_gnb_identity_created_when_deploy_charm_then_status_is_active(
     ops_test: OpsTest, deploy
@@ -230,7 +237,7 @@ async def test_given_fiveg_gnb_identity_created_when_deploy_charm_then_status_is
         relation2=f"{GNBSIM_CHARM_NAME}:fiveg_gnb_identity",
     )
     await ops_test.model.wait_for_idle(
-        apps=[APP_NAME, UPF_CHARM_NAME],
+        apps=[APP_NAME],
         status="active",
         timeout=TIMEOUT,
     )
@@ -272,7 +279,7 @@ async def test_given_grafana_agent_deployed_when_relate_to_logging_then_status_i
 async def test_given_related_to_traefik_when_fetch_ui_then_returns_html_content(
     ops_test: OpsTest, deploy
 ):
-    nms_url = await get_sdcore_nms_endpoint(ops_test)
     traefik_ip = await get_traefik_ip(ops_test)
-    nms_host = _get_host_from_url(nms_url)
-    assert ui_is_running(ip=traefik_ip, host=nms_host)
+    await configure_traefik(ops_test, traefik_ip)
+    nms_url = await get_sdcore_nms_endpoint(ops_test)
+    assert ui_is_running(nms_endpoint=nms_url)
