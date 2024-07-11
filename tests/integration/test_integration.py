@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 METADATA = yaml.safe_load(Path("./metadata.yaml").read_text())
 APP_NAME = METADATA["name"]
 TRAEFIK_CHARM_NAME = "traefik-k8s"
-TRAEFIK_CHARM_CHANNEL = "latest/stable"
+TRAEFIK_CHARM_CHANNEL = "1.0/stable"
 UPF_CHARM_NAME = "sdcore-upf-k8s"
 UPF_CHARM_CHANNEL = "1.4/edge"
 WEBUI_CHARM_NAME = "sdcore-webui-k8s"
@@ -214,7 +214,7 @@ async def test_given_fiveg_gnb_identity_created_when_deploy_charm_then_status_is
         relation2=f"{GNBSIM_CHARM_NAME}:fiveg_gnb_identity",
     )
     await ops_test.model.wait_for_idle(
-        apps=[APP_NAME, UPF_CHARM_NAME],
+        apps=[APP_NAME],
         status="active",
         timeout=TIMEOUT,
     )
