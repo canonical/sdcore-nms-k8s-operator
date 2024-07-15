@@ -35,7 +35,7 @@ output "logging_endpoint" {
 
 # Provided integration endpoints
 
-output "sdcore_webui_endpoint" {
-  description = "Name of the endpoint to provide `sdcore_webui` interface."
-  value       = "sdcore-webui"
+output "sdcore_config_endpoint" {
+  description = "Name of the endpoint to provide `sdcore_config` interface."
+  value       = "sdcore-config"
 }

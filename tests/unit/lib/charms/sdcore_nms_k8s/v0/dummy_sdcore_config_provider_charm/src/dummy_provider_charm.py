@@ -7,22 +7,22 @@
 from ops.charm import CharmBase, RelationJoinedEvent
 from ops.main import main
 
-from lib.charms.sdcore_nms_k8s.v0.sdcore_webui import SdcoreWebuiProvides
+from lib.charms.sdcore_nms_k8s.v0.sdcore_config import SdcoreConfigProvides
 
 
-class DummySdcoreWebuiProviderCharm(CharmBase):
+class DummySdcoreConfigProviderCharm(CharmBase):
     """Charm the service."""
 
     WEBUI_URL = "sdcore-webui-k8s:9876"
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.webui_url_provider = SdcoreWebuiProvides(self, "sdcore-webui")
+        self.webui_url_provider = SdcoreConfigProvides(self, "sdcore_config")
         self.framework.observe(
-            self.on.sdcore_webui_relation_joined, self._on_sdcore_webui_relation_joined
+            self.on.sdcore_config_relation_joined, self._on_sdcore_config_relation_joined
         )
 
-    def _on_sdcore_webui_relation_joined(self, event: RelationJoinedEvent):
+    def _on_sdcore_config_relation_joined(self, event: RelationJoinedEvent):
         relation_id = event.relation.id
         self.webui_url_provider.set_webui_url(
             webui_url=self.WEBUI_URL,
@@ -31,4 +31,4 @@ class DummySdcoreWebuiProviderCharm(CharmBase):
 
 
 if __name__ == "__main__":
-    main(DummySdcoreWebuiProviderCharm)
+    main(DummySdcoreConfigProviderCharm)

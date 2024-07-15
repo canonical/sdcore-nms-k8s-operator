@@ -1,0 +1,13 @@
+# Copyright 2024 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+name: fiveg-sdcore-config-provider
+
+description: |
+  Dummy SD-Core config provider charm.
+summary: |
+  Dummy SD-Core config provider charm.
+
+provides:
+  sdcore_config:
+    interface: sdcore_config

@@ -21,7 +21,7 @@ TEST_UPF_CONFIG_PATH = f"/{UPF_CONFIG_FILE}"
 GNB_CONFIG_FILE = "nms/config/gnb_config.json"
 TEST_GNB_CONFIG_PATH = f"/{GNB_CONFIG_FILE}"
 REMOTE_APP_NAME = "some_app"
-SDCORE_WEBUI_RELATION_NAME = "sdcore-webui"
+SDCORE_CONFIG_RELATION_NAME = "sdcore-config"
 
 
 def read_file(path: str) -> str:
@@ -41,7 +41,7 @@ def read_file(path: str) -> str:
 class TestCharm:
 
     patcher_set_webui_url_in_all_relations = patch(
-        "charms.sdcore_nms_k8s.v0.sdcore_webui.SdcoreWebuiProvides.set_webui_url_in_all_relations"
+        "charms.sdcore_nms_k8s.v0.sdcore_config.SdcoreConfigProvides.set_webui_url_in_all_relations"
     )
     patcher_get_service = patch("ops.model.Container.get_service")
 
@@ -113,8 +113,8 @@ class TestCharm:
         )
         return fiveg_n4_relation_id
 
-    def _create_sdcore_webui_relation(self, requirer) -> None:
-        relation_id = self.harness.add_relation(SDCORE_WEBUI_RELATION_NAME, requirer)  # type:ignore
+    def _create_sdcore_config_relation(self, requirer) -> None:
+        relation_id = self.harness.add_relation(SDCORE_CONFIG_RELATION_NAME, requirer)  # type:ignore
         self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name=f"{requirer}/0")  # type:ignore
 
     def test_given_cant_connect_to_container_when_update_config_then_status_is_waiting(self):
@@ -728,38 +728,38 @@ class TestCharm:
         version = self.harness.get_workload_version()
         assert version == expected_version
 
-    def test_given_storage_not_attached_when_sdcore_webui_relation_is_created_then_webui_url_is_not_published_for_relations(  # noqa: E501
+    def test_given_storage_not_attached_when_sdcore_config_relation_is_created_then_webui_url_is_not_published_for_relations(  # noqa: E501
         self,
     ):
         self.harness.set_can_connect(container="nms", val=True)
         self.harness.add_storage("config", attach=False)
         self.set_sdcore_management_relation_data("http://10.0.0.1:5000")
-        self._create_sdcore_webui_relation("requirer")
+        self._create_sdcore_config_relation("requirer")
         self.mock_set_webui_url_in_all_relations.assert_not_called()
 
-    def test_given_nms_service_is_running_when_sdcore_webui_relation_is_joined_then_webui_url_is_published_for_relations(  # noqa: E501
+    def test_given_nms_service_is_running_when_sdcore_config_relation_is_joined_then_webui_url_is_published_for_relations(  # noqa: E501
         self,
     ):
         self.harness.set_can_connect(container="nms", val=True)
         self.harness.add_storage("config", attach=True)
         self.set_sdcore_management_relation_data("http://10.0.0.1:5000")
         self.mock_get_service.side_effect = None
-        self._create_sdcore_webui_relation("requirer")
+        self._create_sdcore_config_relation("requirer")
         calls = [
             call.emit(webui_url="webui:9876"),
         ]
         self.mock_set_webui_url_in_all_relations.assert_has_calls(calls)
 
-    def test_given_nms_service_is_running_when_several_sdcore_webui_relations_are_joined_then_webui_url_is_set_in_all_relations(  # noqa: E501
+    def test_given_nms_service_is_running_when_several_sdcore_config_relations_are_joined_then_webui_url_is_set_in_all_relations(  # noqa: E501
         self
     ):
         self.harness.set_can_connect(container="nms", val=True)
         self.harness.add_storage("config", attach=True)
         self.set_sdcore_management_relation_data("http://10.0.0.1:5000")
         self.mock_get_service.side_effect = None
-        relation_id_1 = self.harness.add_relation(SDCORE_WEBUI_RELATION_NAME, "requirer1")
+        relation_id_1 = self.harness.add_relation(SDCORE_CONFIG_RELATION_NAME, "requirer1")
         self.harness.add_relation_unit(relation_id=relation_id_1, remote_unit_name="requirer1")
-        relation_id_2 = self.harness.add_relation(SDCORE_WEBUI_RELATION_NAME, "requirer2")
+        relation_id_2 = self.harness.add_relation(SDCORE_CONFIG_RELATION_NAME, "requirer2")
         self.harness.add_relation_unit(relation_id=relation_id_2, remote_unit_name="requirer2")
         calls = [
             call.emit(webui_url="webui:9876"),
@@ -767,12 +767,12 @@ class TestCharm:
         ]
         self.mock_set_webui_url_in_all_relations.assert_has_calls(calls)
 
-    def test_given_nms_service_is_not_running_when_sdcore_webui_relation_joined_then_webui_url_is_not_set_in_the_relations(  # noqa: E501
+    def test_given_nms_service_is_not_running_when_sdcore_config_relation_joined_then_webui_url_is_not_set_in_the_relations(  # noqa: E501
         self,
     ):
         self.harness.set_can_connect(container="nms", val=True)
         self.harness.add_storage("config", attach=True)
         self.set_sdcore_management_relation_data("http://10.0.0.1:5000")
         self.mock_get_service.side_effect = ModelError()
-        self._create_sdcore_webui_relation(requirer="requirer1")
+        self._create_sdcore_config_relation(requirer="requirer1")
         self.mock_set_webui_url_in_all_relations.assert_not_called()
