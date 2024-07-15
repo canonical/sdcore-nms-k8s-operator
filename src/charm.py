@@ -16,9 +16,6 @@ from charms.sdcore_nms_k8s.v0.sdcore_config import (  # type: ignore[import]
     SdcoreConfigProvides,
 )
 from charms.sdcore_upf_k8s.v0.fiveg_n4 import N4Requires  # type: ignore[import]
-from charms.sdcore_webui_k8s.v0.sdcore_management import (  # type: ignore[import]
-    SdcoreManagementRequires,
-)
 from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer  # type: ignore[import]
 from ops import (
     ActiveStatus,

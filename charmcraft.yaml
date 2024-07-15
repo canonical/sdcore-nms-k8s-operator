@@ -46,8 +46,13 @@ requires:
     interface: loki_push_api
 
 provides:
+<<<<<<< HEAD
   sdcore-config:
     interface: sdcore_config
+=======
+  sdcore-webui:
+    interface: sdcore_webui
+>>>>>>> a3bf38d (move the sdcore_config library to nms)
 
 type: charm
 bases:
