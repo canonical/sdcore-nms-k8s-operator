@@ -1,0 +1,13 @@
+# Copyright 2024 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+name: fiveg-sdcore-webui-provider
+
+description: |
+  Dummy SD-Core webui provider charm.
+summary: |
+  Dummy SD-Core webui provider charm.
+
+provides:
+  sdcore-webui:
+    interface: sdcore_webui

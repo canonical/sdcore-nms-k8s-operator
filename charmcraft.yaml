@@ -45,6 +45,10 @@ requires:
   logging:
     interface: loki_push_api
 
+provides:
+  sdcore-webui:
+    interface: sdcore_webui
+
 type: charm
 bases:
   - build-on:
