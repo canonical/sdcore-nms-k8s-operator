@@ -46,8 +46,8 @@ requires:
     interface: loki_push_api
 
 provides:
-  sdcore-webui:
-    interface: sdcore_webui
+  sdcore-config:
+    interface: sdcore_config
 
 type: charm
 bases:

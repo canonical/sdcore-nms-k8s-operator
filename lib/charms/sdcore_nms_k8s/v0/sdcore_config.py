@@ -2,9 +2,9 @@
 # See LICENSE file for licensing details.
 
 
-"""Library for the `sdcore-webui` relation.
+"""Library for the `sdcore_config` relation.
 
-This library contains the Requires and Provides classes for handling the `sdcore_webui`
+This library contains the Requires and Provides classes for handling the `sdcore_config`
 interface.
 
 The purpose of this library is to relate charms claiming
@@ -15,7 +15,7 @@ for configuration purposes in SD-Core.
 From a charm directory, fetch the library using `charmcraft`:
 
 ```shell
-charmcraft fetch-lib charms.sdcore_webui_k8s.v0.sdcore_webui
+charmcraft fetch-lib charms.sdcore_webui_k8s.v0.sdcore_config
 ```
 
 Add the following libraries to the charm's `requirements.txt` file:
@@ -33,8 +33,8 @@ import logging
 from ops.charm import CharmBase
 from ops.main import main
 
-from lib.charms.sdcore_webui_k8s.v0.sdcore_webui import (
-    SdcoreWebuiRequires,
+from lib.charms.sdcore_webui_k8s.v0.sdcore_config import (
+    SdcoreConfigRequires,
     WebuiBroken,
     WebuiUrlAvailable,
 )
@@ -42,12 +42,12 @@ from lib.charms.sdcore_webui_k8s.v0.sdcore_webui import (
 logger = logging.getLogger(__name__)
 
 
-class DummySdcoreWebuiRequirerCharm(CharmBase):
+class DummySdcoreConfigRequirerCharm(CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.webui_requirer = SdcoreWebuiRequires(
-            self, "sdcore_webui"
+        self.webui_requirer = SdcoreConfigRequires(
+            self, "sdcore_config"
         )
         self.framework.observe(
             self.webui_requirer.on.webui_url_available,
@@ -64,7 +64,7 @@ class DummySdcoreWebuiRequirerCharm(CharmBase):
 
 
 if __name__ == "__main__":
-    main(DummySdcoreWebuiRequirerCharm)
+    main(DummySdcoreConfigRequirerCharm)
 ```
 
 ### Provider charm
@@ -76,21 +76,21 @@ Example:
 from ops.charm import CharmBase, RelationJoinedEvent
 from ops.main import main
 
-from lib.charms.sdcore_webui_k8s.v0.sdcore_webui import SdcoreWebuiProvides
+from lib.charms.sdcore_webui_k8s.v0.sdcore_config import SdcoreConfigProvides
 
 
-class DummySdcoreWebuiProviderCharm(CharmBase):
+class DummySdcoreConfigProviderCharm(CharmBase):
 
     WEBUI_URL = "sdcore-webui-k8s:9876"
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.webui_url_provider = SdcoreWebuiProvides(self, "sdcore_webui")
+        self.webui_url_provider = SdcoreConfigProvides(self, "sdcore_config")
         self.framework.observe(
-            self.on.sdcore_webui_relation_joined, self._on_sdcore_webui_relation_joined
+            self.on.sdcore_config_relation_joined, self._on_sdcore_config_relation_joined
         )
 
-    def _on_sdcore_webui_relation_joined(self, event: RelationJoinedEvent):
+    def _on_sdcore_config_relation_joined(self, event: RelationJoinedEvent):
         relation_id = event.relation.id
         self.webui_url_provider.set_webui_url(
             webui_url=self.WEBUI_URL,
@@ -99,7 +99,7 @@ class DummySdcoreWebuiProviderCharm(CharmBase):
 
 
 if __name__ == "__main__":
-    main(DummySdcoreWebuiProviderCharm)
+    main(DummySdcoreConfigProviderCharm)
 ```
 
 """
@@ -124,7 +124,7 @@ LIBPATCH = 1
 
 logger = logging.getLogger(__name__)
 
-"""Schemas definition for the provider and requirer sides of the `sdcore_webui` interface.
+"""Schemas definition for the provider and requirer sides of the `sdcore_config` interface.
 It exposes two interfaces.schema_base.DataBagSchema subclasses called:
 - ProviderSchema
 - RequirerSchema
@@ -140,8 +140,8 @@ Examples:
 """
 
 
-class SdcoreWebuiProviderAppData(BaseModel):
-    """Provider application data for sdcore_webui."""
+class SdcoreConfigProviderAppData(BaseModel):
+    """Provider application data for sdcore_config."""
     webui_url: str = Field(
         description="GRPC address of the Webui including Webui hostname and a fixed GRPC port.",
         examples=["sdcore-webui-k8s:9876"]
@@ -149,8 +149,8 @@ class SdcoreWebuiProviderAppData(BaseModel):
 
 
 class ProviderSchema(DataBagSchema):
-    """The schema for the provider side of the sdcore_webui interface."""
-    app: SdcoreWebuiProviderAppData
+    """The schema for the provider side of the sdcore-config interface."""
+    app: SdcoreConfigProviderAppData
 
 
 def data_is_valid(data: dict) -> bool:
@@ -197,17 +197,17 @@ class WebuiBroken(EventBase):
         super().__init__(handle)
 
 
-class SdcoreWebuiRequirerCharmEvents(CharmEvents):
-    """List of events that the SD-Core webui requirer charm can leverage."""
+class SdcoreConfigRequirerCharmEvents(CharmEvents):
+    """List of events that the SD-Core config requirer charm can leverage."""
 
     webui_url_available = EventSource(WebuiUrlAvailable)
     webui_broken = EventSource(WebuiBroken)
 
 
-class SdcoreWebuiRequires(Object):
-    """Class to be instantiated by the SD-Core webui requirer charm."""
+class SdcoreConfigRequires(Object):
+    """Class to be instantiated by the SD-Core config requirer charm."""
 
-    on = SdcoreWebuiRequirerCharmEvents()
+    on = SdcoreConfigRequirerCharmEvents()
 
     def __init__(self, charm: CharmBase, relation_name: str):
         """Init."""
@@ -232,7 +232,7 @@ class SdcoreWebuiRequires(Object):
             )
 
     def _on_relation_broken(self, event: RelationBrokenEvent) -> None:
-        """Handle the sdcore-webui relation broken event.
+        """Handle the Sdcore config relation broken event.
 
         Args:
             event (RelationBrokenEvent): Juju event.
@@ -279,7 +279,7 @@ class SdcoreWebuiRequires(Object):
         return remote_app_relation_data["webui_url"]
 
 
-class SdcoreWebuiProvides(Object):
+class SdcoreConfigProvides(Object):
     """Class to be instantiated by the charm providing the SD-Core Webui URL."""
 
     def __init__(self, charm: CharmBase, relation_name: str):

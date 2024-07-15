@@ -9,8 +9,8 @@ import logging
 from ops.charm import CharmBase
 from ops.main import main
 
-from lib.charms.sdcore_nms_k8s.v0.sdcore_webui import (
-    SdcoreWebuiRequires,
+from lib.charms.sdcore_nms_k8s.v0.sdcore_config import (
+    SdcoreConfigRequires,
     WebuiBroken,
     WebuiUrlAvailable,
 )
@@ -18,12 +18,12 @@ from lib.charms.sdcore_nms_k8s.v0.sdcore_webui import (
 logger = logging.getLogger(__name__)
 
 
-class DummySdcoreWebuiRequirerCharm(CharmBase):
+class DummySdcoreConfigRequirerCharm(CharmBase):
     """Charm the service."""
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.webui_requirer = SdcoreWebuiRequires(self, "sdcore-webui")
+        self.webui_requirer = SdcoreConfigRequires(self, "sdcore_config")
         self.framework.observe(
             self.webui_requirer.on.webui_url_available, self._on_webui_url_available
         )
@@ -38,4 +38,4 @@ class DummySdcoreWebuiRequirerCharm(CharmBase):
 
 
 if __name__ == "__main__":
-    main(DummySdcoreWebuiRequirerCharm)
+    main(DummySdcoreConfigRequirerCharm)

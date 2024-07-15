@@ -12,8 +12,8 @@ from charms.loki_k8s.v1.loki_push_api import LogForwarder  # type: ignore[import
 from charms.sdcore_gnbsim_k8s.v0.fiveg_gnb_identity import (  # type: ignore[import]
     GnbIdentityRequires,
 )
-from charms.sdcore_nms_k8s.v0.sdcore_webui import (  # type: ignore[import]
-    SdcoreWebuiProvides,
+from charms.sdcore_nms_k8s.v0.sdcore_config import (  # type: ignore[import]
+    SdcoreConfigProvides,
 )
 from charms.sdcore_upf_k8s.v0.fiveg_n4 import N4Requires  # type: ignore[import]
 from charms.sdcore_webui_k8s.v0.sdcore_management import (  # type: ignore[import]
@@ -44,7 +44,7 @@ UPF_CONFIG_PATH = f"{CONFIG_DIR_PATH}/upf_config.json"
 LOGGING_RELATION_NAME = "logging"
 WORKLOAD_VERSION_FILE_NAME = "/etc/workload-version"
 GRPC_PORT = 9876
-SDCORE_WEBUI_RELATION_NAME = "sdcore-webui"
+SDCORE_CONFIG_RELATION_NAME = "sdcore-config"
 WEBUI_SERVICE_NAME = "webui"
 
 
@@ -58,7 +58,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self.fiveg_n4 = N4Requires(charm=self, relation_name=FIVEG_N4_RELATION_NAME)
         self._gnb_identity = GnbIdentityRequires(self, GNB_IDENTITY_RELATION_NAME)
         self._sdcore_management = SdcoreManagementRequires(self, SDCORE_MANAGEMENT_RELATION_NAME)
-        self._sdcore_webui = SdcoreWebuiProvides(self, SDCORE_WEBUI_RELATION_NAME)
+        self._sdcore_config = SdcoreConfigProvides(self, SDCORE_CONFIG_RELATION_NAME)
         self.unit.set_ports(NMS_PORT)
         self.ingress = IngressPerAppRequirer(
             charm=self,
@@ -76,7 +76,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self._configure_sdcore_nms,
         )
         self.framework.observe(
-            self.on.sdcore_webui_relation_joined,  self._configure_sdcore_nms
+            self.on.sdcore_config_relation_joined,  self._configure_sdcore_nms
         )
         self.framework.observe(
             self._gnb_identity.on.fiveg_gnb_identity_available,
@@ -108,7 +108,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         if not self._sdcore_management.management_url:
             return
         self._configure_pebble()
-        self._publish_sdcore_webui_url()
+        self._publish_sdcore_config_url()
 
     def _configure_pebble(self) -> None:
         """Configure the Pebble layer."""
@@ -168,13 +168,13 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return False
         return True
 
-    def _publish_sdcore_webui_url(self) -> None:
-        if not self._relation_created(SDCORE_WEBUI_RELATION_NAME):
+    def _publish_sdcore_config_url(self) -> None:
+        if not self._relation_created(SDCORE_CONFIG_RELATION_NAME):
             return
         if not self._nms_service_is_running():
             return
         webui_config_url = self._get_webui_config_url()
-        self._sdcore_webui.set_webui_url_in_all_relations(webui_url=webui_config_url)
+        self._sdcore_config.set_webui_url_in_all_relations(webui_url=webui_config_url)
 
     @staticmethod
     def _get_webui_config_url() -> str:
