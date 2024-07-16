@@ -1,7 +1,7 @@
 name: sdcore-nms-k8s
 
-summary: A Charmed Operator for SD-Core's NMS.
-description: A Charmed Operator for SD-Core's Network Management System (NMS).
+summary: A Charmed Operator for Aether SD-Core's NMS.
+description: A Charmed Operator for Aether SD-Core's Network Management System (NMS).
 links:
   website:
     - https://charmhub.io/sdcore-nms-k8s
@@ -30,14 +30,16 @@ assumes:
 storage:
   config:
     type: filesystem
-    minimum-size: 5M
+    minimum-size: 6M
 
 requires:
   ingress:
     interface: ingress
     limit: 1
-  sdcore-management:
-    interface: sdcore_management
+  common_database:
+    interface: mongodb_client
+  auth_database:
+    interface: mongodb_client
   fiveg_gnb_identity:
     interface: fiveg_gnb_identity
   fiveg_n4:
