@@ -44,7 +44,7 @@ jsonschema==4.22.0
     # via -r requirements.in
 jsonschema-specifications==2023.12.1
     # via jsonschema
-juju==3.5.0.0
+juju==3.5.2.0
     # via -r requirements.in
 kubernetes==29.0.0
     # via juju
