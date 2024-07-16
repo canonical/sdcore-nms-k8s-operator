@@ -45,6 +45,10 @@ requires:
   logging:
     interface: loki_push_api
 
+provides:
+  sdcore-config:
+    interface: sdcore_config
+
 type: charm
 bases:
   - build-on:
