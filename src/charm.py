@@ -4,12 +4,12 @@
 
 """Charmed operator for the Aether SD-Core Graphical User Interface for K8s."""
 
-import json
 import logging
 from ipaddress import IPv4Address
 from subprocess import CalledProcessError, check_output
-from typing import List, Optional, Tuple
+from typing import Optional
 
+import requests  # type: ignore[import]
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires  # type: ignore[import]
 from charms.loki_k8s.v1.loki_push_api import LogForwarder  # type: ignore[import]
 from charms.sdcore_gnbsim_k8s.v0.fiveg_gnb_identity import (  # type: ignore[import]
@@ -30,8 +30,8 @@ logger = logging.getLogger(__name__)
 
 BASE_CONFIG_PATH = "/nms/config" # "/nms/config"
 CONFIG_FILE_NAME = "webuicfg.conf"
-GNB_CONFIG_PATH = f"{BASE_CONFIG_PATH}/gnb_config.json"
-UPF_CONFIG_PATH = f"{BASE_CONFIG_PATH}/upf_config.json"
+GNB_CONFIG_URL = "config/v1/inventory/gnb"
+UPF_CONFIG_URL = "config/v1/inventory/upf"
 WEBUI_CONFIG_PATH = f"{BASE_CONFIG_PATH}/{CONFIG_FILE_NAME}"
 WORKLOAD_VERSION_FILE_NAME = "/etc/workload-version"
 AUTH_DATABASE_RELATION_NAME = "auth_database"
@@ -45,6 +45,7 @@ COMMON_DATABASE_NAME = "free5gc"
 GRPC_PORT = 9876
 WEBUI_URL_PORT = 5000
 WEBUI_SERVICE_NAME = "webui"
+JSON_HEADER = {'Content-Type': 'application/json'}
 
 def _get_pod_ip() -> Optional[str]:
     """Return the pod IP using juju client."""
@@ -155,8 +156,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         if not self._container.exists(path=BASE_CONFIG_PATH):
             return
-        self._create_upf_config_file()
-        self._create_gnb_config_file()
         for relation in [COMMON_DATABASE_RELATION_NAME, AUTH_DATABASE_RELATION_NAME]:
             if not self._relation_created(relation):
                 return
@@ -164,6 +163,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         if not self._auth_database_resource_is_available():
             return
+        self._configure_gnbs()
+        self._configure_upfs()
         desired_config_file = self._generate_webui_config_file()
 
         if config_update_required := self._is_config_update_required(desired_config_file):
@@ -212,14 +213,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
             event.add_status(WaitingStatus("Waiting for webui config file to be stored"))
             logger.info("Waiting for webui config file to be stored")
             return
-        if not self._container.exists(path=UPF_CONFIG_PATH):
-            event.add_status(WaitingStatus("Waiting for UPF config file to be stored"))
-            logger.info("Waiting for UPF config file to be stored")
-            return
-        if not self._container.exists(path=GNB_CONFIG_PATH):
-            event.add_status(WaitingStatus("Waiting for GNB config file to be stored"))
-            logger.info("Waiting for GNB config file to be stored")
-            return
         if not self._is_nms_service_running():
             event.add_status(WaitingStatus("Waiting for NMS service to start"))
             logger.info("Waiting for NMS service to start")
@@ -232,8 +225,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         if not self._is_nms_service_running():
             return
-        webui_config_url = self._get_webui_config_url()
-        self._sdcore_config.set_webui_url_in_all_relations(webui_url=webui_config_url)
+        self._sdcore_config.set_webui_url_in_all_relations(webui_url=self._webui_config_url)
 
     def _configure_workload(self, restart: bool = False) -> None:
         """Configure and restart the workload if required.
@@ -285,47 +277,76 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return False
         return service.is_running()
 
-    def _create_upf_config_file(self) -> None:
-        """Generate the UPF config file based on the content of the `fiveg_n4` relations.
+    def _get_resources_from_inventory(self, inventory_url: str) -> list:
+        try:
+            response = requests.get(inventory_url)
+            response.raise_for_status()
+            resources = response.json()
+            logger.info(f"Got {resources} from inventory")
+            return resources
+        except Exception as e:
+            logger.error(f"Failed to get resource from inventory: {e}")
+            return []
 
-        If the relation does not exist, an empty list [] is written on the file.
-        """
+    def _get_upfs_from_inventory(self) -> list:
+        inventory_url = f"{self._webui_endpoint}/{UPF_CONFIG_URL}"
+        return self._get_resources_from_inventory(inventory_url)
+
+    def _get_gnbs_from_inventory(self) -> list:
+        inventory_url = f"{self._webui_endpoint}/{GNB_CONFIG_URL}"
+        return self._get_resources_from_inventory(inventory_url)
+
+    def _add_resource_to_inventory(self, url: str, resource_name: str, data: dict) -> None:
+        try:
+            response = requests.post(url, headers=JSON_HEADER, json=data)
+            response.raise_for_status()
+            logger.info(f"{resource_name} added to webui")
+        except Exception as e:
+            logger.error(f"Failed to add {resource_name} to webui: {e}")
+
+    def _add_upf_to_inventory(self, upf: dict) -> None:
+        upf_hostmane = upf["hostname"]
+        inventory_url = f"{self._webui_endpoint}/{UPF_CONFIG_URL}/{upf_hostmane}"
+        data = {"port": upf["port"]}
+        self._add_resource_to_inventory(inventory_url, upf_hostmane, data)
+
+    def _add_gnb_to_inventory(self, gnb: dict) -> None:
+        gnb_name = gnb["name"]
+        inventory_url = f"{self._webui_endpoint}/{GNB_CONFIG_URL}/{gnb_name}"
+        data = {"tac": gnb["tac"]}
+        self._add_resource_to_inventory(inventory_url, gnb_name, data)
+
+    def _delete_resource_from_inventory(self, inventory_url: str, resource_name: str) -> None:
+        try:
+            response = requests.delete(inventory_url)
+            response.raise_for_status()
+            logger.info(f"{resource_name} removed from webui")
+        except Exception as e:
+            logger.error(f"Failed to remove {resource_name} from webui: {e}")
+
+    def _delete_upf_from_inventory(self, upf_hostname: str) -> None:
+        inventory_url = f"{self._webui_endpoint}/{UPF_CONFIG_URL}/{upf_hostname}"
+        self._delete_resource_from_inventory(inventory_url, upf_hostname)
+
+    def _delete_gnb_from_inventory(self, gnb_name: str) -> None:
+        inventory_url = f"{self._webui_endpoint}/{GNB_CONFIG_URL}/{gnb_name}"
+        self._delete_resource_from_inventory(inventory_url, gnb_name)
+
+    def _configure_upfs(self) -> None:
         if not self.model.relations.get(FIVEG_N4_RELATION_NAME):
             logger.info("Relation %s not available", FIVEG_N4_RELATION_NAME)
-        upf_existing_content = self._get_file_content(file_path=UPF_CONFIG_PATH)
-        new_upf_config = self._get_upf_config()
-        if not upf_existing_content or not self._file_content_matches(
-            existing_content=upf_existing_content,
-            new_content=new_upf_config,
-        ):
-            self._write_file_in_workload(UPF_CONFIG_PATH, new_upf_config)
+        inventory_upf_config = self._get_upfs_from_inventory()
+        relation_upf_config = self._get_upf_config_from_relations()
+        self._sync_upfs(inventory_upfs=inventory_upf_config, relation_upfs=relation_upf_config)
 
-    def _create_gnb_config_file(self) -> None:
-        """Generate the gNB config file based on the content of the `fiveg_gnb_identity` relations.
-
-        If the relation does not exist, an empty list [] is written on the file.
-        """
+    def _configure_gnbs(self) -> None:
         if not self.model.relations.get(GNB_IDENTITY_RELATION_NAME):
             logger.info("Relation %s not available", GNB_IDENTITY_RELATION_NAME)
-        gnb_existing_content = self._get_file_content(file_path=GNB_CONFIG_PATH)
-        gnb_new_config = self._get_gnb_config()
-        if not gnb_existing_content or not self._file_content_matches(
-            existing_content=gnb_existing_content,
-            new_content=gnb_new_config,
-        ):
-            self._write_file_in_workload(GNB_CONFIG_PATH, gnb_new_config)
+        inventory_gnb_config = self._get_gnbs_from_inventory()
+        relation_gnb_config = self._get_gnb_config_from_relations()
+        self._sync_gnbs(inventory_gnbs=inventory_gnb_config, relation_gnbs=relation_gnb_config)
 
-    def _get_file_content(self, file_path: str) -> str:
-        """Return the content of the file as a string.
-
-        Return an empty string if the file does not exist.
-        """
-        if self._container.exists(path=file_path):
-            existing_content_stringio = self._container.pull(path=file_path)
-            return existing_content_stringio.read()
-        return ""
-
-    def _get_upf_host_port_list_from_relation(self) -> List[Tuple[str, int]]:
+    def _get_upf_config_from_relations(self) -> list[dict[str, str]]:
         upf_host_port_list = []
         for fiveg_n4_relation in self.model.relations.get(FIVEG_N4_RELATION_NAME, []):
             if not fiveg_n4_relation.app:
@@ -337,10 +358,10 @@ class SDCoreNMSOperatorCharm(CharmBase):
             port = fiveg_n4_relation.data[fiveg_n4_relation.app].get("upf_port", "")
             hostname = fiveg_n4_relation.data[fiveg_n4_relation.app].get("upf_hostname", "")
             if hostname and port:
-                upf_host_port_list.append((hostname, int(port)))
+                upf_host_port_list.append({"hostname": hostname, "port": str(port)})
         return upf_host_port_list
 
-    def _get_gnb_name_tac_list_from_relation(self) -> List[Tuple[str, int]]:
+    def _get_gnb_config_from_relations(self) -> list[dict[str, str]]:
         gnb_name_tac_list = []
         for gnb_identity_relation in self.model.relations.get(GNB_IDENTITY_RELATION_NAME, []):
             if not gnb_identity_relation.app:
@@ -352,42 +373,34 @@ class SDCoreNMSOperatorCharm(CharmBase):
             gnb_name = gnb_identity_relation.data[gnb_identity_relation.app].get("gnb_name", "")
             gnb_tac = gnb_identity_relation.data[gnb_identity_relation.app].get("tac", "")
             if gnb_name and gnb_tac:
-                gnb_name_tac_list.append((gnb_name, int(gnb_tac)))
+                gnb_name_tac_list.append({"name": gnb_name, "tac": gnb_tac})
         return gnb_name_tac_list
 
-    def _get_upf_config(self) -> str:
-        """Get the UPF configuration (UPF hostname and port) for the NMS in json format."""
-        upf_host_port_list = self._get_upf_host_port_list_from_relation()
+    def _sync_gnbs(self, inventory_gnbs: list, relation_gnbs: list) -> None:
+        """Align the gNB from the `fiveg_gnb_identity` relations with the remote DB inventory."""
+        db_gnb_dict = {gnb['name']: gnb for gnb in inventory_gnbs}
+        relation_gnb_dict = {gnb['name']: gnb for gnb in relation_gnbs}
 
-        upf_config = []
-        for upf_hostname, upf_port in upf_host_port_list:
-            upf_config_entry = {
-                "hostname": upf_hostname,
-                "port": str(upf_port),
-            }
-            upf_config.append(upf_config_entry)
-        return json.dumps(upf_config, sort_keys=True)
+        for name, relation_gnb in relation_gnb_dict.items():
+            if name not in db_gnb_dict or db_gnb_dict[name] != relation_gnb:
+                self._add_gnb_to_inventory(relation_gnb)
 
-    def _get_gnb_config(self) -> str:
-        """Get the gNB configuration (gNB name ang TAC) in json format."""
-        gnb_name_tac_list = self._get_gnb_name_tac_list_from_relation()
+        for name in db_gnb_dict:
+            if name not in relation_gnb_dict:
+                self._delete_gnb_from_inventory(name)
 
-        gnb_config = []
-        for gnb_name, gnb_tac in gnb_name_tac_list:
-            gnb_conf_entry = {"name": gnb_name, "tac": str(gnb_tac)}
-            gnb_config.append(gnb_conf_entry)
+    def _sync_upfs(self, inventory_upfs: list, relation_upfs: list) -> None:
+        """Align the gNB from the `fiveg_n4` relations with the remote DB inventory."""
+        db_upf_dict = {upf['hostname']: upf for upf in inventory_upfs}
+        relation_upf_dict = {upf['hostname']: upf for upf in relation_upfs}
 
-        return json.dumps(gnb_config, sort_keys=True)
+        for hostname, relation_upf in relation_upf_dict.items():
+            if hostname not in db_upf_dict or db_upf_dict[hostname] != relation_upf:
+                self._add_upf_to_inventory(relation_upf)
 
-    @staticmethod
-    def _file_content_matches(existing_content: str, new_content: str) -> bool:
-        """Return whether two config file contents match."""
-        try:
-            existing_content_list = json.loads(existing_content)
-            new_content_list = json.loads(new_content)
-            return existing_content_list == new_content_list
-        except json.JSONDecodeError:
-            return False
+        for hostname in db_upf_dict:
+            if hostname not in relation_upf_dict:
+                self._delete_upf_from_inventory(hostname)
 
     def _get_common_database_url(self) -> str:
         if not self._common_database_resource_is_available():
@@ -434,8 +447,13 @@ class SDCoreNMSOperatorCharm(CharmBase):
     def _relation_created(self, relation_name: str) -> bool:
         return bool(self.model.relations[relation_name])
 
-    def _get_webui_config_url(self) -> str:
+    @property
+    def _webui_config_url(self) -> str:
         return f"{WEBUI_SERVICE_NAME}:{GRPC_PORT}"
+
+    @property
+    def _webui_endpoint(self) -> str:
+        return f"{_get_pod_ip()}:{WEBUI_URL_PORT}"
 
     @property
     def _pebble_layer(self) -> Layer:
@@ -447,7 +465,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
                     "nms": {
                         "override": "replace",
                         "startup": "enabled",
-                        "command": f"/bin/webconsole --webuicfg {BASE_CONFIG_PATH}/{CONFIG_FILE_NAME}",  # noqa: E501
+                        "command": f"/bin/webconsole --webuicfg {WEBUI_CONFIG_PATH}",  # noqa: E501
                         "environment": self._environment_variables,
                     },
                 },
@@ -462,9 +480,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             "GRPC_TRACE": "all",
             "GRPC_VERBOSITY": "debug",
             "CONFIGPOD_DEPLOYMENT": "5G",
-            "SWAGGER_HOST": _get_pod_ip(),
-            "UPF_CONFIG_PATH": UPF_CONFIG_PATH,
-            "GNB_CONFIG_PATH": GNB_CONFIG_PATH,
+            "WEBUI_ENDPOINT": self._webui_endpoint,
         }
 
 
