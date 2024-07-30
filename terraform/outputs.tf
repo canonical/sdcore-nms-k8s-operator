@@ -42,5 +42,5 @@ output "logging_endpoint" {
 
 output "sdcore_config_endpoint" {
   description = "Name of the endpoint to provide `sdcore_config` interface."
-  value       = "sdcore-config"
+  value       = "sdcore_config"
 }

@@ -14,7 +14,7 @@ EXPECTED_CONFIG_FILE_PATH = "tests/unit/expected_webui_cfg.yaml"
 GNB_IDENTITY_RELATION_NAME = "fiveg_gnb_identity"
 FIVEG_N4_RELATION_NAME = "fiveg_n4"
 REMOTE_APP_NAME = "some_app"
-SDCORE_CONFIG_RELATION_NAME = "sdcore-config"
+SDCORE_CONFIG_RELATION_NAME = "sdcore_config"
 AUTH_DATABASE_RELATION_NAME = "auth_database"
 COMMON_DATABASE_RELATION_NAME = "common_database"
 POD_IP = "1.2.3.4"
@@ -42,7 +42,7 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
 
         with pytest.raises(FileNotFoundError):
             (root / CONTAINER_CONFIG_FILE_PATH).read_text()
-            
+
     def test_given_common_db_resource_not_available_when_pebble_ready_then_webui_config_file_is_not_written(  # noqa: E501
         self,
     ):
@@ -56,7 +56,7 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
 
         with pytest.raises(FileNotFoundError):
             (root / CONTAINER_CONFIG_FILE_PATH).read_text()
-            
+
     def test_given_auth_db_resource_not_available_when_pebble_ready_then_webui_config_file_is_not_written(  # noqa: E501
         self, common_database_relation_id
     ):
@@ -149,9 +149,9 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
         self, sdcore_config_relation_id, auth_database_relation_id, common_database_relation_id
     ):
         self.harness.add_storage("config", attach=False)
-        
+
         self.harness.container_pebble_ready(container_name=CONTAINER)
-        
+
         self.mock_set_webui_url_in_all_relations.assert_not_called()
 
     def test_given_webui_service_is_running_db_relations_are_not_joined_when_pebble_ready_then_config_url_is_not_published_for_relations(  # noqa: E501
@@ -159,9 +159,9 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
     ):
         self.harness.add_storage("config", attach=True)
         self.mock_get_service.side_effect = None
-        
+
         self.harness.container_pebble_ready(container_name=CONTAINER)
-        
+
         self.mock_set_webui_url_in_all_relations.assert_not_called()
 
     def test_given_webui_service_is_running_db_relations_are_joined_when_several_sdcore_config_relations_are_joined_then_config_url_is_set_in_all_relations(  # noqa: E501
@@ -185,7 +185,7 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
     ):
         self.mock_get_service.side_effect = ModelError()
         self.harness.add_storage("config", attach=True)
-        
+
         self.harness.container_pebble_ready(container_name=CONTAINER)
 
         self.mock_set_webui_url_in_all_relations.assert_not_called()

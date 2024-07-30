@@ -13,7 +13,7 @@ COMMON_DATABASE_RELATION_NAME = "common_database"
 FIVEG_N4_RELATION_NAME = "fiveg_n4"
 GNB_IDENTITY_RELATION_NAME = "fiveg_gnb_identity"
 REMOTE_APP_NAME = "some_app"
-SDCORE_CONFIG_RELATION_NAME = "sdcore-config"
+SDCORE_CONFIG_RELATION_NAME = "sdcore_config"
 
 class NMSUnitTestFixtures:
 
@@ -122,7 +122,7 @@ class NMSUnitTestFixtures:
         mock_get_response.json.return_value = existing_inventory
         mock_get_response.status_code = 200
         return mock_get_response
-    
+
     @property
     def empty_mock_response(self):
         self.get_inventory_mock_response([])
