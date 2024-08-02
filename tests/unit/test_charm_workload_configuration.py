@@ -5,18 +5,20 @@ import os
 from unittest.mock import call
 
 import pytest
-from fixtures import NMSUnitTestFixtures
+from fixtures import (
+    AUTH_DATABASE_RELATION_NAME,
+    COMMON_DATABASE_RELATION_NAME,
+    CONTAINER,
+    CONTAINER_CONFIG_FILE_PATH,
+    FIVEG_N4_RELATION_NAME,
+    GNB_IDENTITY_RELATION_NAME,
+    REMOTE_APP_NAME,
+    SDCORE_CONFIG_RELATION_NAME,
+    NMSUnitTestFixtures,
+)
 from ops.model import ModelError
 
-CONTAINER = "nms"
-CONTAINER_CONFIG_FILE_PATH = "nms/config/webuicfg.conf"
 EXPECTED_CONFIG_FILE_PATH = "tests/unit/expected_webui_cfg.yaml"
-GNB_IDENTITY_RELATION_NAME = "fiveg_gnb_identity"
-FIVEG_N4_RELATION_NAME = "fiveg_n4"
-REMOTE_APP_NAME = "some_app"
-SDCORE_CONFIG_RELATION_NAME = "sdcore_config"
-AUTH_DATABASE_RELATION_NAME = "auth_database"
-COMMON_DATABASE_RELATION_NAME = "common_database"
 POD_IP = "1.2.3.4"
 UPF_CONFIG_URL = "config/v1/inventory/upf"
 GNB_CONFIG_URL = "config/v1/inventory/gnb"
@@ -275,7 +277,7 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
         self.harness.container_pebble_ready(CONTAINER)
 
         self.mock_request_post.assert_called_once_with(
-            f"{WEBUI_ENDPOINT}/{UPF_CONFIG_URL}/some.host.name",
+            f"http://{WEBUI_ENDPOINT}/{UPF_CONFIG_URL}/some.host.name",
             headers={'Content-Type': 'application/json'},
             json={"port": "1234"}
         )
@@ -292,7 +294,7 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
         self.harness.container_pebble_ready(CONTAINER)
 
         self.mock_request_post.assert_called_once_with(
-            f"{WEBUI_ENDPOINT}/{GNB_CONFIG_URL}/{gnb_name}",
+            f"http://{WEBUI_ENDPOINT}/{GNB_CONFIG_URL}/{gnb_name}",
             headers={'Content-Type': 'application/json'},
             json={"tac": tac}
         )
@@ -308,12 +310,12 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
         self.harness.container_pebble_ready(CONTAINER)
 
         self.mock_request_post.assert_any_call(
-            f"{WEBUI_ENDPOINT}/{UPF_CONFIG_URL}/some.host.name",
+            f"http://{WEBUI_ENDPOINT}/{UPF_CONFIG_URL}/some.host.name",
             headers={'Content-Type': 'application/json'},
             json={"port": "1234"}
         )
         self.mock_request_post.assert_any_call(
-            f"{WEBUI_ENDPOINT}/{UPF_CONFIG_URL}/my_host",
+            f"http://{WEBUI_ENDPOINT}/{UPF_CONFIG_URL}/my_host",
             headers={'Content-Type': 'application/json'},
             json={"port": "77"}
         )
@@ -329,12 +331,12 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
         self.harness.container_pebble_ready(CONTAINER)
 
         self.mock_request_post.assert_any_call(
-            f"{WEBUI_ENDPOINT}/{GNB_CONFIG_URL}/some.gnb.name",
+            f"http://{WEBUI_ENDPOINT}/{GNB_CONFIG_URL}/some.gnb.name",
             headers={'Content-Type': 'application/json'},
             json={"tac": "1234"}
         )
         self.mock_request_post.assert_any_call(
-            f"{WEBUI_ENDPOINT}/{GNB_CONFIG_URL}/my_gnb",
+            f"http://{WEBUI_ENDPOINT}/{GNB_CONFIG_URL}/my_gnb",
             headers={'Content-Type': 'application/json'},
             json={"tac": "4567"}
         )
@@ -351,7 +353,7 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
 
         self.harness.container_pebble_ready(CONTAINER)
 
-        self.mock_request_get.assert_any_call(f"{WEBUI_ENDPOINT}/{UPF_CONFIG_URL}")
+        self.mock_request_get.assert_any_call(f"http://{WEBUI_ENDPOINT}/{UPF_CONFIG_URL}")
         self.mock_request_post.assert_not_called()
 
     def test_given_gnb_exist_in_inventory_and_relation_matches_when_pebble_ready_then_gnb_inventory_is_not_updated(  # noqa: E501
@@ -366,7 +368,7 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
 
         self.harness.container_pebble_ready(CONTAINER)
 
-        self.mock_request_get.assert_any_call(f"{WEBUI_ENDPOINT}/{GNB_CONFIG_URL}")
+        self.mock_request_get.assert_any_call(f"http://{WEBUI_ENDPOINT}/{GNB_CONFIG_URL}")
         self.mock_request_post.assert_not_called()
 
     def test_given_no_upf_or_gnb_relation_when_pebble_ready_then_inventory_is_not_updated(
@@ -394,12 +396,12 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
         self.harness.container_pebble_ready(CONTAINER)
 
         self.mock_request_post.assert_any_call(
-            f"{WEBUI_ENDPOINT}/{UPF_CONFIG_URL}/my_host",
+            f"http://{WEBUI_ENDPOINT}/{UPF_CONFIG_URL}/my_host",
             headers={'Content-Type': 'application/json'},
             json={"port": "4567"}
         )
         unwanted_call = call(
-            f"{WEBUI_ENDPOINT}/{UPF_CONFIG_URL}/some.host.name",
+            f"http://{WEBUI_ENDPOINT}/{UPF_CONFIG_URL}/some.host.name",
             headers={'Content-Type': 'application/json'},
             json={"port": "1234"}
         )
@@ -420,12 +422,12 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
         self.harness.container_pebble_ready(CONTAINER)
 
         self.mock_request_post.assert_any_call(
-            f"{WEBUI_ENDPOINT}/{GNB_CONFIG_URL}/my_gnb",
+            f"http://{WEBUI_ENDPOINT}/{GNB_CONFIG_URL}/my_gnb",
             headers={'Content-Type': 'application/json'},
             json={"tac": "4567"}
         )
         unwanted_call = call(
-            f"{WEBUI_ENDPOINT}/{GNB_CONFIG_URL}/some.gnb.name",
+            f"http://{WEBUI_ENDPOINT}/{GNB_CONFIG_URL}/some.gnb.name",
             headers={'Content-Type': 'application/json'},
             json={"tac": "1234"}
         )
@@ -442,7 +444,10 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
         ]
         upf_mock_response = self.get_inventory_mock_response(existing_upfs)
         self.mock_request_get.side_effect = [
-            self.empty_mock_response, upf_mock_response, self.empty_mock_response, upf_mock_response
+            self.empty_mock_response,
+            upf_mock_response,
+            self.empty_mock_response,
+            upf_mock_response
         ]
         self.harness.add_storage("config", attach=True)
         fiveg_n4_relation_1_id = self.set_n4_relation_data(
@@ -454,14 +459,14 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
         self.harness.remove_relation(fiveg_n4_relation_1_id)
 
         self.mock_request_delete.assert_any_call(
-            f"{WEBUI_ENDPOINT}/{UPF_CONFIG_URL}/some.host.name",
+            f"http://{WEBUI_ENDPOINT}/{UPF_CONFIG_URL}/some.host.name",
         )
-        unwanted_call = call(f"{WEBUI_ENDPOINT}/{UPF_CONFIG_URL}/some.host")
+        unwanted_call = call(f"http://{WEBUI_ENDPOINT}/{UPF_CONFIG_URL}/some.host")
         assert unwanted_call not in self.mock_request_post.call_args_list
         self.mock_request_post.assert_not_called()
 
 
-    def test_given_two_gnb_identity_relations_when_relation_broken_then_gnb_is_removed_from_inventory(
+    def test_given_two_gnb_identity_relations_when_relation_broken_then_gnb_is_removed_from_inventory(  # noqa: E501
         self, auth_database_relation_id, common_database_relation_id
     ):
         self.mock_check_output.return_value = POD_IP.encode()
@@ -471,7 +476,10 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
         ]
         gnb_mock_response = self.get_inventory_mock_response(existing_gnbs)
         self.mock_request_get.side_effect = [
-            gnb_mock_response, self.empty_mock_response, gnb_mock_response, self.empty_mock_response
+            gnb_mock_response,
+            self.empty_mock_response,
+            gnb_mock_response,
+            self.empty_mock_response
         ]
         self.harness.add_storage("config", attach=True)
         gnb_identity_relation_1_id = self.set_gnb_identity_relation_data(
@@ -483,9 +491,9 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
         self.harness.remove_relation(gnb_identity_relation_1_id)
 
         self.mock_request_delete.assert_any_call(
-            f"{WEBUI_ENDPOINT}/{GNB_CONFIG_URL}/some.gnb.name",
+            f"http://{WEBUI_ENDPOINT}/{GNB_CONFIG_URL}/some.gnb.name",
         )
-        unwanted_call = call(f"{WEBUI_ENDPOINT}/{GNB_CONFIG_URL}/gnb.name")
+        unwanted_call = call(f"http://{WEBUI_ENDPOINT}/{GNB_CONFIG_URL}/gnb.name")
         assert unwanted_call not in self.mock_request_post.call_args_list
         self.mock_request_post.assert_not_called()
 

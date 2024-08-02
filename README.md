@@ -29,5 +29,5 @@ You should now be able to access the NMS at `https://<model name>-sdcore-nms-k8s
 
 ## Image
 
-**sdcore-nms**: ghcr.io/canonical/sdcore-nms:0.2.0
+**sdcore-nms**: ghcr.io/canonical/sdcore-nms:1.0.0
 

@@ -14,6 +14,8 @@ FIVEG_N4_RELATION_NAME = "fiveg_n4"
 GNB_IDENTITY_RELATION_NAME = "fiveg_gnb_identity"
 REMOTE_APP_NAME = "some_app"
 SDCORE_CONFIG_RELATION_NAME = "sdcore_config"
+CONTAINER = "nms"
+CONTAINER_CONFIG_FILE_PATH = "nms/config/webuicfg.conf"
 
 class NMSUnitTestFixtures:
 

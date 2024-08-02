@@ -2,13 +2,14 @@
 # See LICENSE file for licensing details.
 
 
-from fixtures import NMSUnitTestFixtures
+from fixtures import (
+    AUTH_DATABASE_RELATION_NAME,
+    COMMON_DATABASE_RELATION_NAME,
+    CONTAINER,
+    CONTAINER_CONFIG_FILE_PATH,
+    NMSUnitTestFixtures,
+)
 from ops.model import ActiveStatus, BlockedStatus, ModelError, WaitingStatus
-
-AUTH_DATABASE_RELATION_NAME = "auth_database"
-COMMON_DATABASE_RELATION_NAME = "common_database"
-CONTAINER = "nms"
-WEBUI_CONFIG_FILE_PATH = "nms/config/webuicfg.conf"
 
 
 class TestCharmStatus(NMSUnitTestFixtures):
@@ -95,7 +96,7 @@ class TestCharmStatus(NMSUnitTestFixtures):
         self.harness.add_storage("config", attach=True)
         self.mock_get_service.side_effect = ModelError()
         root = self.harness.get_filesystem_root(CONTAINER)
-        (root / WEBUI_CONFIG_FILE_PATH).write_text("something")
+        (root / CONTAINER_CONFIG_FILE_PATH).write_text("something")
 
         self.harness.evaluate_status()
 
@@ -107,7 +108,7 @@ class TestCharmStatus(NMSUnitTestFixtures):
         self.harness.set_can_connect(container=CONTAINER, val=True)
         self.harness.add_storage("config", attach=True)
         root = self.harness.get_filesystem_root(CONTAINER)
-        (root / WEBUI_CONFIG_FILE_PATH).write_text("something")
+        (root / CONTAINER_CONFIG_FILE_PATH).write_text("something")
 
         self.harness.evaluate_status()
 
@@ -127,7 +128,7 @@ class TestCharmStatus(NMSUnitTestFixtures):
         self.set_n4_relation_data({"upf_hostname": "some.host.name", "upf_port": "1234"})
         self.set_gnb_identity_relation_data({"gnb_name": "some.gnb.name", "tac": "1234"})
         root = self.harness.get_filesystem_root(CONTAINER)
-        (root / WEBUI_CONFIG_FILE_PATH).write_text("something")
+        (root / CONTAINER_CONFIG_FILE_PATH).write_text("something")
 
         self.harness.evaluate_status()
 
@@ -139,7 +140,7 @@ class TestCharmStatus(NMSUnitTestFixtures):
         self.harness.set_can_connect(container=CONTAINER, val=True)
         self.harness.add_storage("config", attach=True)
         root = self.harness.get_filesystem_root(CONTAINER)
-        (root / WEBUI_CONFIG_FILE_PATH).write_text("something")
+        (root / CONTAINER_CONFIG_FILE_PATH).write_text("something")
 
         self.harness.evaluate_status()
 

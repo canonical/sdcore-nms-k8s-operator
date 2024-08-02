@@ -141,7 +141,7 @@ def _get_host_from_url(url: str) -> str:
 
 
 def ui_is_running(nms_endpoint: str) -> bool:
-    url = f"{nms_endpoint}config/v1/network-slice"
+    url = f"{nms_endpoint}network-configuration"
     t0 = time.time()
     timeout = 300  # seconds
     while time.time() - t0 < timeout:
@@ -149,7 +149,7 @@ def ui_is_running(nms_endpoint: str) -> bool:
             response = requests.get(url=url, timeout=5)
             response.raise_for_status()
             logger.info(response.content.decode("utf-8"))
-            if "[]" in response.content.decode("utf-8"):
+            if "5G NMS" in response.content.decode("utf-8"):
                 return True
         except Exception as e:
             logger.info(f"UI is not running yet: {e}")

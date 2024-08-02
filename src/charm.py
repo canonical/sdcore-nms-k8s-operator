@@ -289,11 +289,11 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return []
 
     def _get_upfs_from_inventory(self) -> list:
-        inventory_url = f"{self._webui_endpoint}/{UPF_CONFIG_URL}"
+        inventory_url = f"http://{self._webui_endpoint}/{UPF_CONFIG_URL}"
         return self._get_resources_from_inventory(inventory_url)
 
     def _get_gnbs_from_inventory(self) -> list:
-        inventory_url = f"{self._webui_endpoint}/{GNB_CONFIG_URL}"
+        inventory_url = f"http://{self._webui_endpoint}/{GNB_CONFIG_URL}"
         return self._get_resources_from_inventory(inventory_url)
 
     def _add_resource_to_inventory(self, url: str, resource_name: str, data: dict) -> None:
@@ -306,13 +306,13 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
     def _add_upf_to_inventory(self, upf: dict) -> None:
         upf_hostmane = upf["hostname"]
-        inventory_url = f"{self._webui_endpoint}/{UPF_CONFIG_URL}/{upf_hostmane}"
+        inventory_url = f"http://{self._webui_endpoint}/{UPF_CONFIG_URL}/{upf_hostmane}"
         data = {"port": upf["port"]}
         self._add_resource_to_inventory(inventory_url, upf_hostmane, data)
 
     def _add_gnb_to_inventory(self, gnb: dict) -> None:
         gnb_name = gnb["name"]
-        inventory_url = f"{self._webui_endpoint}/{GNB_CONFIG_URL}/{gnb_name}"
+        inventory_url = f"http://{self._webui_endpoint}/{GNB_CONFIG_URL}/{gnb_name}"
         data = {"tac": gnb["tac"]}
         self._add_resource_to_inventory(inventory_url, gnb_name, data)
 
@@ -325,11 +325,11 @@ class SDCoreNMSOperatorCharm(CharmBase):
             logger.error(f"Failed to remove {resource_name} from webui: {e}")
 
     def _delete_upf_from_inventory(self, upf_hostname: str) -> None:
-        inventory_url = f"{self._webui_endpoint}/{UPF_CONFIG_URL}/{upf_hostname}"
+        inventory_url = f"http://{self._webui_endpoint}/{UPF_CONFIG_URL}/{upf_hostname}"
         self._delete_resource_from_inventory(inventory_url, upf_hostname)
 
     def _delete_gnb_from_inventory(self, gnb_name: str) -> None:
-        inventory_url = f"{self._webui_endpoint}/{GNB_CONFIG_URL}/{gnb_name}"
+        inventory_url = f"http://{self._webui_endpoint}/{GNB_CONFIG_URL}/{gnb_name}"
         self._delete_resource_from_inventory(inventory_url, gnb_name)
 
     def _configure_upfs(self) -> None:
