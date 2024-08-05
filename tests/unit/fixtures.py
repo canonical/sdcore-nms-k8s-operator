@@ -24,18 +24,25 @@ class NMSUnitTestFixtures:
     patcher_set_webui_url_in_all_relations = patch(
         "charms.sdcore_nms_k8s.v0.sdcore_config.SdcoreConfigProvides.set_webui_url_in_all_relations"
     )
-    patcher_request_get = patch("requests.get")
-    patcher_request_post = patch("requests.post")
-    patcher_request_delete = patch("requests.delete")
+    patcher_webui_get_gnbs = patch("webui.Webui.get_gnbs_from_inventory")
+    patcher_webui_add_gnb = patch("webui.Webui.add_gnb_to_inventory")
+    patcher_webui_delete_gnb = patch("webui.Webui.delete_gnb_from_inventory")
+    patcher_webui_get_upfs = patch("webui.Webui.get_upfs_from_inventory")
+    patcher_webui_add_upf = patch("webui.Webui.add_upf_to_inventory")
+    patcher_webui_delete_upf = patch("webui.Webui.delete_upf_from_inventory")
+
 
     @pytest.fixture()
     def setUp(self):
         self.mock_check_output = NMSUnitTestFixtures.patcher_check_output.start()
         self.mock_get_service = NMSUnitTestFixtures.patcher_get_service.start()
         self.mock_set_webui_url_in_all_relations = NMSUnitTestFixtures.patcher_set_webui_url_in_all_relations.start()  # noqa: E501
-        self.mock_request_get = NMSUnitTestFixtures.patcher_request_get.start()
-        self.mock_request_post = NMSUnitTestFixtures.patcher_request_post.start()
-        self.mock_request_delete = NMSUnitTestFixtures.patcher_request_delete.start()
+        self.mock_get_gnbs = NMSUnitTestFixtures.patcher_webui_get_gnbs.start()
+        self.mock_add_gnb = NMSUnitTestFixtures.patcher_webui_add_gnb.start()
+        self.mock_delete_gnb = NMSUnitTestFixtures.patcher_webui_delete_gnb.start()
+        self.mock_get_upfs = NMSUnitTestFixtures.patcher_webui_get_upfs.start()
+        self.mock_add_upf = NMSUnitTestFixtures.patcher_webui_add_upf.start()
+        self.mock_delete_upf = NMSUnitTestFixtures.patcher_webui_delete_upf.start()
 
     @staticmethod
     def tearDown() -> None:
@@ -117,14 +124,5 @@ class NMSUnitTestFixtures:
 
     @pytest.fixture()
     def empty_inventory(self) -> Generator[None, None, None]:
-        self.mock_request_get.return_value = self.get_inventory_mock_response([])
-
-    def get_inventory_mock_response(self, existing_inventory: list) -> Mock:
-        mock_get_response = Mock()
-        mock_get_response.json.return_value = existing_inventory
-        mock_get_response.status_code = 200
-        return mock_get_response
-
-    @property
-    def empty_mock_response(self):
-        self.get_inventory_mock_response([])
+        self.mock_get_gnbs.return_value = []
+        self.mock_get_upfs.return_value = []

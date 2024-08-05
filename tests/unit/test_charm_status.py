@@ -117,12 +117,6 @@ class TestCharmStatus(NMSUnitTestFixtures):
     def test_given_container_ready_all_relations_exist_storage_attached_and_config_files_exist_when_evaluate_status_then_status_is_active(  # noqa: E501
         self, auth_database_relation_id, common_database_relation_id
     ):
-        existing_gnbs = [{"name": "some.gnb.name", "tac": "1234"}]
-        gnb_mock_response = self.get_inventory_mock_response(existing_gnbs)
-        existing_upfs = [{"hostname": "some.host.name", "port": "1234"}]
-        upf_mock_response = self.get_inventory_mock_response(existing_upfs)
-        self.mock_request_get.side_effect = [gnb_mock_response, upf_mock_response]
-
         self.harness.set_can_connect(container=CONTAINER, val=True)
         self.harness.add_storage("config", attach=True)
         self.set_n4_relation_data({"upf_hostname": "some.host.name", "upf_port": "1234"})

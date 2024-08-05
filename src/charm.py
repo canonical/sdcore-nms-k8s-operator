@@ -7,9 +7,8 @@
 import logging
 from ipaddress import IPv4Address
 from subprocess import CalledProcessError, check_output
-from typing import Optional
+from typing import Optional, List
 
-import requests  # type: ignore[import]
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires  # type: ignore[import]
 from charms.loki_k8s.v1.loki_push_api import LogForwarder  # type: ignore[import]
 from charms.sdcore_gnbsim_k8s.v0.fiveg_gnb_identity import (  # type: ignore[import]
@@ -25,13 +24,12 @@ from ops import ActiveStatus, BlockedStatus, CollectStatusEvent, ModelError, Wai
 from ops.charm import CharmBase, EventBase
 from ops.main import main
 from ops.pebble import Layer
+from webui import GnodeB, Upf, Webui
 
 logger = logging.getLogger(__name__)
 
 BASE_CONFIG_PATH = "/nms/config" # "/nms/config"
 CONFIG_FILE_NAME = "webuicfg.conf"
-GNB_CONFIG_URL = "config/v1/inventory/gnb"
-UPF_CONFIG_URL = "config/v1/inventory/upf"
 WEBUI_CONFIG_PATH = f"{BASE_CONFIG_PATH}/{CONFIG_FILE_NAME}"
 WORKLOAD_VERSION_FILE_NAME = "/etc/workload-version"
 AUTH_DATABASE_RELATION_NAME = "auth_database"
@@ -45,7 +43,6 @@ COMMON_DATABASE_NAME = "free5gc"
 GRPC_PORT = 9876
 WEBUI_URL_PORT = 5000
 WEBUI_SERVICE_NAME = "webui"
-JSON_HEADER = {'Content-Type': 'application/json'}
 
 def _get_pod_ip() -> Optional[str]:
     """Return the pod IP using juju client."""
@@ -144,6 +141,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         )
         # Handling config changed event to publish the new url if the unit reboots and gets new IP
         self.framework.observe(self.on.config_changed, self._configure_sdcore_nms)
+        self._webui = Webui(url="")
 
     def _configure_sdcore_nms(self, event: EventBase) -> None:
         """Handle Juju events.
@@ -163,6 +161,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         if not self._auth_database_resource_is_available():
             return
+        self._set_webui_url()
         self._configure_gnbs()
         self._configure_upfs()
         desired_config_file = self._generate_webui_config_file()
@@ -277,76 +276,22 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return False
         return service.is_running()
 
-    def _get_resources_from_inventory(self, inventory_url: str) -> list:
-        try:
-            response = requests.get(inventory_url)
-            response.raise_for_status()
-            resources = response.json()
-            logger.info(f"Got {resources} from inventory")
-            return resources
-        except Exception as e:
-            logger.error(f"Failed to get resource from inventory: {e}")
-            return []
-
-    def _get_upfs_from_inventory(self) -> list:
-        inventory_url = f"http://{self._webui_endpoint}/{UPF_CONFIG_URL}"
-        return self._get_resources_from_inventory(inventory_url)
-
-    def _get_gnbs_from_inventory(self) -> list:
-        inventory_url = f"http://{self._webui_endpoint}/{GNB_CONFIG_URL}"
-        return self._get_resources_from_inventory(inventory_url)
-
-    def _add_resource_to_inventory(self, url: str, resource_name: str, data: dict) -> None:
-        try:
-            response = requests.post(url, headers=JSON_HEADER, json=data)
-            response.raise_for_status()
-            logger.info(f"{resource_name} added to webui")
-        except Exception as e:
-            logger.error(f"Failed to add {resource_name} to webui: {e}")
-
-    def _add_upf_to_inventory(self, upf: dict) -> None:
-        upf_hostmane = upf["hostname"]
-        inventory_url = f"http://{self._webui_endpoint}/{UPF_CONFIG_URL}/{upf_hostmane}"
-        data = {"port": upf["port"]}
-        self._add_resource_to_inventory(inventory_url, upf_hostmane, data)
-
-    def _add_gnb_to_inventory(self, gnb: dict) -> None:
-        gnb_name = gnb["name"]
-        inventory_url = f"http://{self._webui_endpoint}/{GNB_CONFIG_URL}/{gnb_name}"
-        data = {"tac": gnb["tac"]}
-        self._add_resource_to_inventory(inventory_url, gnb_name, data)
-
-    def _delete_resource_from_inventory(self, inventory_url: str, resource_name: str) -> None:
-        try:
-            response = requests.delete(inventory_url)
-            response.raise_for_status()
-            logger.info(f"{resource_name} removed from webui")
-        except Exception as e:
-            logger.error(f"Failed to remove {resource_name} from webui: {e}")
-
-    def _delete_upf_from_inventory(self, upf_hostname: str) -> None:
-        inventory_url = f"http://{self._webui_endpoint}/{UPF_CONFIG_URL}/{upf_hostname}"
-        self._delete_resource_from_inventory(inventory_url, upf_hostname)
-
-    def _delete_gnb_from_inventory(self, gnb_name: str) -> None:
-        inventory_url = f"http://{self._webui_endpoint}/{GNB_CONFIG_URL}/{gnb_name}"
-        self._delete_resource_from_inventory(inventory_url, gnb_name)
 
     def _configure_upfs(self) -> None:
         if not self.model.relations.get(FIVEG_N4_RELATION_NAME):
             logger.info("Relation %s not available", FIVEG_N4_RELATION_NAME)
-        inventory_upf_config = self._get_upfs_from_inventory()
+        inventory_upf_config = self._webui.get_upfs_from_inventory()
         relation_upf_config = self._get_upf_config_from_relations()
         self._sync_upfs(inventory_upfs=inventory_upf_config, relation_upfs=relation_upf_config)
 
     def _configure_gnbs(self) -> None:
         if not self.model.relations.get(GNB_IDENTITY_RELATION_NAME):
             logger.info("Relation %s not available", GNB_IDENTITY_RELATION_NAME)
-        inventory_gnb_config = self._get_gnbs_from_inventory()
+        inventory_gnb_config = self._webui.get_gnbs_from_inventory()
         relation_gnb_config = self._get_gnb_config_from_relations()
         self._sync_gnbs(inventory_gnbs=inventory_gnb_config, relation_gnbs=relation_gnb_config)
 
-    def _get_upf_config_from_relations(self) -> list[dict[str, str]]:
+    def _get_upf_config_from_relations(self) -> List[Upf]:
         upf_host_port_list = []
         for fiveg_n4_relation in self.model.relations.get(FIVEG_N4_RELATION_NAME, []):
             if not fiveg_n4_relation.app:
@@ -358,10 +303,10 @@ class SDCoreNMSOperatorCharm(CharmBase):
             port = fiveg_n4_relation.data[fiveg_n4_relation.app].get("upf_port", "")
             hostname = fiveg_n4_relation.data[fiveg_n4_relation.app].get("upf_hostname", "")
             if hostname and port:
-                upf_host_port_list.append({"hostname": hostname, "port": str(port)})
+                upf_host_port_list.append(Upf(hostname=hostname, port=int(port)))
         return upf_host_port_list
 
-    def _get_gnb_config_from_relations(self) -> list[dict[str, str]]:
+    def _get_gnb_config_from_relations(self) -> List[GnodeB]:
         gnb_name_tac_list = []
         for gnb_identity_relation in self.model.relations.get(GNB_IDENTITY_RELATION_NAME, []):
             if not gnb_identity_relation.app:
@@ -373,34 +318,34 @@ class SDCoreNMSOperatorCharm(CharmBase):
             gnb_name = gnb_identity_relation.data[gnb_identity_relation.app].get("gnb_name", "")
             gnb_tac = gnb_identity_relation.data[gnb_identity_relation.app].get("tac", "")
             if gnb_name and gnb_tac:
-                gnb_name_tac_list.append({"name": gnb_name, "tac": gnb_tac})
+                gnb_name_tac_list.append(GnodeB(name=gnb_name, tac=int(gnb_tac)))
         return gnb_name_tac_list
 
-    def _sync_gnbs(self, inventory_gnbs: list, relation_gnbs: list) -> None:
+    def _sync_gnbs(self, inventory_gnbs: List[GnodeB], relation_gnbs: List[GnodeB]) -> None:
         """Align the gNB from the `fiveg_gnb_identity` relations with the remote DB inventory."""
-        db_gnb_dict = {gnb['name']: gnb for gnb in inventory_gnbs}
-        relation_gnb_dict = {gnb['name']: gnb for gnb in relation_gnbs}
+        relation_names = {gnb.name for gnb in relation_gnbs}
 
-        for name, relation_gnb in relation_gnb_dict.items():
-            if name not in db_gnb_dict or db_gnb_dict[name] != relation_gnb:
-                self._add_gnb_to_inventory(relation_gnb)
+        for relation_gnb in relation_gnbs:
+            matching_gnb = next((gnb for gnb in inventory_gnbs if gnb.name == relation_gnb.name), None)  # noqa: E501
+            if not matching_gnb or matching_gnb != relation_gnb:
+                self._webui.add_gnb_to_inventory(relation_gnb)
 
-        for name in db_gnb_dict:
-            if name not in relation_gnb_dict:
-                self._delete_gnb_from_inventory(name)
+        for inventory_gnb in inventory_gnbs:
+            if inventory_gnb.name not in relation_names:
+                self._webui.delete_gnb_from_inventory(inventory_gnb.name)
 
-    def _sync_upfs(self, inventory_upfs: list, relation_upfs: list) -> None:
+    def _sync_upfs(self, inventory_upfs: List[Upf], relation_upfs: List[Upf]) -> None:
         """Align the gNB from the `fiveg_n4` relations with the remote DB inventory."""
-        db_upf_dict = {upf['hostname']: upf for upf in inventory_upfs}
-        relation_upf_dict = {upf['hostname']: upf for upf in relation_upfs}
+        relation_hostnames = {upf.hostname for upf in relation_upfs}
 
-        for hostname, relation_upf in relation_upf_dict.items():
-            if hostname not in db_upf_dict or db_upf_dict[hostname] != relation_upf:
-                self._add_upf_to_inventory(relation_upf)
+        for relation_upf in relation_upfs:
+            matching_upf = next((upf for upf in inventory_upfs if upf.hostname == relation_upf.hostname), None)  # noqa: E501
+            if not matching_upf or matching_upf != relation_upf:
+                self._webui.add_upf_to_inventory(relation_upf)
 
-        for hostname in db_upf_dict:
-            if hostname not in relation_upf_dict:
-                self._delete_upf_from_inventory(hostname)
+        for inventory_upf in inventory_upfs:
+            if inventory_upf.hostname not in relation_hostnames:
+                self._webui.delete_upf_from_inventory(inventory_upf.hostname)
 
     def _get_common_database_url(self) -> str:
         if not self._common_database_resource_is_available():
@@ -446,6 +391,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
     def _relation_created(self, relation_name: str) -> bool:
         return bool(self.model.relations[relation_name])
+    
+    def _set_webui_url(self) -> None:
+        self._webui = Webui(f"http://{self._webui_endpoint}")
 
     @property
     def _webui_config_url(self) -> str:
