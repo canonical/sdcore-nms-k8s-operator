@@ -272,3 +272,68 @@ class TestGnbUpfConfiguration(NMSUnitTestFixtures):
         self.mock_delete_gnb.assert_called_once_with("some.gnb.name")
         self.mock_add_gnb.assert_not_called()
 
+    def test_given_one_upf_in_webui_when_upf_is_modified_in_relation_then_webui_upfs_are_updated(  # noqa: E501
+        self, auth_database_relation_id, common_database_relation_id
+    ):
+        existing_upfs = [
+            Upf(hostname="some.host.name", port=1234),
+        ]
+        self.mock_get_upfs.return_value = existing_upfs
+        self.harness.add_storage("config", attach=True)
+        self.set_n4_relation_data({"upf_hostname": "some.host.name", "upf_port": "22"})
+
+        self.harness.container_pebble_ready(CONTAINER)
+
+        self.mock_delete_upf.assert_called_once_with("some.host.name")
+        expected_upf = Upf(hostname="some.host.name", port=22)
+        self.mock_add_upf.assert_called_once_with(expected_upf)
+
+    def test_given_one_gnb_in_webui_when_gnb_is_modified_in_relation_then_webui_gnbs_are_updated(  # noqa: E501
+        self, auth_database_relation_id, common_database_relation_id
+    ):
+        existing_gnbs = [
+            GnodeB(name="some.gnb.name", tac=1234),
+        ]
+        self.mock_get_gnbs.return_value = existing_gnbs
+        self.harness.add_storage("config", attach=True)
+        self.set_gnb_identity_relation_data({"gnb_name": "some.gnb.name", "tac": "6789"})
+
+        self.harness.container_pebble_ready(CONTAINER)
+
+        self.mock_delete_gnb.assert_called_once_with("some.gnb.name")
+        expected_gnb = GnodeB(name="some.gnb.name", tac=6789)
+        self.mock_add_gnb.assert_called_once_with(expected_gnb)
+
+    def test_given_one_upf_in_webui_when_new_upf_is_added_then_old_upf_is_removed_and_new_upf_is_added(  # noqa: E501
+        self, auth_database_relation_id, common_database_relation_id
+    ):
+        existing_upfs = [
+            Upf(hostname="old.name", port=1234),
+        ]
+        self.mock_get_upfs.return_value = existing_upfs
+        self.harness.add_storage("config", attach=True)
+        self.set_n4_relation_data({"upf_hostname": "some.host.name", "upf_port": "22"})
+
+        self.harness.container_pebble_ready(CONTAINER)
+
+        self.mock_delete_upf.assert_called_once_with("old.name")
+        expected_upf = Upf(hostname="some.host.name", port=22)
+        self.mock_add_upf.assert_called_once_with(expected_upf)
+
+    def test_given_one_gnb_in_webui_when_new_gnb_is_added_then_old_gnb_is_removed_and_new_gnb_is_added(  # noqa: E501
+        self, auth_database_relation_id, common_database_relation_id
+    ):
+        existing_gnbs = [
+            GnodeB(name="old.gnb.name", tac=1234),
+        ]
+        self.mock_get_gnbs.return_value = existing_gnbs
+        self.harness.add_storage("config", attach=True)
+        self.set_gnb_identity_relation_data({"gnb_name": "some.gnb.name", "tac": "6789"})
+
+        self.harness.container_pebble_ready(CONTAINER)
+
+        self.mock_delete_gnb.assert_called_once_with("old.gnb.name")
+        expected_gnb = GnodeB(name="some.gnb.name", tac=6789)
+        self.mock_add_gnb.assert_called_once_with(expected_gnb)
+
+

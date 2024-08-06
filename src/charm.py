@@ -162,13 +162,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
         if not self._auth_database_resource_is_available():
             return
         self._setup_webui_endpoint_url()
-        self._configure_gnbs()
-        self._configure_upfs()
-        desired_config_file = self._generate_webui_config_file()
-
-        if config_update_required := self._is_config_update_required(desired_config_file):
-            self._write_file_in_workload(WEBUI_CONFIG_PATH, desired_config_file)
-        self._configure_workload(restart=config_update_required)
+        self._sync_gnbs()
+        self._sync_upfs()
+        self._configure_workload()
         self._publish_sdcore_config_url()
 
     def _on_collect_unit_status(self, event: CollectStatusEvent):   # noqa: C901
@@ -226,35 +222,32 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         self._sdcore_config.set_webui_url_in_all_relations(webui_url=self._webui_config_url)
 
-    def _configure_workload(self, restart: bool = False) -> None:
-        """Configure and restart the workload if required.
+    def _configure_workload(self):
+        desired_config_file = self._generate_webui_config_file()
+        if not self._is_config_file_update_required(desired_config_file):
+            self._configure_pebble()
+            return
+        self._write_file_in_workload(WEBUI_CONFIG_PATH, desired_config_file)
+        self._configure_pebble()
+        self._restart_workload()
 
-        This method detects the changes between the Pebble layer and the Pebble services.
-        If a change is detected, it applies the desired configuration.
-        Then, it restarts the workload if a restart is required.
-
-        Args:
-            restart (bool): Whether to restart the nms container.
-        """
+    def _configure_pebble(self) -> None:
+        """Apply changes to Pebble layer if a change is detected."""
         plan = self._container.get_plan()
         if plan.services != self._pebble_layer.services:
             self._container.add_layer(self._container_name, self._pebble_layer, combine=True)
             self._container.replan()
             logger.info("New layer added: %s", self._pebble_layer)
-        if restart:
-            self._container.restart(self._service_name)
-            logger.info("Restarted container %s", self._service_name)
-            return
 
-    def _is_config_update_required(self, content: str) -> bool:
-        return not self._webui_config_file_exists() or not self._webui_config_file_content_matches(
-            content=content)
+    def _restart_workload(self) -> None:
+        self._container.restart(self._service_name)
+        logger.info("Restarted container %s", self._service_name)
 
-    def _webui_config_file_content_matches(self, content: str) -> bool:
+    def _is_config_file_update_required(self, content: str) -> bool:
         if not self._webui_config_file_exists():
-            return False
+            return True
         existing_content = self._container.pull(path=WEBUI_CONFIG_PATH)
-        return existing_content.read() == content
+        return existing_content.read() != content
 
     def _webui_config_file_exists(self) -> bool:
         return bool(self._container.exists(WEBUI_CONFIG_PATH))
@@ -275,20 +268,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
         except ModelError:
             return False
         return service.is_running()
-
-    def _configure_upfs(self) -> None:
-        if not self.model.relations.get(FIVEG_N4_RELATION_NAME):
-            logger.info("Relation %s not available", FIVEG_N4_RELATION_NAME)
-        webui_upf_config = self._webui.get_upfs()
-        relation_upf_config = self._get_upf_config_from_relations()
-        self._sync_upfs(webui_upfs=webui_upf_config, relation_upfs=relation_upf_config)
-
-    def _configure_gnbs(self) -> None:
-        if not self.model.relations.get(GNB_IDENTITY_RELATION_NAME):
-            logger.info("Relation %s not available", GNB_IDENTITY_RELATION_NAME)
-        webui_gnb_config = self._webui.get_gnbs()
-        relation_gnb_config = self._get_gnb_config_from_relations()
-        self._sync_gnbs(webui_gnbs=webui_gnb_config, relation_gnbs=relation_gnb_config)
 
     def _get_upf_config_from_relations(self) -> List[Upf]:
         upf_host_port_list = []
@@ -320,31 +299,31 @@ class SDCoreNMSOperatorCharm(CharmBase):
                 gnb_name_tac_list.append(GnodeB(name=gnb_name, tac=int(gnb_tac)))
         return gnb_name_tac_list
 
-    def _sync_gnbs(self, webui_gnbs: List[GnodeB], relation_gnbs: List[GnodeB]) -> None:
+    def _sync_gnbs(self) -> None:
         """Align the gNBs from the `fiveg_gnb_identity`relations with the ones in webui."""
-        relation_gnb_names = {gnb.name for gnb in relation_gnbs}
+        if not self.model.relations.get(GNB_IDENTITY_RELATION_NAME):
+            logger.info("Relation %s not available", GNB_IDENTITY_RELATION_NAME)
+        webui_gnbs = self._webui.get_gnbs()
+        relation_gnbs = self._get_gnb_config_from_relations()
+        for gnb in webui_gnbs:
+            if gnb not in relation_gnbs:
+                self._webui.delete_gnb(gnb.name)
+        for gnb in relation_gnbs:
+            if gnb not in webui_gnbs:
+                self._webui.add_gnb(gnb)
 
-        for relation_gnb in relation_gnbs:
-            matching_gnb = next((gnb for gnb in webui_gnbs if gnb.name == relation_gnb.name), None)  # noqa: E501
-            if not matching_gnb or matching_gnb != relation_gnb:
-                self._webui.add_gnb(relation_gnb)
-
-        for webui_gnb in webui_gnbs:
-            if webui_gnb.name not in relation_gnb_names:
-                self._webui.delete_gnb(webui_gnb.name)
-
-    def _sync_upfs(self, webui_upfs: List[Upf], relation_upfs: List[Upf]) -> None:
+    def _sync_upfs(self) -> None:
         """Align the UPFs from the `fiveg_n4` relations with the ones in webui."""
-        relation_hostnames = {upf.hostname for upf in relation_upfs}
-
-        for relation_upf in relation_upfs:
-            matching_upf = next((upf for upf in webui_upfs if upf.hostname == relation_upf.hostname), None)  # noqa: E501
-            if not matching_upf or matching_upf != relation_upf:
-                self._webui.add_upf(relation_upf)
-
-        for webui_upf in webui_upfs:
-            if webui_upf.hostname not in relation_hostnames:
-                self._webui.delete_upf(webui_upf.hostname)
+        if not self.model.relations.get(FIVEG_N4_RELATION_NAME):
+            logger.info("Relation %s not available", FIVEG_N4_RELATION_NAME)
+        webui_upfs = self._webui.get_upfs()
+        relation_upfs = self._get_upf_config_from_relations()
+        for upf in webui_upfs:
+            if upf not in relation_upfs:
+                self._webui.delete_upf(upf.hostname)
+        for upf in relation_upfs:
+            if upf not in webui_upfs:
+                self._webui.add_upf(upf)
 
     def _get_common_database_url(self) -> str:
         if not self._common_database_resource_is_available():
