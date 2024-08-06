@@ -164,7 +164,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self._setup_webui_endpoint_url()
         self._sync_gnbs()
         self._sync_upfs()
-        self._configure_workload()
+        self._configure_pebble()
+        self._write_webui_config_file()
         self._publish_sdcore_config_url()
 
     def _on_collect_unit_status(self, event: CollectStatusEvent):   # noqa: C901
@@ -222,14 +223,13 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         self._sdcore_config.set_webui_url_in_all_relations(webui_url=self._webui_config_url)
 
-    def _configure_workload(self):
+    def _write_webui_config_file(self):
         desired_config_file = self._generate_webui_config_file()
         if not self._is_config_file_update_required(desired_config_file):
-            self._configure_pebble()
             return
         self._write_file_in_workload(WEBUI_CONFIG_PATH, desired_config_file)
-        self._configure_pebble()
-        self._restart_workload()
+        self._container.restart(self._container_name)
+        logger.info("Restarted container %s", self._container_name)
 
     def _configure_pebble(self) -> None:
         """Apply changes to Pebble layer if a change is detected."""
@@ -238,10 +238,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self._container.add_layer(self._container_name, self._pebble_layer, combine=True)
             self._container.replan()
             logger.info("New layer added: %s", self._pebble_layer)
-
-    def _restart_workload(self) -> None:
-        self._container.restart(self._service_name)
-        logger.info("Restarted container %s", self._service_name)
 
     def _is_config_file_update_required(self, content: str) -> bool:
         if not self._webui_config_file_exists():
