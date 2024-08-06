@@ -2,7 +2,7 @@
 # See LICENSE file for licensing details.
 
 from typing import Generator
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 from charm import SDCoreNMSOperatorCharm
@@ -24,12 +24,13 @@ class NMSUnitTestFixtures:
     patcher_set_webui_url_in_all_relations = patch(
         "charms.sdcore_nms_k8s.v0.sdcore_config.SdcoreConfigProvides.set_webui_url_in_all_relations"
     )
-    patcher_webui_get_gnbs = patch("webui.Webui.get_gnbs_from_inventory")
-    patcher_webui_add_gnb = patch("webui.Webui.add_gnb_to_inventory")
-    patcher_webui_delete_gnb = patch("webui.Webui.delete_gnb_from_inventory")
-    patcher_webui_get_upfs = patch("webui.Webui.get_upfs_from_inventory")
-    patcher_webui_add_upf = patch("webui.Webui.add_upf_to_inventory")
-    patcher_webui_delete_upf = patch("webui.Webui.delete_upf_from_inventory")
+    patcher_webui_get_gnbs = patch("webui.Webui.get_gnbs")
+    patcher_webui_add_gnb = patch("webui.Webui.add_gnb")
+    patcher_webui_delete_gnb = patch("webui.Webui.delete_gnb")
+    patcher_webui_get_upfs = patch("webui.Webui.get_upfs")
+    patcher_webui_add_upf = patch("webui.Webui.add_upf")
+    patcher_webui_delete_upf = patch("webui.Webui.delete_upf")
+    patcher_webui_set_url = patch("webui.Webui.set_url")
 
 
     @pytest.fixture()
@@ -43,13 +44,14 @@ class NMSUnitTestFixtures:
         self.mock_get_upfs = NMSUnitTestFixtures.patcher_webui_get_upfs.start()
         self.mock_add_upf = NMSUnitTestFixtures.patcher_webui_add_upf.start()
         self.mock_delete_upf = NMSUnitTestFixtures.patcher_webui_delete_upf.start()
+        self.mock_webui_set_url = NMSUnitTestFixtures.patcher_webui_set_url.start()
 
     @staticmethod
     def tearDown() -> None:
         patch.stopall()
 
     @pytest.fixture(autouse=True)
-    def harness(self, setUp, request, empty_inventory):
+    def harness(self, setUp, request, empty_webui_inventory):
         self.harness = testing.Harness(SDCoreNMSOperatorCharm)
         self.harness.set_model_name(name="whatever")
         self.harness.set_leader(is_leader=True)
@@ -123,6 +125,6 @@ class NMSUnitTestFixtures:
         return fiveg_n4_relation_id
 
     @pytest.fixture()
-    def empty_inventory(self) -> Generator[None, None, None]:
+    def empty_webui_inventory(self) -> Generator[None, None, None]:
         self.mock_get_gnbs.return_value = []
         self.mock_get_upfs.return_value = []

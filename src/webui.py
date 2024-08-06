@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-# Copyright 2023 Canonical Ltd.
+# Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
 """Module use to handle webui API calls."""
 
-import json
 import logging
 from dataclasses import dataclass
-from typing import List
-import requests
+from typing import Dict, List
+
+import requests  # type: ignore[import]
 
 logger = logging.getLogger(__name__)
 
@@ -19,58 +19,60 @@ JSON_HEADER = {'Content-Type': 'application/json'}
 
 @dataclass
 class GnodeB:
+    """Class to represent a gNB."""
     name: str
     tac: int
 
-def transform_json_to_gnb(json_data: str) -> List[GnodeB]:
-    parsed_data = json.loads(json_data)
-    gnodeb_list = [GnodeB(name=item['name'], tac=int(item['tac'])) for item in parsed_data]
-    return gnodeb_list
-
 @dataclass
 class Upf:
+    """Class to represent a UPF."""
     hostname: str
     port: int
 
-def transform_json_to_upf(json_data: str) -> List[Upf]:
-    parsed_data = json.loads(json_data)
-    upf_list = [Upf(hostname=item['hostname'], tac=int(item['port'])) for item in parsed_data]
-    return upf_list
-
 class Webui:
-
+    """Handle webui API calls."""
     def __init__(self, url: str):
         self.url = url
 
-    def get_gnbs_from_inventory(self) -> List[GnodeB]:
+    def set_url(self, new_url: str) -> None:
+        """Set a new URL for the Webui instance."""
+        self.url = new_url
+
+    def get_gnbs(self) -> List[GnodeB]:
+        """Get a gNB list from the webui inventory."""
         inventory_url = f"{self.url}/{GNB_CONFIG_URL}"
         json_gnb_list = self._get_resources_from_inventory(inventory_url)
-        return transform_json_to_gnb(json_gnb_list)
+        return self._transform_response_to_gnb(json_gnb_list)
 
-    def add_gnb_to_inventory(self, gnb: GnodeB) -> None:
+    def add_gnb(self, gnb: GnodeB) -> None:
+        """Add a gNB list to the webui inventory."""
         inventory_url = f"{self.url}/{GNB_CONFIG_URL}/{gnb.name}"
-        data = {"tac": gnb.tac}
+        data = {"tac": str(gnb.tac)}
         self._add_resource_to_inventory(inventory_url, gnb.name, data)
 
-    def delete_gnb_from_inventory(self, gnb_name: str) -> None:
+    def delete_gnb(self, gnb_name: str) -> None:
+        """Delete a gNB list from the webui inventory."""
         inventory_url = f"{self.url}/{GNB_CONFIG_URL}/{gnb_name}"
         self._delete_resource_from_inventory(inventory_url, gnb_name)
 
-    def get_upfs_from_inventory(self) -> List[Upf]:
+    def get_upfs(self) -> List[Upf]:
+        """Get a UPF list from the webui inventory."""
         inventory_url = f"{self.url}/{UPF_CONFIG_URL}"
         json_upf_list = self._get_resources_from_inventory(inventory_url)
-        return transform_json_to_upf(json_upf_list)
+        return self._transform_response_to_upf(json_upf_list)
 
-    def add_upf_to_inventory(self, upf: Upf) -> None:
+    def add_upf(self, upf: Upf) -> None:
+        """Add a UPF list to the webui inventory."""
         inventory_url = f"{self.url}/{UPF_CONFIG_URL}/{upf.hostname}"
-        data = {"port": upf.port}
+        data = {"port": str(upf.port)}
         self._add_resource_to_inventory(inventory_url, upf.hostname, data)
 
-    def delete_upf_from_inventory(self, upf_hostname: str) -> None:
+    def delete_upf(self, upf_hostname: str) -> None:
+        """Delete a UPF list from the webui inventory."""
         inventory_url = f"{self.url}/{UPF_CONFIG_URL}/{upf_hostname}"
         self._delete_resource_from_inventory(inventory_url, upf_hostname)
 
-    def _get_resources_from_inventory(self, inventory_url: str) -> list:
+    def _get_resources_from_inventory(self, inventory_url: str) -> List[Dict]:
         response = requests.get(inventory_url)
         try:
             response.raise_for_status()
@@ -86,15 +88,35 @@ class Webui:
         try:
             response.raise_for_status()
         except Exception as e:
-            logger.error(f"Failed to add {resource_name} to webui: {e}")
+            logger.error("Failed to add %s to webui: %s", resource_name, e)
             return
-        logger.info(f"{resource_name} added to webui")
+        logger.info("%s added to webui", resource_name)
 
     def _delete_resource_from_inventory(self, inventory_url: str, resource_name: str) -> None:
         response = requests.delete(inventory_url)
         try:
             response.raise_for_status()
         except Exception as e:
-            logger.error(f"Failed to remove {resource_name} from webui: {e}")
+            logger.error("Failed to remove %s from webui: %s", resource_name, e)
             return
-        logger.info(f"{resource_name} removed from webui")
+        logger.info("%s removed from webui", resource_name)
+
+    @staticmethod
+    def _transform_response_to_gnb(json_data: List[Dict]) -> List[GnodeB]:
+        gnb_list = []
+        for item in json_data:
+            try:
+                gnb_list.append(GnodeB(name=item["name"], tac=int(item["tac"])))
+            except (ValueError, KeyError):
+                logger.error("invalid gnB %s", item)
+        return gnb_list
+
+    @staticmethod
+    def _transform_response_to_upf(json_data: List[Dict]) -> List[Upf]:
+        upf_list = []
+        for item in json_data:
+            try:
+                upf_list.append(Upf(hostname=item["hostname"], port=int(item["port"])))
+            except (ValueError, KeyError):
+                logger.error("invalid UPF %s", item)
+        return upf_list

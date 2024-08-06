@@ -7,7 +7,7 @@
 import logging
 from ipaddress import IPv4Address
 from subprocess import CalledProcessError, check_output
-from typing import Optional, List
+from typing import List, Optional
 
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires  # type: ignore[import]
 from charms.loki_k8s.v1.loki_push_api import LogForwarder  # type: ignore[import]
@@ -161,7 +161,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         if not self._auth_database_resource_is_available():
             return
-        self._set_webui_url()
+        self._setup_webui_endpoint_url()
         self._configure_gnbs()
         self._configure_upfs()
         desired_config_file = self._generate_webui_config_file()
@@ -188,7 +188,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         for relation in [COMMON_DATABASE_RELATION_NAME, AUTH_DATABASE_RELATION_NAME]:
             if not self._relation_created(relation):
                 event.add_status(BlockedStatus(f"Waiting for {relation} relation to be created"))
-                logger.info(f"Waiting for {relation} relation to be created")
+                logger.info("Waiting for %s relation to be created", relation)
                 return
         if not self._common_database_resource_is_available():
             event.add_status(WaitingStatus("Waiting for the common database to be available"))
@@ -276,20 +276,19 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return False
         return service.is_running()
 
-
     def _configure_upfs(self) -> None:
         if not self.model.relations.get(FIVEG_N4_RELATION_NAME):
             logger.info("Relation %s not available", FIVEG_N4_RELATION_NAME)
-        inventory_upf_config = self._webui.get_upfs_from_inventory()
+        webui_upf_config = self._webui.get_upfs()
         relation_upf_config = self._get_upf_config_from_relations()
-        self._sync_upfs(inventory_upfs=inventory_upf_config, relation_upfs=relation_upf_config)
+        self._sync_upfs(webui_upfs=webui_upf_config, relation_upfs=relation_upf_config)
 
     def _configure_gnbs(self) -> None:
         if not self.model.relations.get(GNB_IDENTITY_RELATION_NAME):
             logger.info("Relation %s not available", GNB_IDENTITY_RELATION_NAME)
-        inventory_gnb_config = self._webui.get_gnbs_from_inventory()
+        webui_gnb_config = self._webui.get_gnbs()
         relation_gnb_config = self._get_gnb_config_from_relations()
-        self._sync_gnbs(inventory_gnbs=inventory_gnb_config, relation_gnbs=relation_gnb_config)
+        self._sync_gnbs(webui_gnbs=webui_gnb_config, relation_gnbs=relation_gnb_config)
 
     def _get_upf_config_from_relations(self) -> List[Upf]:
         upf_host_port_list = []
@@ -321,42 +320,42 @@ class SDCoreNMSOperatorCharm(CharmBase):
                 gnb_name_tac_list.append(GnodeB(name=gnb_name, tac=int(gnb_tac)))
         return gnb_name_tac_list
 
-    def _sync_gnbs(self, inventory_gnbs: List[GnodeB], relation_gnbs: List[GnodeB]) -> None:
-        """Align the gNB from the `fiveg_gnb_identity` relations with the remote DB inventory."""
-        relation_names = {gnb.name for gnb in relation_gnbs}
+    def _sync_gnbs(self, webui_gnbs: List[GnodeB], relation_gnbs: List[GnodeB]) -> None:
+        """Align the gNBs from the `fiveg_gnb_identity`relations with the ones in webui."""
+        relation_gnb_names = {gnb.name for gnb in relation_gnbs}
 
         for relation_gnb in relation_gnbs:
-            matching_gnb = next((gnb for gnb in inventory_gnbs if gnb.name == relation_gnb.name), None)  # noqa: E501
+            matching_gnb = next((gnb for gnb in webui_gnbs if gnb.name == relation_gnb.name), None)  # noqa: E501
             if not matching_gnb or matching_gnb != relation_gnb:
-                self._webui.add_gnb_to_inventory(relation_gnb)
+                self._webui.add_gnb(relation_gnb)
 
-        for inventory_gnb in inventory_gnbs:
-            if inventory_gnb.name not in relation_names:
-                self._webui.delete_gnb_from_inventory(inventory_gnb.name)
+        for webui_gnb in webui_gnbs:
+            if webui_gnb.name not in relation_gnb_names:
+                self._webui.delete_gnb(webui_gnb.name)
 
-    def _sync_upfs(self, inventory_upfs: List[Upf], relation_upfs: List[Upf]) -> None:
-        """Align the gNB from the `fiveg_n4` relations with the remote DB inventory."""
+    def _sync_upfs(self, webui_upfs: List[Upf], relation_upfs: List[Upf]) -> None:
+        """Align the UPFs from the `fiveg_n4` relations with the ones in webui."""
         relation_hostnames = {upf.hostname for upf in relation_upfs}
 
         for relation_upf in relation_upfs:
-            matching_upf = next((upf for upf in inventory_upfs if upf.hostname == relation_upf.hostname), None)  # noqa: E501
+            matching_upf = next((upf for upf in webui_upfs if upf.hostname == relation_upf.hostname), None)  # noqa: E501
             if not matching_upf or matching_upf != relation_upf:
-                self._webui.add_upf_to_inventory(relation_upf)
+                self._webui.add_upf(relation_upf)
 
-        for inventory_upf in inventory_upfs:
-            if inventory_upf.hostname not in relation_hostnames:
-                self._webui.delete_upf_from_inventory(inventory_upf.hostname)
+        for webui_upf in webui_upfs:
+            if webui_upf.hostname not in relation_hostnames:
+                self._webui.delete_upf(webui_upf.hostname)
 
     def _get_common_database_url(self) -> str:
         if not self._common_database_resource_is_available():
-            raise RuntimeError(f"Database `{COMMON_DATABASE_NAME}` is not available")
+            raise RuntimeError("Database `%s` is not available", COMMON_DATABASE_NAME)
         return self._common_database.fetch_relation_data()[self._common_database.relations[0].id][
             "uris"
         ].split(",")[0]
 
     def _get_auth_database_url(self) -> str:
         if not self._auth_database_resource_is_available():
-            raise RuntimeError(f"Database `{AUTH_DATABASE_NAME}` is not available")
+            raise RuntimeError("Database `%s` is not available", AUTH_DATABASE_NAME)
         return self._auth_database.fetch_relation_data()[self._auth_database.relations[0].id][
             "uris"
         ].split(",")[0]
@@ -391,9 +390,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
     def _relation_created(self, relation_name: str) -> bool:
         return bool(self.model.relations[relation_name])
-    
-    def _set_webui_url(self) -> None:
-        self._webui = Webui(f"http://{self._webui_endpoint}")
+
+    def _setup_webui_endpoint_url(self) -> None:
+        self._webui.set_url(f"http://{self._webui_endpoint}")
 
     @property
     def _webui_config_url(self) -> str:
