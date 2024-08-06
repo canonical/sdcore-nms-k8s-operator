@@ -161,12 +161,11 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         if not self._auth_database_resource_is_available():
             return
+        self._configure_workload()
+        self._publish_sdcore_config_url()
         self._setup_webui_endpoint_url()
         self._sync_gnbs()
         self._sync_upfs()
-        self._configure_pebble()
-        self._write_webui_config_file()
-        self._publish_sdcore_config_url()
 
     def _on_collect_unit_status(self, event: CollectStatusEvent):   # noqa: C901
         """Check the unit status and set to Unit when CollectStatusEvent is fired.
@@ -223,11 +222,13 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         self._sdcore_config.set_webui_url_in_all_relations(webui_url=self._webui_config_url)
 
-    def _write_webui_config_file(self):
+    def _configure_workload(self):
         desired_config_file = self._generate_webui_config_file()
         if not self._is_config_file_update_required(desired_config_file):
+            self._configure_pebble()
             return
         self._write_file_in_workload(WEBUI_CONFIG_PATH, desired_config_file)
+        self._configure_pebble()
         self._container.restart(self._container_name)
         logger.info("Restarted container %s", self._container_name)
 
