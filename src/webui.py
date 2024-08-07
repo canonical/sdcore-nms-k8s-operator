@@ -23,6 +23,7 @@ class GnodeB:
     name: str
     tac: int
 
+
 @dataclass
 class Upf:
     """Class to represent a UPF."""
@@ -31,6 +32,7 @@ class Upf:
 
 class Webui:
     """Handle webui API calls."""
+    
     def __init__(self, url: str):
         self.url = url
 

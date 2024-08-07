@@ -43,7 +43,7 @@ class TestGnbUpfConfiguration(NMSUnitTestFixtures):
                 {"gnb_name": "something", "some": "key"},
                 id="invalid_key_in_gNB_config",
             ),
-                        pytest.param(
+    pytest.param(
                 FIVEG_N4_RELATION_NAME,
                 {"upf_hostname": "some.host.name"},
                 id="missing_upf_port_in_UPF_config",

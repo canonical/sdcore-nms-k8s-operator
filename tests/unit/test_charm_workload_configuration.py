@@ -22,6 +22,7 @@ EXPECTED_CONFIG_FILE_PATH = "tests/unit/expected_webui_cfg.yaml"
 POD_IP = "1.2.3.4"
 WEBUI_ENDPOINT = f"{POD_IP}:5000"
 
+
 def read_file_content(path: str) -> str:
     with open(path, "r") as f:
         content = f.read()

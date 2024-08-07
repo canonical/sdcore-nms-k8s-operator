@@ -18,7 +18,6 @@ CONTAINER = "nms"
 CONTAINER_CONFIG_FILE_PATH = "nms/config/webuicfg.conf"
 
 class NMSUnitTestFixtures:
-
     patcher_check_output = patch("charm.check_output")
     patcher_get_service = patch("ops.model.Container.get_service")
     patcher_set_webui_url_in_all_relations = patch(
@@ -31,7 +30,6 @@ class NMSUnitTestFixtures:
     patcher_webui_add_upf = patch("webui.Webui.add_upf")
     patcher_webui_delete_upf = patch("webui.Webui.delete_upf")
     patcher_webui_set_url = patch("webui.Webui.set_url")
-
 
     @pytest.fixture()
     def setUp(self):
