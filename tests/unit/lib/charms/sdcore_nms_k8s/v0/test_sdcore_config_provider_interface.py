@@ -16,9 +16,8 @@ REMOTE_APP_NAME = "dummy-sdcore-config-requirer"
 
 
 class TestSdcoreConfigProvider:
-
     @pytest.fixture(autouse=True)
-    def harness(self, request):
+    def setup_harness(self, request):
         self.harness = testing.Harness(DummySdcoreConfigProviderCharm)
         self.harness.set_model_name(name="my_namespace")
         self.harness.set_leader(is_leader=True)
@@ -117,7 +116,9 @@ class TestSdcoreConfigProvider:
             relation_id=relation_id_2, app_or_unit=self.harness.charm.app.name
         )
 
-        self.harness.charm.webui_url_provider.set_webui_url_in_all_relations(webui_url=EXPECTED_WEBUI_URL)
+        self.harness.charm.webui_url_provider.set_webui_url_in_all_relations(
+            webui_url=EXPECTED_WEBUI_URL
+        )
 
         assert relation_data_1["webui_url"] == EXPECTED_WEBUI_URL
         assert relation_data_2["webui_url"] == EXPECTED_WEBUI_URL

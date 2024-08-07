@@ -17,6 +17,7 @@ SDCORE_CONFIG_RELATION_NAME = "sdcore_config"
 CONTAINER = "nms"
 CONTAINER_CONFIG_FILE_PATH = "nms/config/webuicfg.conf"
 
+
 class NMSUnitTestFixtures:
     patcher_check_output = patch("charm.check_output")
     patcher_get_service = patch("ops.model.Container.get_service")
@@ -35,7 +36,9 @@ class NMSUnitTestFixtures:
     def setUp(self):
         self.mock_check_output = NMSUnitTestFixtures.patcher_check_output.start()
         self.mock_get_service = NMSUnitTestFixtures.patcher_get_service.start()
-        self.mock_set_webui_url_in_all_relations = NMSUnitTestFixtures.patcher_set_webui_url_in_all_relations.start()  # noqa: E501
+        self.mock_set_webui_url_in_all_relations = (
+            NMSUnitTestFixtures.patcher_set_webui_url_in_all_relations.start()
+        )
         self.mock_get_gnbs = NMSUnitTestFixtures.patcher_webui_get_gnbs.start()
         self.mock_add_gnb = NMSUnitTestFixtures.patcher_webui_add_gnb.start()
         self.mock_delete_gnb = NMSUnitTestFixtures.patcher_webui_delete_gnb.start()
@@ -49,7 +52,7 @@ class NMSUnitTestFixtures:
         patch.stopall()
 
     @pytest.fixture(autouse=True)
-    def harness(self, setUp, request, empty_webui_inventory):
+    def setup_harness(self, setUp, request, empty_webui_inventory):
         self.harness = testing.Harness(SDCoreNMSOperatorCharm)
         self.harness.set_model_name(name="whatever")
         self.harness.set_leader(is_leader=True)
@@ -60,9 +63,9 @@ class NMSUnitTestFixtures:
 
     @pytest.fixture()
     def common_database_relation_id(self) -> Generator[int, None, None]:
-        relation_id = self.harness.add_relation(COMMON_DATABASE_RELATION_NAME, "mongodb")  # type:ignore
-        self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name="mongodb/0")  # type:ignore
-        self.harness.update_relation_data(  # type:ignore
+        relation_id = self.harness.add_relation(COMMON_DATABASE_RELATION_NAME, "mongodb")
+        self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name="mongodb/0")
+        self.harness.update_relation_data(
             relation_id=relation_id,
             app_or_unit="mongodb",
             key_values={
@@ -75,9 +78,9 @@ class NMSUnitTestFixtures:
 
     @pytest.fixture()
     def auth_database_relation_id(self) -> Generator[int, None, None]:
-        relation_id = self.harness.add_relation(AUTH_DATABASE_RELATION_NAME, "mongodb")  # type:ignore
-        self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name="mongodb/0")  # type:ignore
-        self.harness.update_relation_data(  # type:ignore
+        relation_id = self.harness.add_relation(AUTH_DATABASE_RELATION_NAME, "mongodb")
+        self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name="mongodb/0")
+        self.harness.update_relation_data(
             relation_id=relation_id,
             app_or_unit="mongodb",
             key_values={
@@ -90,20 +93,18 @@ class NMSUnitTestFixtures:
 
     @pytest.fixture()
     def sdcore_config_relation_id(self) -> Generator[int, None, None]:
-        relation_id = self.harness.add_relation(  # type:ignore
-            SDCORE_CONFIG_RELATION_NAME, REMOTE_APP_NAME
-        )
-        self.harness.add_relation_unit(  # type:ignore
+        relation_id = self.harness.add_relation(SDCORE_CONFIG_RELATION_NAME, REMOTE_APP_NAME)
+        self.harness.add_relation_unit(
             relation_id=relation_id, remote_unit_name=f"{REMOTE_APP_NAME}/0"
         )
         yield relation_id
 
     def set_gnb_identity_relation_data(self, key_values) -> int:
-        gnb_identity_relation_id = self.harness.add_relation(  # type:ignore
+        gnb_identity_relation_id = self.harness.add_relation(
             relation_name=GNB_IDENTITY_RELATION_NAME,
             remote_app=REMOTE_APP_NAME,
         )
-        self.harness.update_relation_data(  # type:ignore
+        self.harness.update_relation_data(
             relation_id=gnb_identity_relation_id,
             app_or_unit=REMOTE_APP_NAME,
             key_values=key_values,
@@ -111,11 +112,11 @@ class NMSUnitTestFixtures:
         return gnb_identity_relation_id
 
     def set_n4_relation_data(self, key_values) -> int:
-        fiveg_n4_relation_id = self.harness.add_relation(  # type:ignore
+        fiveg_n4_relation_id = self.harness.add_relation(
             relation_name=FIVEG_N4_RELATION_NAME,
             remote_app=REMOTE_APP_NAME,
         )
-        self.harness.update_relation_data(  # type:ignore
+        self.harness.update_relation_data(
             relation_id=fiveg_n4_relation_id,
             app_or_unit=REMOTE_APP_NAME,
             key_values=key_values,

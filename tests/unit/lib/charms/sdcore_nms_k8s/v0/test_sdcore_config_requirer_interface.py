@@ -2,6 +2,7 @@
 # See LICENSE file for licensing details.
 
 import logging
+from typing import Any, Generator
 from unittest.mock import call, patch
 
 import pytest
@@ -17,22 +18,27 @@ WEBUI_URL = "sdcore-webui-k8s:9876"
 
 
 class TestSdcoreConfigRequirer:
-
-    patcher_webui_broken = patch("lib.charms.sdcore_nms_k8s.v0.sdcore_config.SdcoreConfigRequirerCharmEvents.webui_broken")  # noqa: E501
-    patcher_webui_url_available = patch(f"{DUMMY_REQUIRER_CHARM}._on_webui_url_available", autospec=True)  # noqa: E501
+    patcher_webui_broken = patch(
+        "lib.charms.sdcore_nms_k8s.v0.sdcore_config.SdcoreConfigRequirerCharmEvents.webui_broken"
+    )
+    patcher_webui_url_available = patch(
+        f"{DUMMY_REQUIRER_CHARM}._on_webui_url_available", autospec=True
+    )
 
     @pytest.fixture()
     def setUp(self):
         self.mock_webui_broken = TestSdcoreConfigRequirer.patcher_webui_broken.start()
         self.mock_webui_broken.__class__ = BoundEvent
-        self.mock_webui_url_available = TestSdcoreConfigRequirer.patcher_webui_url_available.start()  # noqa: E501
+        self.mock_webui_url_available = (
+            TestSdcoreConfigRequirer.patcher_webui_url_available.start()
+        )
 
     @staticmethod
     def tearDown() -> None:
         patch.stopall()
 
     @pytest.fixture(autouse=True)
-    def harness(self, setUp, request):
+    def setup_harness(self, setUp, request):
         self.harness = testing.Harness(DummySdcoreConfigRequirerCharm)
         self.harness.set_model_name(name="some_model_name")
         self.harness.set_leader(is_leader=True)
@@ -42,7 +48,7 @@ class TestSdcoreConfigRequirer:
         request.addfinalizer(self.tearDown)
 
     @pytest.fixture()
-    def sdcore_config_relation_id(self) -> int:
+    def sdcore_config_relation_id(self) -> Generator[int, Any, Any]:
         relation_id = self.harness.add_relation(
             relation_name="sdcore_config", remote_app=REMOTE_APP_NAME
         )
@@ -90,7 +96,7 @@ class TestSdcoreConfigRequirer:
             self.harness.update_relation_data(
                 sdcore_config_relation_id, app_or_unit=REMOTE_APP_NAME, key_values=relation_data
             )
-            assert "1 validation error for ProviderSchema" in caplog.text
+            assert "Invalid relation data" in caplog.text
 
     def test_given_webui_information_in_relation_data_when_get_webui_url_is_called_then_expected_url_is_returned(  # noqa: E501
         self, sdcore_config_relation_id
@@ -115,7 +121,7 @@ class TestSdcoreConfigRequirer:
             )
             webui_url = self.harness.charm.webui_requirer.webui_url
             assert webui_url is None
-            assert "1 validation error for ProviderSchema" in caplog.text
+            assert "Invalid relation data" in caplog.text
 
     def test_given_webui_information_in_relation_data_is_not_valid_when_get_webui_url_then_returns_none(  # noqa: E501
         self, sdcore_config_relation_id

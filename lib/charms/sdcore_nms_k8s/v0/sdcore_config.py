@@ -106,7 +106,7 @@ if __name__ == "__main__":
 import logging
 from typing import Optional
 
-from interface_tester.schema_base import DataBagSchema  # type: ignore[import]
+from interface_tester.schema_base import DataBagSchema
 from ops.charm import CharmBase, CharmEvents, RelationBrokenEvent, RelationChangedEvent
 from ops.framework import EventBase, EventSource, Handle, Object
 from ops.model import Relation
@@ -120,7 +120,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 1
+LIBPATCH = 2
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +150,7 @@ class SdcoreConfigProviderAppData(BaseModel):
 
 class ProviderSchema(DataBagSchema):
     """The schema for the provider side of the sdcore-config interface."""
-    app: SdcoreConfigProviderAppData
+    app_data: SdcoreConfigProviderAppData
 
 
 def data_is_valid(data: dict) -> bool:
@@ -163,7 +163,7 @@ def data_is_valid(data: dict) -> bool:
         bool: True if data is valid, False otherwise.
     """
     try:
-        ProviderSchema(app=data)
+        ProviderSchema(app_data=SdcoreConfigProviderAppData(**data))
         return True
     except ValidationError as e:
         logger.error("Invalid data: %s", e)
@@ -207,7 +207,7 @@ class SdcoreConfigRequirerCharmEvents(CharmEvents):
 class SdcoreConfigRequires(Object):
     """Class to be instantiated by the SD-Core config requirer charm."""
 
-    on = SdcoreConfigRequirerCharmEvents()
+    on = SdcoreConfigRequirerCharmEvents()  # type: ignore
 
     def __init__(self, charm: CharmBase, relation_name: str):
         """Init."""

@@ -9,7 +9,7 @@ from collections import Counter
 from pathlib import Path
 
 import pytest
-import requests  # type: ignore[import]
+import requests
 import yaml
 from juju.application import Application
 from pytest_operator.plugin import OpsTest
@@ -65,13 +65,12 @@ async def _deploy_traefik(ops_test: OpsTest):
     )
 
 
-async def configure_traefik(ops_test: OpsTest, traefik_ip: str) ->  None:
+async def configure_traefik(ops_test: OpsTest, traefik_ip: str) -> None:
     assert ops_test.model
-    await ops_test.model.applications[TRAEFIK_CHARM_NAME].set_config(
-        {
-            "external_hostname": f"{traefik_ip}.nip.io",
-            "routing_mode": "subdomain"
-        }
+    traefik = ops_test.model.applications[TRAEFIK_CHARM_NAME]
+    assert traefik
+    await traefik.set_config(
+        {"external_hostname": f"{traefik_ip}.nip.io", "routing_mode": "subdomain"}
     )
     await ops_test.model.wait_for_idle(
         apps=[TRAEFIK_CHARM_NAME],
@@ -104,6 +103,7 @@ async def get_traefik_proxied_endpoints(ops_test: OpsTest) -> dict:
     """Retrieve the endpoints by using Traefik's `show-proxied-endpoints` action."""
     assert ops_test.model
     traefik = ops_test.model.applications[TRAEFIK_CHARM_NAME]
+    assert traefik
     traefik_unit = traefik.units[0]
     t0 = time.time()
     timeout = 30  # seconds
@@ -258,9 +258,7 @@ async def test_given_related_to_traefik_when_fetch_ui_then_returns_html_content(
 
 
 @pytest.mark.abort_on_fail
-async def test_when_scale_app_beyond_1_then_only_one_unit_is_active(
-    ops_test: OpsTest, deploy
-):
+async def test_when_scale_app_beyond_1_then_only_one_unit_is_active(ops_test: OpsTest, deploy):
     assert ops_test.model
     assert isinstance(app := ops_test.model.applications[APP_NAME], Application)
     await app.scale(3)
