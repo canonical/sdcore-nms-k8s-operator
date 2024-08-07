@@ -2,55 +2,60 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-
 import json
 import logging
 import time
+from collections import Counter
 from pathlib import Path
 
 import pytest
 import requests  # type: ignore[import]
 import yaml
+from juju.application import Application
 from pytest_operator.plugin import OpsTest
 
 logger = logging.getLogger(__name__)
 
 METADATA = yaml.safe_load(Path("./charmcraft.yaml").read_text())
 APP_NAME = METADATA["name"]
-DATABASE_CHARM_NAME = "mongodb-k8s"
-DATABASE_CHARM_CHANNEL = "6/beta"
-TRAEFIK_CHARM_NAME = "traefik-k8s"
-TRAEFIK_CHARM_CHANNEL = "latest/stable"
-UPF_CHARM_NAME = "sdcore-upf-k8s"
-UPF_CHARM_CHANNEL = "1.5/edge"
-WEBUI_CHARM_NAME = "sdcore-webui-k8s"
-WEBUI_CHARM_CHANNEL = "1.5/edge"
+DATABASE_APP_NAME = "mongodb-k8s"
+DATABASE_APP_CHANNEL = "6/beta"
+COMMON_DATABASE_RELATION_NAME = "common_database"
+AUTH_DATABASE_RELATION_NAME = "auth_database"
+LOGGING_RELATION_NAME = "logging"
 GNBSIM_CHARM_NAME = "sdcore-gnbsim-k8s"
 GNBSIM_CHARM_CHANNEL = "1.5/edge"
-GRAFANA_AGENT_CHARM_NAME = "grafana-agent-k8s"
-GRAFANA_AGENT_CHARM_CHANNEL = "latest/stable"
+GNBSIM_RELATION_NAME = "fiveg_gnb_identity"
+GRAFANA_AGENT_APP_NAME = "grafana-agent-k8s"
+GRAFANA_AGENT_APP_CHANNEL = "latest/stable"
+UPF_CHARM_NAME = "sdcore-upf-k8s"
+UPF_CHARM_CHANNEL = "1.5/edge"
+UPF_RELATION_NAME = "fiveg_n4"
+TRAEFIK_CHARM_NAME = "traefik-k8s"
+TRAEFIK_CHARM_CHANNEL = "latest/stable"
 TIMEOUT = 15 * 60
 
 
-@pytest.fixture(scope="module")
-@pytest.mark.abort_on_fail
-async def deploy(ops_test: OpsTest, request):
-    """Deploy the charm-under-test."""
-    charm = Path(request.config.getoption("--charm_path")).resolve()
-    resources = {
-        "nms-image": METADATA["resources"]["nms-image"]["upstream-source"],
-    }
+async def _deploy_database(ops_test: OpsTest):
     assert ops_test.model
     await ops_test.model.deploy(
-        charm,
-        resources=resources,
-        application_name=APP_NAME,
+        DATABASE_APP_NAME,
+        application_name=DATABASE_APP_NAME,
+        channel=DATABASE_APP_CHANNEL,
+        trust=True,
     )
 
 
-@pytest.mark.abort_on_fail
-async def deploy_traefik(ops_test: OpsTest):
-    """Deploy Traefik."""
+async def _deploy_grafana_agent(ops_test: OpsTest):
+    assert ops_test.model
+    await ops_test.model.deploy(
+        GRAFANA_AGENT_APP_NAME,
+        application_name=GRAFANA_AGENT_APP_NAME,
+        channel=GRAFANA_AGENT_APP_CHANNEL,
+    )
+
+
+async def _deploy_traefik(ops_test: OpsTest):
     assert ops_test.model
     await ops_test.model.deploy(
         TRAEFIK_CHARM_NAME,
@@ -75,9 +80,7 @@ async def configure_traefik(ops_test: OpsTest, traefik_ip: str) ->  None:
     )
 
 
-@pytest.mark.abort_on_fail
-async def deploy_sdcore_upf(ops_test: OpsTest):
-    """Deploy sdcore-upf-k8s-operator."""
+async def _deploy_sdcore_upf(ops_test: OpsTest):
     assert ops_test.model
     await ops_test.model.deploy(
         UPF_CHARM_NAME,
@@ -87,49 +90,13 @@ async def deploy_sdcore_upf(ops_test: OpsTest):
     )
 
 
-@pytest.mark.abort_on_fail
-async def deploy_sdcore_webui(ops_test: OpsTest):
-    """Deploy sdcore-webui-operator."""
-    assert ops_test.model
-    await ops_test.model.deploy(
-        DATABASE_CHARM_NAME,
-        application_name=DATABASE_CHARM_NAME,
-        channel=DATABASE_CHARM_CHANNEL,
-        trust=True,
-    )
-    await ops_test.model.deploy(
-        WEBUI_CHARM_NAME,
-        application_name=WEBUI_CHARM_NAME,
-        channel=WEBUI_CHARM_CHANNEL,
-    )
-    await ops_test.model.integrate(
-        relation1=f"{WEBUI_CHARM_NAME}:common_database", relation2=f"{DATABASE_CHARM_NAME}"
-    )
-    await ops_test.model.integrate(
-        relation1=f"{WEBUI_CHARM_NAME}:auth_database", relation2=f"{DATABASE_CHARM_NAME}"
-    )
-
-
-@pytest.mark.abort_on_fail
-async def deploy_sdcore_gnbsim(ops_test: OpsTest):
-    """Deploy sdcore-gnbsim-operator."""
+async def _deploy_sdcore_gnbsim(ops_test: OpsTest):
     assert ops_test.model
     await ops_test.model.deploy(
         GNBSIM_CHARM_NAME,
         application_name=GNBSIM_CHARM_NAME,
         channel=GNBSIM_CHARM_CHANNEL,
         trust=True,
-    )
-
-
-@pytest.mark.abort_on_fail
-async def deploy_grafana_agent(ops_test: OpsTest):
-    """Deploy grafana-agent operator."""
-    assert ops_test.model
-    await ops_test.model.deploy(
-        GRAFANA_AGENT_CHARM_NAME,
-        application_name=GRAFANA_AGENT_CHARM_NAME,
-        channel=GRAFANA_AGENT_CHARM_CHANNEL,
     )
 
 
@@ -162,17 +129,18 @@ async def get_traefik_ip_address(ops_test: OpsTest) -> str:
     endpoints = await get_traefik_proxied_endpoints(ops_test)
     return _get_host_from_url(endpoints[TRAEFIK_CHARM_NAME]["url"])
 
+
 async def get_sdcore_nms_endpoint(ops_test: OpsTest) -> str:
-    """Retrieve the SD-Core NMS endpoint by using Traefik's `show-proxied-endpoints` action."""
     endpoints = await get_traefik_proxied_endpoints(ops_test)
     return endpoints[APP_NAME]["url"]
+
 
 def _get_host_from_url(url: str) -> str:
     """Return the host from a URL formatted as http://<host>:<port>/ or as http://<host>/."""
     return url.split("//")[1].split(":")[0].split("/")[0]
 
+
 def ui_is_running(nms_endpoint: str) -> bool:
-    """Return whether the UI is running."""
     url = f"{nms_endpoint}network-configuration"
     t0 = time.time()
     timeout = 300  # seconds
@@ -180,6 +148,7 @@ def ui_is_running(nms_endpoint: str) -> bool:
         try:
             response = requests.get(url=url, timeout=5)
             response.raise_for_status()
+            logger.info(response.content.decode("utf-8"))
             if "5G NMS" in response.content.decode("utf-8"):
                 return True
         except Exception as e:
@@ -188,8 +157,30 @@ def ui_is_running(nms_endpoint: str) -> bool:
     return False
 
 
+@pytest.fixture(scope="module")
 @pytest.mark.abort_on_fail
-async def test_given_required_relations_not_created_when_deploy_charm_then_status_is_blocked(
+async def deploy(ops_test: OpsTest, request):
+    """Deploy required components."""
+    charm = Path(request.config.getoption("--charm_path")).resolve()
+    resources = {
+        "nms-image": METADATA["resources"]["nms-image"]["upstream-source"],
+    }
+    assert ops_test.model
+    await ops_test.model.deploy(
+        charm,
+        resources=resources,
+        application_name=APP_NAME,
+        trust=True,
+    )
+    await _deploy_database(ops_test)
+    await _deploy_grafana_agent(ops_test)
+    await _deploy_traefik(ops_test)
+    await _deploy_sdcore_upf(ops_test)
+    await _deploy_sdcore_gnbsim(ops_test)
+
+
+@pytest.mark.abort_on_fail
+async def test_given_charm_is_built_when_deployed_then_status_is_blocked(
     ops_test: OpsTest, deploy
 ):
     assert ops_test.model
@@ -201,61 +192,23 @@ async def test_given_required_relations_not_created_when_deploy_charm_then_statu
 
 
 @pytest.mark.abort_on_fail
-async def test_given_sdcore_management_relation_created_when_deploy_charm_then_status_is_active(
-    ops_test: OpsTest, deploy
-):
-    await deploy_sdcore_webui(ops_test)
+async def test_relate_and_wait_for_active_status(ops_test: OpsTest, deploy):
     assert ops_test.model
     await ops_test.model.integrate(
-        relation1=f"{APP_NAME}:sdcore-management",
-        relation2=f"{WEBUI_CHARM_NAME}:sdcore-management",
+        relation1=f"{APP_NAME}:{COMMON_DATABASE_RELATION_NAME}", relation2=f"{DATABASE_APP_NAME}"
     )
-    await ops_test.model.wait_for_idle(
-        apps=[APP_NAME],
-        status="active",
-        timeout=TIMEOUT,
-    )
-
-
-@pytest.mark.abort_on_fail
-async def test_given_fiveg_n4_relation_when_deploy_charm_then_status_is_active(
-    ops_test: OpsTest, deploy
-):
-    await deploy_sdcore_upf(ops_test)
-    assert ops_test.model
     await ops_test.model.integrate(
-        relation1=f"{APP_NAME}:fiveg_n4", relation2=f"{UPF_CHARM_NAME}:fiveg_n4"
+        relation1=f"{APP_NAME}:{AUTH_DATABASE_RELATION_NAME}", relation2=f"{DATABASE_APP_NAME}"
     )
-    await ops_test.model.wait_for_idle(
-        apps=[APP_NAME],
-        status="active",
-        timeout=TIMEOUT,
-    )
-
-
-@pytest.mark.abort_on_fail
-async def test_given_fiveg_gnb_identity_created_when_deploy_charm_then_status_is_active(
-    ops_test: OpsTest, deploy
-):
-    await deploy_sdcore_gnbsim(ops_test)
-    assert ops_test.model
     await ops_test.model.integrate(
-        relation1=f"{APP_NAME}:fiveg_gnb_identity",
-        relation2=f"{GNBSIM_CHARM_NAME}:fiveg_gnb_identity",
+        relation1=f"{APP_NAME}:{LOGGING_RELATION_NAME}", relation2=GRAFANA_AGENT_APP_NAME
     )
-    await ops_test.model.wait_for_idle(
-        apps=[APP_NAME],
-        status="active",
-        timeout=TIMEOUT,
+    await ops_test.model.integrate(
+        relation1=f"{APP_NAME}:{GNBSIM_RELATION_NAME}", relation2=GNBSIM_CHARM_NAME
     )
-
-
-@pytest.mark.abort_on_fail
-async def test_given_traefik_deployed_when_relate_to_ingress_then_status_is_active(
-    ops_test: OpsTest, deploy
-):
-    await deploy_traefik(ops_test)
-    assert ops_test.model
+    await ops_test.model.integrate(
+        relation1=f"{APP_NAME}:{UPF_RELATION_NAME}", relation2=UPF_CHARM_NAME
+    )
     await ops_test.model.integrate(
         relation1=f"{APP_NAME}:ingress", relation2=f"{TRAEFIK_CHARM_NAME}:ingress"
     )
@@ -266,20 +219,30 @@ async def test_given_traefik_deployed_when_relate_to_ingress_then_status_is_acti
     )
 
 
+@pytest.mark.skip(
+    reason="Bug in MongoDB: https://github.com/canonical/mongodb-k8s-operator/issues/218"
+)
 @pytest.mark.abort_on_fail
-async def test_given_grafana_agent_deployed_when_relate_to_logging_then_status_is_active(
-    ops_test: OpsTest, deploy
-):
-    await deploy_grafana_agent(ops_test)
+async def test_remove_database_and_wait_for_blocked_status(ops_test: OpsTest, deploy):
     assert ops_test.model
+    await ops_test.model.remove_application(DATABASE_APP_NAME, block_until_done=True)
+    await ops_test.model.wait_for_idle(apps=[APP_NAME], status="blocked", timeout=TIMEOUT)
+
+
+@pytest.mark.skip(
+    reason="Bug in MongoDB: https://github.com/canonical/mongodb-k8s-operator/issues/218"
+)
+@pytest.mark.abort_on_fail
+async def test_restore_database_and_wait_for_active_status(ops_test: OpsTest, deploy):
+    assert ops_test.model
+    await _deploy_database(ops_test)
     await ops_test.model.integrate(
-        relation1=f"{APP_NAME}:logging", relation2=GRAFANA_AGENT_CHARM_NAME
+        relation1=f"{APP_NAME}:{COMMON_DATABASE_RELATION_NAME}", relation2=DATABASE_APP_NAME
     )
-    await ops_test.model.wait_for_idle(
-        apps=[APP_NAME],
-        status="active",
-        timeout=TIMEOUT,
+    await ops_test.model.integrate(
+        relation1=f"{APP_NAME}:{AUTH_DATABASE_RELATION_NAME}", relation2=DATABASE_APP_NAME
     )
+    await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
 
 
 @pytest.mark.abort_on_fail
@@ -292,3 +255,21 @@ async def test_given_related_to_traefik_when_fetch_ui_then_returns_html_content(
     await configure_traefik(ops_test, traefik_ip)
     nms_url = await get_sdcore_nms_endpoint(ops_test)
     assert ui_is_running(nms_endpoint=nms_url)
+
+
+@pytest.mark.abort_on_fail
+async def test_when_scale_app_beyond_1_then_only_one_unit_is_active(
+    ops_test: OpsTest, deploy
+):
+    assert ops_test.model
+    assert isinstance(app := ops_test.model.applications[APP_NAME], Application)
+    await app.scale(3)
+    await ops_test.model.wait_for_idle(apps=[APP_NAME], timeout=TIMEOUT, wait_for_at_least_units=3)
+    unit_statuses = Counter(unit.workload_status for unit in app.units)
+    assert unit_statuses.get("active") == 1
+    assert unit_statuses.get("blocked") == 2
+
+
+async def test_remove_app(ops_test: OpsTest, deploy):
+    assert ops_test.model
+    await ops_test.model.remove_application(APP_NAME, block_until_done=True)

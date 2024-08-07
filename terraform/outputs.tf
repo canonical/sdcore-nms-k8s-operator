@@ -13,11 +13,6 @@ output "ingress_endpoint" {
   value       = "ingress"
 }
 
-output "sdcore_management_endpoint" {
-  description = "Name of the endpoint to integrate with sdcore_management interface."
-  value       = "sdcore-management"
-}
-
 output "fiveg_gnb_identity_endpoint" {
   description = "Name of the endpoint to integrate with fiveg_gnb_identity interface."
   value       = "fiveg_gnb_identity"
@@ -26,6 +21,16 @@ output "fiveg_gnb_identity_endpoint" {
 output "fiveg_n4_endpoint" {
   description = "Name of the endpoint to integrate with fiveg_n4 interface."
   value       = "fiveg_n4"
+}
+
+output "common_database_endpoint" {
+  description = "Name of the endpoint to integrate with MongoDB for common database using mongodb_client interface."
+  value       = "common_database"
+}
+
+output "auth_database_endpoint" {
+  description = "Name of the endpoint to integrate with MongoDB for authentication database using mongodb_client interface."
+  value       = "auth_database"
 }
 
 output "logging_endpoint" {
@@ -37,5 +42,5 @@ output "logging_endpoint" {
 
 output "sdcore_config_endpoint" {
   description = "Name of the endpoint to provide `sdcore_config` interface."
-  value       = "sdcore-config"
+  value       = "sdcore_config"
 }
