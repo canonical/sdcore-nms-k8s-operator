@@ -30,7 +30,7 @@ assumes:
 storage:
   config:
     type: filesystem
-    minimum-size: 6M
+    minimum-size: 1M
 
 requires:
   ingress:
