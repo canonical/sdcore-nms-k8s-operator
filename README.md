@@ -6,7 +6,7 @@ Charmed Operator for the Aether SD-Core Network Management System (NMS) for K8s.
 ## Usage
 
 ```bash
-juju deploy sdcore-nms-k8s --channel=edge
+juju deploy sdcore-nms-k8s --channel=1.5/edge
 ```
 
 ## Integrate

@@ -21,7 +21,7 @@ class TestCharmStatus(NMSUnitTestFixtures):
 
         assert self.harness.model.unit.status == BlockedStatus(
         "Scaling is not implemented for this charm"
-        ) 
+        )
 
     def test_given_common_database_relation_not_created_when_collect_status_then_status_is_blocked(
         self, auth_database_relation_id
@@ -30,7 +30,7 @@ class TestCharmStatus(NMSUnitTestFixtures):
 
         assert self.harness.model.unit.status == BlockedStatus(
         "Waiting for common_database relation to be created"
-        ) 
+        )
 
     def test_given_auth_database_relation_not_created_when_collect_status_then_status_is_blocked(
         self, common_database_relation_id

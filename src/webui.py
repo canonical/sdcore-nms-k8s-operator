@@ -32,7 +32,7 @@ class Upf:
 
 class Webui:
     """Handle webui API calls."""
-    
+
     def __init__(self, url: str):
         self.url = url
 
@@ -74,7 +74,8 @@ class Webui:
         inventory_url = f"{self.url}/{UPF_CONFIG_URL}/{upf_hostname}"
         self._delete_resource_from_inventory(inventory_url, upf_hostname)
 
-    def _get_resources_from_inventory(self, inventory_url: str) -> List[Dict]:
+    @staticmethod
+    def _get_resources_from_inventory(inventory_url: str) -> List[Dict]:
         response = requests.get(inventory_url)
         try:
             response.raise_for_status()
@@ -85,7 +86,8 @@ class Webui:
         logger.info("Got %s from inventory", resources)
         return resources
 
-    def _add_resource_to_inventory(self, url: str, resource_name: str, data: dict) -> None:
+    @staticmethod
+    def _add_resource_to_inventory(url: str, resource_name: str, data: dict) -> None:
         response = requests.post(url, headers=JSON_HEADER, json=data)
         try:
             response.raise_for_status()
@@ -94,7 +96,8 @@ class Webui:
             return
         logger.info("%s added to webui", resource_name)
 
-    def _delete_resource_from_inventory(self, inventory_url: str, resource_name: str) -> None:
+    @staticmethod
+    def _delete_resource_from_inventory(inventory_url: str, resource_name: str) -> None:
         response = requests.delete(inventory_url)
         try:
             response.raise_for_status()

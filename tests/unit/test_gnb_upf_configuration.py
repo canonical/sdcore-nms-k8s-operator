@@ -213,7 +213,7 @@ class TestGnbUpfConfiguration(NMSUnitTestFixtures):
 
         self.harness.container_pebble_ready(CONTAINER)
 
-        expected_upf = existing_upf = Upf(hostname="my_host", port=4567)
+        expected_upf = Upf(hostname="my_host", port=4567)
         self.mock_add_upf.assert_called_once_with(expected_upf)
         self.mock_delete_upf.assert_not_called()
 
@@ -335,5 +335,3 @@ class TestGnbUpfConfiguration(NMSUnitTestFixtures):
         self.mock_delete_gnb.assert_called_once_with("old.gnb.name")
         expected_gnb = GnodeB(name="some.gnb.name", tac=6789)
         self.mock_add_gnb.assert_called_once_with(expected_gnb)
-
-

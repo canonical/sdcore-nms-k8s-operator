@@ -28,7 +28,7 @@ from webui import GnodeB, Upf, Webui
 
 logger = logging.getLogger(__name__)
 
-BASE_CONFIG_PATH = "/nms/config" # "/nms/config"
+BASE_CONFIG_PATH = "/nms/config"
 CONFIG_FILE_NAME = "webuicfg.conf"
 WEBUI_CONFIG_PATH = f"{BASE_CONFIG_PATH}/{CONFIG_FILE_NAME}"
 WORKLOAD_VERSION_FILE_NAME = "/etc/workload-version"
@@ -44,6 +44,7 @@ GRPC_PORT = 9876
 WEBUI_URL_PORT = 5000
 WEBUI_SERVICE_NAME = "webui"
 
+
 def _get_pod_ip() -> Optional[str]:
     """Return the pod IP using juju client."""
     try:
@@ -54,10 +55,10 @@ def _get_pod_ip() -> Optional[str]:
 
 
 def render_config_file(
-    common_database_name: str,
-    common_database_url: str,
-    auth_database_name: str,
-    auth_database_url: str,
+        common_database_name: str,
+        common_database_url: str,
+        auth_database_name: str,
+        auth_database_url: str,
 ) -> str:
     """Render webui configuration file based on Jinja template."""
     jinja2_environment = Environment(loader=FileSystemLoader("src/templates/"))

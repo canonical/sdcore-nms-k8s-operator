@@ -123,6 +123,6 @@ class NMSUnitTestFixtures:
         return fiveg_n4_relation_id
 
     @pytest.fixture()
-    def empty_webui_inventory(self) -> Generator[None, None, None]:
+    def empty_webui_inventory(self) -> None:
         self.mock_get_gnbs.return_value = []
         self.mock_get_upfs.return_value = []
