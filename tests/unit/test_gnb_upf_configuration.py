@@ -5,21 +5,21 @@
 from unittest.mock import call
 
 import pytest
-from fixtures import (
+from webui import GnodeB, Upf
+
+from tests.unit.fixtures import (
     CONTAINER,
     FIVEG_N4_RELATION_NAME,
     GNB_IDENTITY_RELATION_NAME,
     REMOTE_APP_NAME,
     NMSUnitTestFixtures,
 )
-from webui import GnodeB, Upf
 
 UPF_CONFIG_URL = "config/v1/inventory/upf"
 GNB_CONFIG_URL = "config/v1/inventory/gnb"
 
 
 class TestGnbUpfConfiguration(NMSUnitTestFixtures):
-
     @pytest.mark.parametrize(
         "relation_name,relation_data",
         [
@@ -43,7 +43,7 @@ class TestGnbUpfConfiguration(NMSUnitTestFixtures):
                 {"gnb_name": "something", "some": "key"},
                 id="invalid_key_in_gNB_config",
             ),
-    pytest.param(
+            pytest.param(
                 FIVEG_N4_RELATION_NAME,
                 {"upf_hostname": "some.host.name"},
                 id="missing_upf_port_in_UPF_config",
@@ -237,7 +237,7 @@ class TestGnbUpfConfiguration(NMSUnitTestFixtures):
     ):
         existing_upfs = [
             Upf(hostname="some.host.name", port=1234),
-            Upf(hostname="some.host", port=22)
+            Upf(hostname="some.host", port=22),
         ]
         self.mock_get_upfs.return_value = existing_upfs
         self.harness.add_storage("config", attach=True)
@@ -255,10 +255,7 @@ class TestGnbUpfConfiguration(NMSUnitTestFixtures):
     def test_given_two_gnb_identity_relations_when_relation_broken_then_gnb_is_removed_from_webui(  # noqa: E501
         self, auth_database_relation_id, common_database_relation_id
     ):
-        existing_gnbs = [
-            GnodeB(name="some.gnb.name", tac=1234),
-            GnodeB(name="gnb.name", tac=333)
-        ]
+        existing_gnbs = [GnodeB(name="some.gnb.name", tac=1234), GnodeB(name="gnb.name", tac=333)]
         self.mock_get_gnbs.return_value = existing_gnbs
         self.harness.add_storage("config", attach=True)
         gnb_identity_relation_1_id = self.set_gnb_identity_relation_data(

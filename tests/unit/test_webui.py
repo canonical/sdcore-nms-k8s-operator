@@ -9,7 +9,6 @@ from webui import GnodeB, Upf, Webui
 
 
 class TestWebui:
-
     patcher_request_get = patch("requests.get")
     patcher_request_post = patch("requests.post")
     patcher_request_delete = patch("requests.delete")
@@ -54,9 +53,7 @@ class TestWebui:
         self.mock_request_get.assert_called_once_with("some_url/config/v1/inventory/gnb")
 
     def test_given_webui_returns_a_gnb_list_when_get_gnbs_then_a_gnb_list_is_returned(self):
-        webui_gnbs = [
-            {"name": "some.gnb.name", "tac": "111"}
-        ]
+        webui_gnbs = [{"name": "some.gnb.name", "tac": "111"}]
         self.mock_request_get.return_value = self.mock_response_with_list(webui_gnbs)
 
         gnbs = self.webui.get_gnbs()
@@ -77,7 +74,7 @@ class TestWebui:
         webui_gnbs = [
             {"name": "some.gnb.name", "tac": "111"},
             {"name": "a_gnb_name", "tac": "342"},
-            {"name": "other.gnb_name", "tac": "99"}
+            {"name": "other.gnb_name", "tac": "99"},
         ]
         self.mock_request_get.return_value = self.mock_response_with_list(webui_gnbs)
 
@@ -100,8 +97,8 @@ class TestWebui:
 
         self.mock_request_post.assert_called_once_with(
             "some_url/config/v1/inventory/gnb/some.gnb.name",
-            headers={'Content-Type': 'application/json'},
-            json={"tac": "111"}
+            headers={"Content-Type": "application/json"},
+            json={"tac": "111"},
         )
 
     def test_given_a_valid_gnb_when_add_gnb_then_gnb_is_added_to_webui(self):
@@ -110,8 +107,8 @@ class TestWebui:
 
         self.mock_request_post.assert_called_once_with(
             "some_url/config/v1/inventory/gnb/some.gnb.name",
-            headers={'Content-Type': 'application/json'},
-            json={"tac": "111"}
+            headers={"Content-Type": "application/json"},
+            json={"tac": "111"},
         )
 
     def test_given_exception_is_raised_when_delete_gnb_then_exceptions_is_handled(self):
@@ -148,9 +145,7 @@ class TestWebui:
         self.mock_request_get.assert_called_once_with("some_url/config/v1/inventory/upf")
 
     def test_given_webui_returns_a_upf_list_when_get_upfs_then_a_upf_list_is_returned(self):
-        webui_upfs = [
-            {"hostname": "some.host.name", "port": "111"}
-        ]
+        webui_upfs = [{"hostname": "some.host.name", "port": "111"}]
         self.mock_request_get.return_value = self.mock_response_with_list(webui_upfs)
 
         upfs = self.webui.get_upfs()
@@ -171,7 +166,7 @@ class TestWebui:
         webui_upfs = [
             {"hostname": "some.host.name", "port": "111"},
             {"hostname": "a_host_name", "port": "342"},
-            {"hostname": "other.host_name", "port": "99"}
+            {"hostname": "other.host_name", "port": "99"},
         ]
         self.mock_request_get.return_value = self.mock_response_with_list(webui_upfs)
 
@@ -194,8 +189,8 @@ class TestWebui:
 
         self.mock_request_post.assert_called_once_with(
             "some_url/config/v1/inventory/upf/some.upf.name",
-            headers={'Content-Type': 'application/json'},
-            json={"port": "111"}
+            headers={"Content-Type": "application/json"},
+            json={"port": "111"},
         )
 
     def test_given_a_valid_upf_when_add_upf_then_upf_is_added_to_webui(self):
@@ -204,8 +199,8 @@ class TestWebui:
 
         self.mock_request_post.assert_called_once_with(
             "some_url/config/v1/inventory/upf/some.upf.name",
-            headers={'Content-Type': 'application/json'},
-            json={"port": "22"}
+            headers={"Content-Type": "application/json"},
+            json={"port": "22"},
         )
 
     def test_given_exception_is_raised_when_delete_upf_then_exceptions_is_handled(self):
@@ -257,9 +252,7 @@ class TestWebui:
             ),
         ],
     )
-    def test_given_webui_returns_an_invalid_gnb_when_get_gnbs_then_gnb_is_not_returned(
-        self, gnb
-    ):
+    def test_given_webui_returns_an_invalid_gnb_when_get_gnbs_then_gnb_is_not_returned(self, gnb):
         webui_gnbs = [gnb]
         self.mock_request_get.return_value = self.mock_response_with_list(webui_gnbs)
 
@@ -284,9 +277,7 @@ class TestWebui:
             ),
         ],
     )
-    def test_given_webui_returns_an_invalid_upf_when_get_upfs_then_upf_is_not_returned(
-        self, upf
-    ):
+    def test_given_webui_returns_an_invalid_upf_when_get_upfs_then_upf_is_not_returned(self, upf):
         webui_upfs = [upf]
         self.mock_request_get.return_value = self.mock_response_with_list(webui_upfs)
 

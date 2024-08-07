@@ -9,19 +9,20 @@ from ipaddress import IPv4Address
 from subprocess import CalledProcessError, check_output
 from typing import List, Optional
 
-from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires  # type: ignore[import]
-from charms.loki_k8s.v1.loki_push_api import LogForwarder  # type: ignore[import]
-from charms.sdcore_gnbsim_k8s.v0.fiveg_gnb_identity import (  # type: ignore[import]
+from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires
+from charms.loki_k8s.v1.loki_push_api import LogForwarder
+from charms.sdcore_gnbsim_k8s.v0.fiveg_gnb_identity import (
     GnbIdentityRequires,
 )
-from charms.sdcore_nms_k8s.v0.sdcore_config import (  # type: ignore[import]
+from charms.sdcore_nms_k8s.v0.sdcore_config import (
     SdcoreConfigProvides,
 )
-from charms.sdcore_upf_k8s.v0.fiveg_n4 import N4Requires  # type: ignore[import]
-from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer  # type: ignore[import]
+from charms.sdcore_upf_k8s.v0.fiveg_n4 import N4Requires
+from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
 from jinja2 import Environment, FileSystemLoader
 from ops import ActiveStatus, BlockedStatus, CollectStatusEvent, ModelError, WaitingStatus
-from ops.charm import CharmBase, EventBase
+from ops.charm import CharmBase
+from ops.framework import EventBase
 from ops.main import main
 from ops.pebble import Layer
 from webui import GnodeB, Upf, Webui
@@ -55,10 +56,10 @@ def _get_pod_ip() -> Optional[str]:
 
 
 def render_config_file(
-        common_database_name: str,
-        common_database_url: str,
-        auth_database_name: str,
-        auth_database_url: str,
+    common_database_name: str,
+    common_database_url: str,
+    auth_database_name: str,
+    auth_database_url: str,
 ) -> str:
     """Render webui configuration file based on Jinja template."""
     jinja2_environment = Environment(loader=FileSystemLoader("src/templates/"))
@@ -114,17 +115,14 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self.framework.observe(self.on.common_database_relation_joined, self._configure_sdcore_nms)
         self.framework.observe(self.on.auth_database_relation_joined, self._configure_sdcore_nms)
         self.framework.observe(
-            self._common_database.on.database_created,
-            self._configure_sdcore_nms
+            self._common_database.on.database_created, self._configure_sdcore_nms
         )
         self.framework.observe(self._auth_database.on.database_created, self._configure_sdcore_nms)
         self.framework.observe(
-            self._common_database.on.endpoints_changed,
-            self._configure_sdcore_nms
+            self._common_database.on.endpoints_changed, self._configure_sdcore_nms
         )
         self.framework.observe(
-            self._auth_database.on.endpoints_changed,
-            self._configure_sdcore_nms
+            self._auth_database.on.endpoints_changed, self._configure_sdcore_nms
         )
         self.framework.observe(self.on.sdcore_config_relation_joined, self._configure_sdcore_nms)
         self.framework.observe(self.fiveg_n4.on.fiveg_n4_available, self._configure_sdcore_nms)
@@ -168,7 +166,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self._sync_gnbs()
         self._sync_upfs()
 
-    def _on_collect_unit_status(self, event: CollectStatusEvent):   # noqa: C901
+    def _on_collect_unit_status(self, event: CollectStatusEvent):  # noqa: C901
         """Check the unit status and set to Unit when CollectStatusEvent is fired.
 
         Also sets the workload version if present in rock.

@@ -5,7 +5,9 @@ import os
 from unittest.mock import call
 
 import pytest
-from fixtures import (
+from ops.model import ModelError
+
+from tests.unit.fixtures import (
     AUTH_DATABASE_RELATION_NAME,
     COMMON_DATABASE_RELATION_NAME,
     CONTAINER,
@@ -16,7 +18,6 @@ from fixtures import (
     SDCORE_CONFIG_RELATION_NAME,
     NMSUnitTestFixtures,
 )
-from ops.model import ModelError
 
 EXPECTED_CONFIG_FILE_PATH = "tests/unit/expected_webui_cfg.yaml"
 POD_IP = "1.2.3.4"
@@ -30,7 +31,6 @@ def read_file_content(path: str) -> str:
 
 
 class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
-
     def test_given_db_relations_do_not_exist_when_pebble_ready_then_webui_config_file_is_not_written(  # noqa: E501
         self,
     ):
@@ -46,8 +46,8 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
     def test_given_common_db_resource_not_available_when_pebble_ready_then_webui_config_file_is_not_written(  # noqa: E501
         self,
     ):
-        self.harness.add_relation(COMMON_DATABASE_RELATION_NAME, "mongodb")  # type:ignore
-        self.harness.add_relation(AUTH_DATABASE_RELATION_NAME, "mongodb")  # type:ignore
+        self.harness.add_relation(COMMON_DATABASE_RELATION_NAME, "mongodb")
+        self.harness.add_relation(AUTH_DATABASE_RELATION_NAME, "mongodb")
         self.harness.set_can_connect(container=CONTAINER, val=True)
         self.harness.add_storage("config", attach=True)
         root = self.harness.get_filesystem_root(CONTAINER)
@@ -60,7 +60,7 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
     def test_given_auth_db_resource_not_available_when_pebble_ready_then_webui_config_file_is_not_written(  # noqa: E501
         self, common_database_relation_id
     ):
-        self.harness.add_relation(AUTH_DATABASE_RELATION_NAME, "mongodb")  # type:ignore
+        self.harness.add_relation(AUTH_DATABASE_RELATION_NAME, "mongodb")
         self.harness.set_can_connect(container=CONTAINER, val=True)
         self.harness.add_storage("config", attach=True)
         root = self.harness.get_filesystem_root(CONTAINER)

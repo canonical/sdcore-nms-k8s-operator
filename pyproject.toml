@@ -33,13 +33,5 @@ per-file-ignores = {"tests/*" = ["D100","D101","D102","D103","D104"]}
 [tool.ruff.lint.mccabe]
 max-complexity = 10
 
-[[tool.mypy.overrides]]
-module = ["ops.*", "kubernetes.*", "flatten_json.*", "git.*"]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["charms.*"]
-follow_imports = "silent"
-
 [tool.codespell]
-skip = "build,lib,venv,icon.svg,.tox,.git,.mypy_cache,.ruff_cache,.coverage"
+skip = "build,lib,venv,icon.svg,.tox,.git,.ruff_cache,.coverage"

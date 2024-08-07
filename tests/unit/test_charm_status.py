@@ -2,25 +2,25 @@
 # See LICENSE file for licensing details.
 
 
-from fixtures import (
+from ops.model import ActiveStatus, BlockedStatus, ModelError, WaitingStatus
+
+from tests.unit.fixtures import (
     AUTH_DATABASE_RELATION_NAME,
     COMMON_DATABASE_RELATION_NAME,
     CONTAINER,
     CONTAINER_CONFIG_FILE_PATH,
     NMSUnitTestFixtures,
 )
-from ops.model import ActiveStatus, BlockedStatus, ModelError, WaitingStatus
 
 
 class TestCharmStatus(NMSUnitTestFixtures):
-
     def test_given_unit_is_not_leader_when_collect_status_then_status_is_blocked(self):
         self.harness.set_leader(is_leader=False)
 
         self.harness.evaluate_status()
 
         assert self.harness.model.unit.status == BlockedStatus(
-        "Scaling is not implemented for this charm"
+            "Scaling is not implemented for this charm"
         )
 
     def test_given_common_database_relation_not_created_when_collect_status_then_status_is_blocked(
@@ -29,7 +29,7 @@ class TestCharmStatus(NMSUnitTestFixtures):
         self.harness.evaluate_status()
 
         assert self.harness.model.unit.status == BlockedStatus(
-        "Waiting for common_database relation to be created"
+            "Waiting for common_database relation to be created"
         )
 
     def test_given_auth_database_relation_not_created_when_collect_status_then_status_is_blocked(
@@ -37,8 +37,9 @@ class TestCharmStatus(NMSUnitTestFixtures):
     ):
         self.harness.evaluate_status()
 
-        assert self.harness.model.unit.status == BlockedStatus("Waiting for auth_database relation to be created")  # noqa: E501
-
+        assert self.harness.model.unit.status == BlockedStatus(
+            "Waiting for auth_database relation to be created"
+        )
 
     def test_given_storage_not_attached_when_on_databases_are_created_then_status_is_waiting(
         self, auth_database_relation_id, common_database_relation_id
@@ -70,7 +71,9 @@ class TestCharmStatus(NMSUnitTestFixtures):
 
         self.harness.evaluate_status()
 
-        assert self.harness.model.unit.status == WaitingStatus("Waiting for the common database to be available")  # noqa: E501
+        assert self.harness.model.unit.status == WaitingStatus(
+            "Waiting for the common database to be available"
+        )
 
     def test_given_auth_db_relation_is_created_but_not_available_when_collect_status_then_status_is_waiting(  # noqa: E501
         self, common_database_relation_id
@@ -81,7 +84,9 @@ class TestCharmStatus(NMSUnitTestFixtures):
 
         self.harness.evaluate_status()
 
-        assert self.harness.model.unit.status == WaitingStatus("Waiting for the auth database to be available")  # noqa: E501
+        assert self.harness.model.unit.status == WaitingStatus(
+            "Waiting for the auth database to be available"
+        )
 
     def test_given_webui_config_file_does_not_exist_when_collect_status_then_status_is_waiting(
         self, auth_database_relation_id, common_database_relation_id
@@ -91,7 +96,9 @@ class TestCharmStatus(NMSUnitTestFixtures):
 
         self.harness.evaluate_status()
 
-        assert self.harness.model.unit.status == WaitingStatus("Waiting for webui config file to be stored")  # noqa: E501
+        assert self.harness.model.unit.status == WaitingStatus(
+            "Waiting for webui config file to be stored"
+        )
 
     def test_given_service_is_not_running_when_collect_status_then_status_is_waiting(
         self, auth_database_relation_id, common_database_relation_id
@@ -104,7 +111,7 @@ class TestCharmStatus(NMSUnitTestFixtures):
 
         self.harness.evaluate_status()
 
-        assert self.harness.model.unit.status == WaitingStatus("Waiting for NMS service to start")  # noqa: E501
+        assert self.harness.model.unit.status == WaitingStatus("Waiting for NMS service to start")
 
     def test_given_container_ready_db_relations_exist_storage_attached_and_config_files_exist_when_evaluate_status_then_status_is_active(  # noqa: E501
         self, auth_database_relation_id, common_database_relation_id

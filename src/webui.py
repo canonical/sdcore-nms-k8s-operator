@@ -8,18 +8,19 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, List
 
-import requests  # type: ignore[import]
+import requests
 
 logger = logging.getLogger(__name__)
 
 GNB_CONFIG_URL = "config/v1/inventory/gnb"
 UPF_CONFIG_URL = "config/v1/inventory/upf"
-JSON_HEADER = {'Content-Type': 'application/json'}
+JSON_HEADER = {"Content-Type": "application/json"}
 
 
 @dataclass
 class GnodeB:
     """Class to represent a gNB."""
+
     name: str
     tac: int
 
@@ -27,8 +28,10 @@ class GnodeB:
 @dataclass
 class Upf:
     """Class to represent a UPF."""
+
     hostname: str
     port: int
+
 
 class Webui:
     """Handle webui API calls."""
