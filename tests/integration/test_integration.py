@@ -10,11 +10,11 @@ from pathlib import Path
 from typing import List
 
 import pytest
-import requests  # type: ignore[import]
+import requests
 import yaml
 from juju.application import Application
 from pytest_operator.plugin import OpsTest
-from webui import GnodeB, Upf, Webui  # type: ignore[import]
+from webui import GnodeB, Upf, Webui
 
 logger = logging.getLogger(__name__)
 
