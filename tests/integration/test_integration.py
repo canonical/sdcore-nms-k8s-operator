@@ -7,16 +7,20 @@ import logging
 import time
 from collections import Counter
 from pathlib import Path
+from typing import List
 
 import pytest
 import requests  # type: ignore[import]
 import yaml
 from juju.application import Application
 from pytest_operator.plugin import OpsTest
+from webui import GnodeB, Upf, Webui  # type: ignore[import]
 
 logger = logging.getLogger(__name__)
 
 METADATA = yaml.safe_load(Path("./charmcraft.yaml").read_text())
+AMF_CHARM_NAME = "sdcore-amf-k8s"
+AMF_CHARM_CHANNEL = "1.5/edge"
 APP_NAME = METADATA["name"]
 DATABASE_APP_NAME = "mongodb-k8s"
 DATABASE_APP_CHANNEL = "6/beta"
@@ -28,9 +32,13 @@ GNBSIM_CHARM_CHANNEL = "1.5/edge"
 GNBSIM_RELATION_NAME = "fiveg_gnb_identity"
 GRAFANA_AGENT_APP_NAME = "grafana-agent-k8s"
 GRAFANA_AGENT_APP_CHANNEL = "latest/stable"
+NRF_CHARM_NAME = "sdcore-nrf-k8s"
+NRF_CHARM_CHANNEL = "1.5/edge"
 UPF_CHARM_NAME = "sdcore-upf-k8s"
 UPF_CHARM_CHANNEL = "1.5/edge"
 UPF_RELATION_NAME = "fiveg_n4"
+TLS_PROVIDER_CHARM_NAME = "self-signed-certificates"
+TLS_PROVIDER_CHARM_CHANNEL = "latest/stable"
 TRAEFIK_CHARM_NAME = "traefik-k8s"
 TRAEFIK_CHARM_CHANNEL = "latest/stable"
 TIMEOUT = 15 * 60
@@ -89,6 +97,18 @@ async def _deploy_sdcore_upf(ops_test: OpsTest):
         trust=True,
     )
 
+async def _deploy_nrf(ops_test: OpsTest):
+    assert ops_test.model
+    await ops_test.model.deploy(
+        NRF_CHARM_NAME,
+        application_name=NRF_CHARM_NAME,
+        channel=NRF_CHARM_CHANNEL,
+    )
+    await ops_test.model.integrate(
+        relation1=f"{NRF_CHARM_NAME}:database", relation2=f"{DATABASE_APP_NAME}"
+    )
+    await ops_test.model.integrate(relation1=NRF_CHARM_NAME, relation2=TLS_PROVIDER_CHARM_NAME)
+
 
 async def _deploy_sdcore_gnbsim(ops_test: OpsTest):
     assert ops_test.model
@@ -98,6 +118,27 @@ async def _deploy_sdcore_gnbsim(ops_test: OpsTest):
         channel=GNBSIM_CHARM_CHANNEL,
         trust=True,
     )
+
+async def _deploy_self_signed_certificates(ops_test: OpsTest):
+    assert ops_test.model
+    await ops_test.model.deploy(
+        TLS_PROVIDER_CHARM_NAME,
+        application_name=TLS_PROVIDER_CHARM_NAME,
+        channel=TLS_PROVIDER_CHARM_CHANNEL,
+    )
+
+async def _deploy_amf(ops_test: OpsTest):
+    assert ops_test.model
+    await ops_test.model.deploy(
+        AMF_CHARM_NAME,
+        application_name=AMF_CHARM_NAME,
+        channel=AMF_CHARM_CHANNEL,
+        trust=True,
+    )
+    await ops_test.model.integrate(relation1=AMF_CHARM_NAME, relation2=NRF_CHARM_NAME)
+    await ops_test.model.integrate(relation1=AMF_CHARM_NAME, relation2=DATABASE_APP_NAME)
+    await ops_test.model.integrate(relation1=AMF_CHARM_NAME, relation2=GNBSIM_CHARM_NAME)
+    await ops_test.model.integrate(relation1=AMF_CHARM_NAME, relation2=TLS_PROVIDER_CHARM_NAME)
 
 
 async def get_traefik_proxied_endpoints(ops_test: OpsTest) -> dict:
@@ -152,10 +193,37 @@ def ui_is_running(nms_endpoint: str) -> bool:
             if "5G NMS" in response.content.decode("utf-8"):
                 return True
         except Exception as e:
-            logger.info(f"UI is not running yet: {e}")
+            logger.error(f"UI is not running yet: {e}")
         time.sleep(2)
     return False
 
+
+def get_webui_gnbs(nms_endpoint: str) -> List[GnodeB]:
+    url = f"{nms_endpoint}/config/v1/inventory/gnb"
+    webui_response = get_webui_inventory_resource(url)
+    logger.info("Obtained gNBs: %s", webui_response)
+    return Webui._transform_response_to_gnb(webui_response)
+
+
+def get_webui_upfs(nms_endpoint: str) -> List[Upf]:
+    url = f"{nms_endpoint}/config/v1/inventory/upf"
+    webui_response = get_webui_inventory_resource(url)
+    logger.info("Obtained UPFs: %s", webui_response)
+    return Webui._transform_response_to_upf(webui_response)
+
+
+def get_webui_inventory_resource(url: str) -> str:
+    t0 = time.time()
+    timeout = 100  # seconds
+    while time.time() - t0 < timeout:
+        try:
+            response = requests.get(url=url, timeout=5)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error("Cannot connect to the webui inventory: %s", e)
+        time.sleep(2)
+    return ""
 
 @pytest.fixture(scope="module")
 @pytest.mark.abort_on_fail
@@ -175,8 +243,11 @@ async def deploy(ops_test: OpsTest, request):
     await _deploy_database(ops_test)
     await _deploy_grafana_agent(ops_test)
     await _deploy_traefik(ops_test)
-    await _deploy_sdcore_upf(ops_test)
+    await _deploy_self_signed_certificates(ops_test)
+    await _deploy_nrf(ops_test)
     await _deploy_sdcore_gnbsim(ops_test)
+    await _deploy_amf(ops_test)
+    await _deploy_sdcore_upf(ops_test)
 
 
 @pytest.mark.abort_on_fail
@@ -203,12 +274,14 @@ async def test_relate_and_wait_for_active_status(ops_test: OpsTest, deploy):
     await ops_test.model.integrate(
         relation1=f"{APP_NAME}:{LOGGING_RELATION_NAME}", relation2=GRAFANA_AGENT_APP_NAME
     )
+    await ops_test.model.integrate(relation1=APP_NAME, relation2=NRF_CHARM_NAME)
     await ops_test.model.integrate(
         relation1=f"{APP_NAME}:{GNBSIM_RELATION_NAME}", relation2=GNBSIM_CHARM_NAME
     )
     await ops_test.model.integrate(
         relation1=f"{APP_NAME}:{UPF_RELATION_NAME}", relation2=UPF_CHARM_NAME
     )
+    await ops_test.model.integrate(relation1=f"{APP_NAME}", relation2=f"{AMF_CHARM_NAME}")
     await ops_test.model.integrate(
         relation1=f"{APP_NAME}:ingress", relation2=f"{TRAEFIK_CHARM_NAME}:ingress"
     )
@@ -255,6 +328,53 @@ async def test_given_related_to_traefik_when_fetch_ui_then_returns_html_content(
     await configure_traefik(ops_test, traefik_ip)
     nms_url = await get_sdcore_nms_endpoint(ops_test)
     assert ui_is_running(nms_endpoint=nms_url)
+
+
+@pytest.mark.abort_on_fail
+async def test_given_nms_related_to_gnbsim_and_gnbsim_status_is_active_then_webui_inventory_contains_gnb_information(  # noqa: E501
+    ops_test: OpsTest, deploy
+):
+    assert ops_test.model
+    await ops_test.model.wait_for_idle(apps=[GNBSIM_CHARM_NAME], status="active", timeout=TIMEOUT)
+    nms_url = await get_sdcore_nms_endpoint(ops_test)
+
+    gnbs = get_webui_gnbs(nms_endpoint=nms_url)
+
+    expected_gnb_name = f"{ops_test.model.name}-gnbsim-{GNBSIM_CHARM_NAME}"
+    expected_gnb = GnodeB(name=expected_gnb_name, tac=1)
+    assert gnbs == [expected_gnb]
+
+
+@pytest.mark.abort_on_fail
+async def test_given_nms_related_to_upf_and_upf_status_is_active_then_webui_inventory_contains_upf_information(  # noqa: E501
+    ops_test: OpsTest, deploy
+):
+    assert ops_test.model
+    await ops_test.model.wait_for_idle(apps=[UPF_CHARM_NAME], status="active", timeout=TIMEOUT)
+    nms_url = await get_sdcore_nms_endpoint(ops_test)
+
+    upfs = get_webui_upfs(nms_endpoint=nms_url)
+
+    expected_upf_hostname = f"{UPF_CHARM_NAME}-external.{ops_test.model.name}.svc.cluster.local"
+    expected_upf = Upf(hostname= expected_upf_hostname, port=8805)
+    assert upfs == [expected_upf]
+
+
+@pytest.mark.abort_on_fail
+async def test_given_gnb_and_upf_are_remove_then_webui_inventory_does_not_contain_upf_nor_gnb_information(  # noqa: E501
+    ops_test: OpsTest, deploy
+):
+    assert ops_test.model
+    await ops_test.model.remove_application(UPF_CHARM_NAME, block_until_done=False)
+    await ops_test.model.remove_application(GNBSIM_CHARM_NAME, block_until_done=True)
+    await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
+    nms_url = await get_sdcore_nms_endpoint(ops_test)
+
+    gnbs = get_webui_gnbs(nms_endpoint=nms_url)
+    assert gnbs == []
+
+    upfs = get_webui_upfs(nms_endpoint=nms_url)
+    assert upfs == []
 
 
 @pytest.mark.abort_on_fail
