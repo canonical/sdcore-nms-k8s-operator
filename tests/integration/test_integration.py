@@ -73,13 +73,12 @@ async def _deploy_traefik(ops_test: OpsTest):
     )
 
 
-async def configure_traefik(ops_test: OpsTest, traefik_ip: str) ->  None:
+async def configure_traefik(ops_test: OpsTest, traefik_ip: str) -> None:
     assert ops_test.model
-    await ops_test.model.applications[TRAEFIK_CHARM_NAME].set_config(
-        {
-            "external_hostname": f"{traefik_ip}.nip.io",
-            "routing_mode": "subdomain"
-        }
+    traefik = ops_test.model.applications[TRAEFIK_CHARM_NAME]
+    assert traefik
+    await traefik.set_config(
+        {"external_hostname": f"{traefik_ip}.nip.io", "routing_mode": "subdomain"}
     )
     await ops_test.model.wait_for_idle(
         apps=[TRAEFIK_CHARM_NAME],
@@ -96,6 +95,7 @@ async def _deploy_sdcore_upf(ops_test: OpsTest):
         channel=UPF_CHARM_CHANNEL,
         trust=True,
     )
+
 
 async def _deploy_nrf(ops_test: OpsTest):
     assert ops_test.model
@@ -119,6 +119,7 @@ async def _deploy_sdcore_gnbsim(ops_test: OpsTest):
         trust=True,
     )
 
+
 async def _deploy_self_signed_certificates(ops_test: OpsTest):
     assert ops_test.model
     await ops_test.model.deploy(
@@ -126,6 +127,7 @@ async def _deploy_self_signed_certificates(ops_test: OpsTest):
         application_name=TLS_PROVIDER_CHARM_NAME,
         channel=TLS_PROVIDER_CHARM_CHANNEL,
     )
+
 
 async def _deploy_amf(ops_test: OpsTest):
     assert ops_test.model
@@ -145,6 +147,7 @@ async def get_traefik_proxied_endpoints(ops_test: OpsTest) -> dict:
     """Retrieve the endpoints by using Traefik's `show-proxied-endpoints` action."""
     assert ops_test.model
     traefik = ops_test.model.applications[TRAEFIK_CHARM_NAME]
+    assert traefik
     traefik_unit = traefik.units[0]
     t0 = time.time()
     timeout = 30  # seconds
@@ -378,9 +381,7 @@ async def test_given_gnb_and_upf_are_remove_then_webui_inventory_does_not_contai
 
 
 @pytest.mark.abort_on_fail
-async def test_when_scale_app_beyond_1_then_only_one_unit_is_active(
-    ops_test: OpsTest, deploy
-):
+async def test_when_scale_app_beyond_1_then_only_one_unit_is_active(ops_test: OpsTest, deploy):
     assert ops_test.model
     assert isinstance(app := ops_test.model.applications[APP_NAME], Application)
     await app.scale(3)
