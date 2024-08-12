@@ -226,7 +226,7 @@ def get_webui_inventory_resource(url: str) -> List:
         except Exception as e:
             logger.error("Cannot connect to the webui inventory: %s", e)
         time.sleep(2)
-    return ""
+    return []
 
 @pytest.fixture(scope="module")
 @pytest.mark.abort_on_fail
