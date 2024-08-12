@@ -215,7 +215,7 @@ def get_webui_upfs(nms_endpoint: str) -> List[Upf]:
     return Webui._transform_response_to_upf(webui_response)
 
 
-def get_webui_inventory_resource(url: str) -> str:
+def get_webui_inventory_resource(url: str) -> List:
     t0 = time.time()
     timeout = 100  # seconds
     while time.time() - t0 < timeout:
@@ -269,10 +269,10 @@ async def test_given_charm_is_built_when_deployed_then_status_is_blocked(
 async def test_relate_and_wait_for_active_status(ops_test: OpsTest, deploy):
     assert ops_test.model
     await ops_test.model.integrate(
-        relation1=f"{APP_NAME}:{COMMON_DATABASE_RELATION_NAME}", relation2=f"{DATABASE_APP_NAME}"
+        relation1=f"{APP_NAME}:{COMMON_DATABASE_RELATION_NAME}", relation2=DATABASE_APP_NAME
     )
     await ops_test.model.integrate(
-        relation1=f"{APP_NAME}:{AUTH_DATABASE_RELATION_NAME}", relation2=f"{DATABASE_APP_NAME}"
+        relation1=f"{APP_NAME}:{AUTH_DATABASE_RELATION_NAME}", relation2=DATABASE_APP_NAME
     )
     await ops_test.model.integrate(
         relation1=f"{APP_NAME}:{LOGGING_RELATION_NAME}", relation2=GRAFANA_AGENT_APP_NAME
@@ -284,7 +284,7 @@ async def test_relate_and_wait_for_active_status(ops_test: OpsTest, deploy):
     await ops_test.model.integrate(
         relation1=f"{APP_NAME}:{UPF_RELATION_NAME}", relation2=UPF_CHARM_NAME
     )
-    await ops_test.model.integrate(relation1=f"{APP_NAME}", relation2=f"{AMF_CHARM_NAME}")
+    await ops_test.model.integrate(relation1=APP_NAME, relation2=AMF_CHARM_NAME)
     await ops_test.model.integrate(
         relation1=f"{APP_NAME}:ingress", relation2=f"{TRAEFIK_CHARM_NAME}:ingress"
     )
