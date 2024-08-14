@@ -175,8 +175,8 @@ class TestCharmWorkloadConfiguration(NMSUnitTestFixtures):
         relation_id_2 = self.harness.add_relation(SDCORE_CONFIG_RELATION_NAME, "requirer2")
         self.harness.add_relation_unit(relation_id=relation_id_2, remote_unit_name="requirer2")
         calls = [
-            call.emit(webui_url="webui:9876"),
-            call.emit(webui_url="webui:9876"),
+            call.emit(webui_url="nms:9876"),
+            call.emit(webui_url="nms:9876"),
         ]
         self.mock_set_webui_url_in_all_relations.assert_has_calls(calls)
 

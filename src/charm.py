@@ -43,7 +43,7 @@ AUTH_DATABASE_NAME = "authentication"
 COMMON_DATABASE_NAME = "free5gc"
 GRPC_PORT = 9876
 WEBUI_URL_PORT = 5000
-WEBUI_SERVICE_NAME = "webui"
+SDCORE_CONFIG_SERVICE_NAME = "nms"
 
 
 def _get_pod_ip() -> Optional[str]:
@@ -219,7 +219,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         if not self._is_nms_service_running():
             return
-        self._sdcore_config.set_webui_url_in_all_relations(webui_url=self._webui_config_url)
+        self._sdcore_config.set_webui_url_in_all_relations(webui_url=self._sdcore_config_endpoint_url)
 
     def _configure_workload(self):
         desired_config_file = self._generate_webui_config_file()
@@ -370,8 +370,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self._webui.set_url(f"http://{self._webui_endpoint}")
 
     @property
-    def _webui_config_url(self) -> str:
-        return f"{WEBUI_SERVICE_NAME}:{GRPC_PORT}"
+    def _sdcore_config_endpoint_url(self) -> str:
+        return f"{SDCORE_CONFIG_SERVICE_NAME}:{GRPC_PORT}"
 
     @property
     def _webui_endpoint(self) -> str:
