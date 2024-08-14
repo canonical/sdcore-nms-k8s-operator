@@ -21,7 +21,7 @@ sudo microk8s enable hostpath-storage
 
 Install Juju and bootstrap a controller on the MicroK8S instance:
 ```shell
-sudo snap install juju --channel=3.1/stable
+sudo snap install juju --channel=3.4/stable
 juju bootstrap microk8s
 ```
 
