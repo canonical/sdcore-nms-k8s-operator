@@ -43,7 +43,6 @@ AUTH_DATABASE_NAME = "authentication"
 COMMON_DATABASE_NAME = "free5gc"
 GRPC_PORT = 9876
 WEBUI_URL_PORT = 5000
-WEBUI_SERVICE_NAME = "webui"
 
 
 def _get_pod_ip() -> Optional[str]:
@@ -371,7 +370,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
     @property
     def _webui_config_url(self) -> str:
-        return f"{WEBUI_SERVICE_NAME}:{GRPC_PORT}"
+        return f"{self.app.name}:{GRPC_PORT}"
 
     @property
     def _webui_endpoint(self) -> str:
