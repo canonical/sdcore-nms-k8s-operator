@@ -1,124 +1,200 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-from unittest.mock import PropertyMock, patch
+from unittest.mock import patch
 
 import pytest
-from ops import testing
+import scenario
 
 from tests.unit.lib.charms.sdcore_nms_k8s.v0.dummy_sdcore_config_provider_charm.src.dummy_provider_charm import (  # noqa: E501
     DummySdcoreConfigProviderCharm,
 )
 
-DUMMY_PROVIDER_CHARM = "tests.unit.lib.charms.sdcore_nms_k8s.v0.dummy_sdcore_config_provider_charm.src.dummy_provider_charm.DummySdcoreConfigProviderCharm"  # noqa: E501
-EXPECTED_WEBUI_URL = "sdcore-webui-k8s:9876"
-REMOTE_APP_NAME = "dummy-sdcore-config-requirer"
-
 
 class TestSdcoreConfigProvider:
     @pytest.fixture(autouse=True)
-    def setup_harness(self, request):
-        self.harness = testing.Harness(DummySdcoreConfigProviderCharm)
-        self.harness.set_model_name(name="my_namespace")
-        self.harness.set_leader(is_leader=True)
-        self.harness.begin()
-        yield self.harness
-        self.harness.cleanup()
-
-    def _create_relation(self, remote_app_name: str) -> int:
-        relation_id = self.harness.add_relation(
-            relation_name="sdcore_config", remote_app=remote_app_name
+    def context(self):
+        self.ctx = scenario.Context(
+            charm_type=DummySdcoreConfigProviderCharm,
+            meta={
+                "name": "sdcore-config-provider",
+                "provides": {
+                    "sdcore_config": {
+                        "interface": "sdcore_config",
+                    }
+                },
+            },
+            actions={
+                "set-webui-url": {
+                    "description": "Set the URL of the web UI",
+                    "params": {
+                        "relation-id": {
+                            "description": "The relation ID of the relation to get the URL from",
+                            "type": "string",
+                        },
+                        "url": {
+                            "description": "The URL of the web UI",
+                            "type": "string",
+                        },
+                    },
+                },
+                "set-webui-url-in-all-relations": {
+                    "description": "Set the URL of the web UI in all relations",
+                    "params": {
+                        "url": {
+                            "description": "The URL of the web UI",
+                            "type": "string",
+                        },
+                    },
+                },
+            },
         )
-        self.harness.add_relation_unit(
-            relation_id=relation_id, remote_unit_name=f"{remote_app_name}/0"
-        )
-        return relation_id
 
-    def test_given_unit_is_leader_when_sdcore_config_relation_joined_then_data_is_in_application_databag(  # noqa: E501
+    @pytest.fixture(autouse=True)
+    def setUp(self, request):
+        yield
+        request.addfinalizer(self.tearDown)
+
+    @staticmethod
+    def tearDown() -> None:
+        patch.stopall()
+
+    def test_given_unit_is_leader_when_set_webui_url_then_data_is_in_application_databag(  # noqa: E501
         self,
     ):
-        self.harness.set_leader(is_leader=True)
-
-        relation_id = self._create_relation(remote_app_name=REMOTE_APP_NAME)
-        relation_data = self.harness.get_relation_data(
-            relation_id=relation_id, app_or_unit=self.harness.charm.app.name
+        sdcore_config_relation = scenario.Relation(
+            endpoint="sdcore_config",
+        )
+        state_in = scenario.State(
+            leader=True,
+            relations=[sdcore_config_relation],
+        )
+        action = scenario.Action(
+            name="set-webui-url",
+            params={
+                "relation-id": str(sdcore_config_relation.relation_id),
+                "url": "whatever-url.com",
+            },
         )
 
-        assert relation_data["webui_url"] == EXPECTED_WEBUI_URL
+        action_output = self.ctx.run_action(action, state_in)
 
-    def test_given_unit_is_not_leader_when_sdcore_config_relation_joined_then_data_is_not_in_application_databag(  # noqa: E501
+        assert action_output.state.relations[0].local_app_data["webui_url"] == "whatever-url.com"
+
+    def test_given_unit_is_not_leader_when_set_webui_url_then_data_is_not_in_application_databag(  # noqa: E501
         self,
     ):
-        self.harness.set_leader(is_leader=False)
+        sdcore_config_relation = scenario.Relation(
+            endpoint="sdcore_config",
+        )
+        state_in = scenario.State(
+            leader=False,
+            relations=[sdcore_config_relation],
+        )
+        action = scenario.Action(
+            name="set-webui-url",
+            params={
+                "relation-id": str(sdcore_config_relation.relation_id),
+                "url": "whatever-url.com",
+            },
+        )
 
-        with pytest.raises(RuntimeError):
-            relation_id = self._create_relation(remote_app_name=REMOTE_APP_NAME)
-            relation_data = self.harness.get_relation_data(
-                relation_id=relation_id, app_or_unit=self.harness.charm.app.name
-            )
-            assert relation_data == {}
+        with pytest.raises(Exception) as e:
+            self.ctx.run_action(action, state_in)
 
-    def test_given_provided_webui_url_is_not_valid_when_set_url_then_error_is_raised(  # noqa: E501
+        assert "Unit must be leader to set application relation data" in str(e.value)
+
+    def test_given_provided_webui_url_is_not_valid_when_set_webui_url_then_error_is_raised(  # noqa: E501
         self,
     ):
-        self.harness.set_leader(is_leader=True)
+        sdcore_config_relation = scenario.Relation(
+            endpoint="sdcore_config",
+        )
+        state_in = scenario.State(
+            leader=True,
+            relations=[sdcore_config_relation],
+        )
+        action = scenario.Action(
+            name="set-webui-url",
+            params={"relation-id": str(sdcore_config_relation.relation_id), "url": ""},
+        )
 
-        with patch.object(
-            DummySdcoreConfigProviderCharm, "WEBUI_URL", new_callable=PropertyMock
-        ) as patched_url:
-            patched_url.return_value = False
-            with pytest.raises(ValueError):
-                self._create_relation(remote_app_name=REMOTE_APP_NAME)
+        with pytest.raises(Exception) as e:
+            self.ctx.run_action(action, state_in)
+
+        assert "Invalid url" in str(e.value)
 
     def test_given_unit_is_leader_and_sdcore_config_relation_is_not_created_when_set_webui_information_then_runtime_error_is_raised(  # noqa: E501
         self,
     ):
-        self.harness.set_leader(is_leader=True)
-        relation_id_for_unexsistant_relation = 0
+        state_in = scenario.State(leader=True)
+        action = scenario.Action(
+            name="set-webui-url",
+            params={"relation-id": "0", "url": "whatever-url.com"},
+        )
 
-        with pytest.raises(RuntimeError) as e:
-            self.harness.charm.webui_url_provider.set_webui_url(
-                webui_url=EXPECTED_WEBUI_URL, relation_id=relation_id_for_unexsistant_relation
-            )
-        assert str(e.value) == "Relation sdcore_config not created yet."
+        with pytest.raises(Exception) as e:
+            self.ctx.run_action(action, state_in)
+
+        assert "Relation sdcore_config not created yet." in str(e.value)
 
     def test_given_unit_is_leader_when_multiple_sdcore_config_relation_joined_then_data_in_application_databag(  # noqa: E501
         self,
     ):
-        self.harness.set_leader(is_leader=True)
-        remote_app_name_1 = REMOTE_APP_NAME
-        remote_app_name_2 = f"second-{REMOTE_APP_NAME}"
-
-        relation_id_1 = self._create_relation(remote_app_name=remote_app_name_1)
-
-        self.harness.get_relation_data(
-            relation_id=relation_id_1, app_or_unit=self.harness.charm.app.name
+        sdcore_config_relation_1 = scenario.Relation(
+            endpoint="sdcore_config",
         )
-        relation_id_2 = self._create_relation(remote_app_name=remote_app_name_2)
-        relation_data_2 = self.harness.get_relation_data(
-            relation_id=relation_id_2, app_or_unit=self.harness.charm.app.name
+        sdcore_config_relation_2 = scenario.Relation(
+            endpoint="sdcore_config",
+        )
+        state_in = scenario.State(
+            leader=True,
+            relations=[sdcore_config_relation_1, sdcore_config_relation_2],
+        )
+        action_1 = scenario.Action(
+            name="set-webui-url",
+            params={
+                "relation-id": str(sdcore_config_relation_1.relation_id),
+                "url": "whatever-url-1.com",
+            },
+        )
+        action_2 = scenario.Action(
+            name="set-webui-url",
+            params={
+                "relation-id": str(sdcore_config_relation_2.relation_id),
+                "url": "whatever-url-2.com",
+            },
         )
 
-        assert relation_data_2["webui_url"] == EXPECTED_WEBUI_URL
+        action_output_1 = self.ctx.run_action(action_1, state_in)
+        action_output_2 = self.ctx.run_action(action_2, action_output_1.state)
+
+        assert (
+            action_output_1.state.relations[0].local_app_data["webui_url"] == "whatever-url-1.com"
+        )
+        assert (
+            action_output_2.state.relations[1].local_app_data["webui_url"] == "whatever-url-2.com"
+        )
 
     def test_given_unit_is_leader_and_multiple_sdcore_config_relations_when_set_webui_information_in_all_relations_then_all_relations_are_updated(  # noqa: E501
         self,
     ):
-        self.harness.set_leader(is_leader=True)
-        remote_app_name_1 = REMOTE_APP_NAME
-        remote_app_name_2 = f"second-{REMOTE_APP_NAME}"
-        relation_id_1 = self._create_relation(remote_app_name=remote_app_name_1)
-        relation_data_1 = self.harness.get_relation_data(
-            relation_id=relation_id_1, app_or_unit=self.harness.charm.app.name
+        sdcore_config_relation_1 = scenario.Relation(
+            endpoint="sdcore_config",
         )
-        relation_id_2 = self._create_relation(remote_app_name=remote_app_name_2)
-        relation_data_2 = self.harness.get_relation_data(
-            relation_id=relation_id_2, app_or_unit=self.harness.charm.app.name
+        sdcore_config_relation_2 = scenario.Relation(
+            endpoint="sdcore_config",
+        )
+        state_in = scenario.State(
+            leader=True,
+            relations=[sdcore_config_relation_1, sdcore_config_relation_2],
+        )
+        action = scenario.Action(
+            name="set-webui-url-in-all-relations",
+            params={"url": "whatever-url.com"},
         )
 
-        self.harness.charm.webui_url_provider.set_webui_url_in_all_relations(
-            webui_url=EXPECTED_WEBUI_URL
-        )
+        action_output = self.ctx.run_action(action, state_in)
 
-        assert relation_data_1["webui_url"] == EXPECTED_WEBUI_URL
-        assert relation_data_2["webui_url"] == EXPECTED_WEBUI_URL
+        assert action_output.state.relations[0].local_app_data["webui_url"] == "whatever-url.com"
+        assert action_output.state.relations[1].local_app_data["webui_url"] == "whatever-url.com"
