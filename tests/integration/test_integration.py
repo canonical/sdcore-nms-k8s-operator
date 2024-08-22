@@ -14,6 +14,7 @@ import requests
 import yaml
 from juju.application import Application
 from pytest_operator.plugin import OpsTest
+
 from webui import GnodeB, Upf, Webui
 
 logger = logging.getLogger(__name__)
@@ -228,6 +229,7 @@ def get_webui_inventory_resource(url: str) -> List:
         time.sleep(2)
     return []
 
+
 @pytest.fixture(scope="module")
 @pytest.mark.abort_on_fail
 async def deploy(ops_test: OpsTest, request):
@@ -359,7 +361,7 @@ async def test_given_nms_related_to_upf_and_upf_status_is_active_then_webui_inve
     upfs = get_webui_upfs(nms_endpoint=nms_url)
 
     expected_upf_hostname = f"{UPF_CHARM_NAME}-external.{ops_test.model.name}.svc.cluster.local"
-    expected_upf = Upf(hostname= expected_upf_hostname, port=8805)
+    expected_upf = Upf(hostname=expected_upf_hostname, port=8805)
     assert upfs == [expected_upf]
 
 

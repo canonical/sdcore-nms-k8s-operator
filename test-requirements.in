@@ -7,3 +7,4 @@ pytest-asyncio>=v0.21.2  # https://github.com/pytest-dev/pytest/issues/12269
 pytest-operator
 requests
 ruff
+ops-scenario

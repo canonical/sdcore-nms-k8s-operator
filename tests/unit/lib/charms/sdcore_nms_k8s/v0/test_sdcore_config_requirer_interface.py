@@ -1,144 +1,129 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-import logging
-from typing import Any, Generator
-from unittest.mock import call, patch
+from unittest.mock import patch
 
 import pytest
-from ops import BoundEvent, testing
+import scenario
 
 from tests.unit.lib.charms.sdcore_nms_k8s.v0.dummy_sdcore_config_requirer_charm.src.dummy_requirer_charm import (  # noqa: E501
     DummySdcoreConfigRequirerCharm,
+    WebuiBroken,
+    WebuiUrlAvailable,
 )
 
-DUMMY_REQUIRER_CHARM = "tests.unit.lib.charms.sdcore_nms_k8s.v0.dummy_sdcore_config_requirer_charm.src.dummy_requirer_charm.DummySdcoreConfigRequirerCharm"  # noqa: E501
-REMOTE_APP_NAME = "dummy-sdcore-config-provider"
 WEBUI_URL = "sdcore-webui-k8s:9876"
 
 
 class TestSdcoreConfigRequirer:
-    patcher_webui_broken = patch(
-        "lib.charms.sdcore_nms_k8s.v0.sdcore_config.SdcoreConfigRequirerCharmEvents.webui_broken"
-    )
-    patcher_webui_url_available = patch(
-        f"{DUMMY_REQUIRER_CHARM}._on_webui_url_available", autospec=True
-    )
-
-    @pytest.fixture()
-    def setUp(self):
-        self.mock_webui_broken = TestSdcoreConfigRequirer.patcher_webui_broken.start()
-        self.mock_webui_broken.__class__ = BoundEvent
-        self.mock_webui_url_available = (
-            TestSdcoreConfigRequirer.patcher_webui_url_available.start()
+    @pytest.fixture(autouse=True)
+    def context(self):
+        self.ctx = scenario.Context(
+            charm_type=DummySdcoreConfigRequirerCharm,
+            meta={
+                "name": "sdcore-config-requirer",
+                "requires": {"sdcore_config": {"interface": "sdcore_config"}},
+            },
+            actions={"get-webui-url": {}},
         )
+
+    @pytest.fixture(autouse=True)
+    def setUp(self, request):
+        yield
+        request.addfinalizer(self.tearDown)
 
     @staticmethod
     def tearDown() -> None:
         patch.stopall()
 
-    @pytest.fixture(autouse=True)
-    def setup_harness(self, setUp, request):
-        self.harness = testing.Harness(DummySdcoreConfigRequirerCharm)
-        self.harness.set_model_name(name="some_model_name")
-        self.harness.set_leader(is_leader=True)
-        self.harness.begin()
-        yield self.harness
-        self.harness.cleanup()
-        request.addfinalizer(self.tearDown)
-
-    @pytest.fixture()
-    def sdcore_config_relation_id(self) -> Generator[int, Any, Any]:
-        relation_id = self.harness.add_relation(
-            relation_name="sdcore_config", remote_app=REMOTE_APP_NAME
-        )
-        self.harness.add_relation_unit(
-            relation_id=relation_id, remote_unit_name=f"{REMOTE_APP_NAME}/0"
-        )
-        yield relation_id
-
-    def test_given_webui_information_in_relation_data_when_relation_changed_then_webui_url_available_event_emitted(  # noqa: E501
-        self, sdcore_config_relation_id
+    def test_given_webui_information_in_relation_data_when_get_webui_url_then_webui_url_is_returned(  # noqa: E501
+        self,
     ):
-        relation_data = {"webui_url": WEBUI_URL}
-        self.harness.update_relation_data(
-            sdcore_config_relation_id, app_or_unit=REMOTE_APP_NAME, key_values=relation_data
+        sdcore_relation = scenario.Relation(
+            endpoint="sdcore_config",
+            interface="sdcore_config",
+            remote_app_data={"webui_url": WEBUI_URL},
+        )
+        state_in = scenario.State(
+            relations=[sdcore_relation],
+        )
+        action = scenario.Action(
+            name="get-webui-url",
         )
 
-        self.mock_webui_url_available.assert_called()
+        action_output = self.ctx.run_action(action, state_in)
+        assert action_output.success is True
+        assert action_output.results == {"webui-url": WEBUI_URL}
 
-    def test_given_webui_information_not_in_relation_data_when_relation_changed_then_webui_url_available_event_not_emitted(  # noqa: E501
-        self, sdcore_config_relation_id
+    def test_given_webui_information_not_in_relation_data_when_get_webui_url_then_webui_is_not_returned(  # noqa: E501
+        self,
     ):
-        relation_data = {}
-        self.harness.update_relation_data(
-            sdcore_config_relation_id, app_or_unit=REMOTE_APP_NAME, key_values=relation_data
+        sdcore_relation = scenario.Relation(
+            endpoint="sdcore_config",
+            interface="sdcore_config",
+        )
+        state_in = scenario.State(
+            relations=[sdcore_relation],
+        )
+        action = scenario.Action(
+            name="get-webui-url",
         )
 
-        self.mock_webui_url_available.assert_not_called()
+        action_output = self.ctx.run_action(action, state_in)
+        assert action_output.success is True
+        assert action_output.results == {"webui-url": None}
 
-    def test_given_invalid_webui_information_in_relation_data_when_relation_changed_then_webui_url_available_event_not_emitted(  # noqa: E501
-        self, sdcore_config_relation_id
+    def test_given_webui_url_info_in_relation_data_when_relation_changed_then_event_is_emitted(
+        self,
     ):
-        relation_data = {"foo": "bar"}
-        self.harness.update_relation_data(
-            sdcore_config_relation_id, app_or_unit=REMOTE_APP_NAME, key_values=relation_data
+        sdcore_relation = scenario.Relation(
+            endpoint="sdcore_config",
+            interface="sdcore_config",
+            remote_app_data={"webui_url": WEBUI_URL},
         )
 
-        self.mock_webui_url_available.assert_not_called()
-
-    def test_given_invalid_webui_information_in_relation_data_when_relation_changed_then_error_is_logged(  # noqa: E501
-        self, caplog, sdcore_config_relation_id
-    ):
-        relation_data = {"foo": "bar"}
-
-        with caplog.at_level(logging.DEBUG):
-            self.harness.update_relation_data(
-                sdcore_config_relation_id, app_or_unit=REMOTE_APP_NAME, key_values=relation_data
-            )
-            assert "Invalid relation data" in caplog.text
-
-    def test_given_webui_information_in_relation_data_when_get_webui_url_is_called_then_expected_url_is_returned(  # noqa: E501
-        self, sdcore_config_relation_id
-    ):
-        relation_data = {"webui_url": WEBUI_URL}
-        self.harness.update_relation_data(
-            sdcore_config_relation_id, app_or_unit=REMOTE_APP_NAME, key_values=relation_data
+        state_in = scenario.State(
+            relations=[sdcore_relation],
         )
 
-        webui_url = self.harness.charm.webui_requirer.webui_url
+        self.ctx.run(sdcore_relation.changed_event, state_in)
 
-        assert webui_url == WEBUI_URL
+        assert len(self.ctx.emitted_events) == 2
+        assert isinstance(self.ctx.emitted_events[1], WebuiUrlAvailable)
+        assert self.ctx.emitted_events[1].webui_url == WEBUI_URL
 
-    def test_given_webui_information_not_in_relation_data_when_get_webui_url_then_returns_none(  # noqa: E501
-        self, caplog, sdcore_config_relation_id
+    def test_given_webui_url_info_not_in_relation_data_when_relation_changed_then_event_not_is_emitted(  # noqa: E501
+        self,
     ):
-        relation_data = {}
-
-        with caplog.at_level(logging.DEBUG):
-            self.harness.update_relation_data(
-                sdcore_config_relation_id, app_or_unit=REMOTE_APP_NAME, key_values=relation_data
-            )
-            webui_url = self.harness.charm.webui_requirer.webui_url
-            assert webui_url is None
-            assert "Invalid relation data" in caplog.text
-
-    def test_given_webui_information_in_relation_data_is_not_valid_when_get_webui_url_then_returns_none(  # noqa: E501
-        self, sdcore_config_relation_id
-    ):
-        relation_data = {"foo": "bar"}
-
-        self.harness.update_relation_data(
-            sdcore_config_relation_id, app_or_unit=REMOTE_APP_NAME, key_values=relation_data
+        sdcore_relation = scenario.Relation(
+            endpoint="sdcore_config",
+            interface="sdcore_config",
+            remote_app_data={"whatever": "content"},
         )
 
-        webui_url = self.harness.charm.webui_requirer.webui_url
-        assert webui_url is None
+        state_in = scenario.State(
+            relations=[sdcore_relation],
+        )
 
-    def test_given_sdcore_config_relation_created_when_relation_broken_then_webui_broken_event_emitted(  # noqa: E501
-        self, sdcore_config_relation_id
+        self.ctx.run(sdcore_relation.changed_event, state_in)
+
+        assert len(self.ctx.emitted_events) == 1
+
+    def test_given_webui_relation_when_relation_broken_then_webui_broken_event_emitted(
+        self,
     ):
-        self.harness.remove_relation(sdcore_config_relation_id)
+        sdcore_relation = scenario.Relation(
+            endpoint="sdcore_config",
+            interface="sdcore_config",
+            remote_app_data={"webui_url": WEBUI_URL},
+        )
 
-        calls = [call.emit()]
-        self.mock_webui_broken.assert_has_calls(calls)
+        state_in = scenario.State(
+            relations=[sdcore_relation],
+        )
+
+        self.ctx.run(sdcore_relation.broken_event, state_in)
+
+        print(self.ctx.emitted_events)
+        assert len(self.ctx.emitted_events) == 2
+        assert isinstance(self.ctx.emitted_events[1], WebuiBroken)

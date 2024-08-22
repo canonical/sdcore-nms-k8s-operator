@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 import requests
+
 from webui import GnodeB, Upf, Webui
 
 
