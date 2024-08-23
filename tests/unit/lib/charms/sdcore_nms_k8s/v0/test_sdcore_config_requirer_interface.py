@@ -6,10 +6,9 @@ from unittest.mock import patch
 import pytest
 import scenario
 
+from lib.charms.sdcore_nms_k8s.v0.sdcore_config import WebuiBroken, WebuiUrlAvailable
 from tests.unit.lib.charms.sdcore_nms_k8s.v0.dummy_sdcore_config_requirer_charm.src.dummy_requirer_charm import (  # noqa: E501
     DummySdcoreConfigRequirerCharm,
-    WebuiBroken,
-    WebuiUrlAvailable,
 )
 
 WEBUI_URL = "sdcore-webui-k8s:9876"
@@ -124,6 +123,5 @@ class TestSdcoreConfigRequirer:
 
         self.ctx.run(sdcore_relation.broken_event, state_in)
 
-        print(self.ctx.emitted_events)
         assert len(self.ctx.emitted_events) == 2
         assert isinstance(self.ctx.emitted_events[1], WebuiBroken)
