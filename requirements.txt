@@ -63,7 +63,7 @@ ops==2.15.0
     #   -r requirements.in
     #   cosl
     #   ops-scenario
-ops-scenario==6.0.2
+ops-scenario==6.1.6
     # via pytest-interface-tester
 packaging==23.2
     # via
