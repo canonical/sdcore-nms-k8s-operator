@@ -44,13 +44,6 @@ def interface_tester(interface_tester: InterfaceTester):
                 service_status={"nms": ServiceStatus.ACTIVE},
             )
 
-            #with open(f"{tempdir}/webuicfg.conf", "w") as f:
-            #    f.write("whatever config file content")
-
-            #state_out = self.ctx.run("collect_unit_status", state_in)
-
-            #assert state_out.unit_status == ActiveStatus()
-
             interface_tester.configure(
                 charm_type=SDCoreNMSOperatorCharm,
                 state_template=scenario.State(
