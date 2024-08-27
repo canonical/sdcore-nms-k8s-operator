@@ -79,9 +79,12 @@ class Webui:
 
     @staticmethod
     def _get_resources_from_inventory(inventory_url: str) -> List[Dict]:
-        response = requests.get(inventory_url)
         try:
+            response = requests.get(inventory_url)
             response.raise_for_status()
+        except requests.exceptions.ConnectionError as e:
+            logger.error("Failed to connect to webui: %s", e)
+            return []
         except requests.HTTPError as e:
             logger.error("Failed to get resource from inventory: %s", e)
             return []
@@ -91,20 +94,26 @@ class Webui:
 
     @staticmethod
     def _add_resource_to_inventory(url: str, resource_name: str, data: dict) -> None:
-        response = requests.post(url, headers=JSON_HEADER, json=data)
         try:
+            response = requests.post(url, headers=JSON_HEADER, json=data)
             response.raise_for_status()
-        except Exception as e:
+        except requests.exceptions.ConnectionError as e:
+            logger.error("Failed to connect to webui: %s", e)
+            return
+        except requests.HTTPError as e:
             logger.error("Failed to add %s to webui: %s", resource_name, e)
             return
         logger.info("%s added to webui", resource_name)
 
     @staticmethod
     def _delete_resource_from_inventory(inventory_url: str, resource_name: str) -> None:
-        response = requests.delete(inventory_url)
         try:
+            response = requests.delete(inventory_url)
             response.raise_for_status()
-        except Exception as e:
+        except requests.exceptions.ConnectionError as e:
+            logger.error("Failed to connect to webui: %s", e)
+            return
+        except requests.HTTPError as e:
             logger.error("Failed to remove %s from webui: %s", resource_name, e)
             return
         logger.info("%s removed from webui", resource_name)
