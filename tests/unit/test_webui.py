@@ -27,9 +27,17 @@ class TestWebui:
         patch.stopall()
 
     @staticmethod
-    def mock_response_with_exception() -> MagicMock:
+    def mock_response_with_http_error_exception() -> MagicMock:
         mock_response = MagicMock()
         mock_response.raise_for_status.side_effect = requests.HTTPError("HTTP Error occurred")
+        return mock_response
+
+    @staticmethod
+    def mock_response_with_connection_error_exception() -> MagicMock:
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = requests.exceptions.ConnectionError(
+            "Error connecting to the webui"
+        )
         return mock_response
 
     @staticmethod
@@ -39,8 +47,22 @@ class TestWebui:
         mock_response.json.return_value = resource_list
         return mock_response
 
-    def test_given_exception_is_raised_when_get_gnb_then_an_empty_list_is_returned(self):
-        self.mock_request_get.return_value = self.mock_response_with_exception()
+
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(
+                mock_response_with_http_error_exception,
+            ),
+            pytest.param(
+                mock_response_with_connection_error_exception,
+            ),
+        ],
+    )
+    def test_given_exception_is_raised_when_get_gnb_then_an_empty_list_is_returned(
+        self, exception
+    ):
+        self.mock_request_get.return_value = exception()
 
         gnbs = self.webui.get_gnbs()
 
@@ -90,8 +112,19 @@ class TestWebui:
             assert gnb in gnbs
         assert len(gnbs) == 3
 
-    def test_given_exception_is_raised_when_add_gnb_then_exception_is_handled(self):
-        self.mock_request_post.return_value = self.mock_response_with_exception()
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(
+                mock_response_with_http_error_exception,
+            ),
+            pytest.param(
+                mock_response_with_connection_error_exception,
+            ),
+        ],
+    )
+    def test_given_exception_is_raised_when_add_gnb_then_exception_is_handled(self, exception):
+        self.mock_request_post.return_value = exception()
 
         gnb = GnodeB(name="some.gnb.name", tac=111)
         self.webui.add_gnb(gnb)
@@ -112,8 +145,19 @@ class TestWebui:
             json={"tac": "111"},
         )
 
-    def test_given_exception_is_raised_when_delete_gnb_then_exceptions_is_handled(self):
-        self.mock_request_delete.return_value = self.mock_response_with_exception()
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(
+                mock_response_with_http_error_exception,
+            ),
+            pytest.param(
+                mock_response_with_connection_error_exception,
+            ),
+        ],
+    )
+    def test_given_exception_is_raised_when_delete_gnb_then_exceptions_is_handled(self, exception):
+        self.mock_request_delete.return_value = exception()
 
         gnb_name = "some.gnb.name"
         self.webui.delete_gnb(gnb_name)
@@ -130,8 +174,21 @@ class TestWebui:
             f"some_url/config/v1/inventory/gnb/{gnb_name}"
         )
 
-    def test_given_exception_is_raised_when_get_upfs_then_an_empty_list_is_returned(self):
-        self.mock_request_get.return_value = self.mock_response_with_exception()
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(
+                mock_response_with_http_error_exception,
+            ),
+            pytest.param(
+                mock_response_with_connection_error_exception,
+            ),
+        ],
+    )
+    def test_given_exception_is_raised_when_get_upfs_then_an_empty_list_is_returned(
+        self, exception
+    ):
+        self.mock_request_get.return_value = exception()
 
         upfs = self.webui.get_upfs()
 
@@ -182,8 +239,19 @@ class TestWebui:
             assert upf in upfs
         assert len(upfs) == 3
 
-    def test_given_exception_is_raised_when_add_upf_then_exception_is_handled(self):
-        self.mock_request_post.return_value = self.mock_response_with_exception()
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(
+                mock_response_with_http_error_exception,
+            ),
+            pytest.param(
+                mock_response_with_connection_error_exception,
+            ),
+        ],
+    )
+    def test_given_exception_is_raised_when_add_upf_then_exception_is_handled(self, exception):
+        self.mock_request_post.return_value = exception()
 
         upf = Upf(hostname="some.upf.name", port=111)
         self.webui.add_upf(upf)
@@ -204,8 +272,19 @@ class TestWebui:
             json={"port": "22"},
         )
 
-    def test_given_exception_is_raised_when_delete_upf_then_exceptions_is_handled(self):
-        self.mock_request_delete.return_value = self.mock_response_with_exception()
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(
+                mock_response_with_http_error_exception,
+            ),
+            pytest.param(
+                mock_response_with_connection_error_exception,
+            ),
+        ],
+    )
+    def test_given_exception_is_raised_when_delete_upf_then_exceptions_is_handled(self, exception):
+        self.mock_request_delete.return_value = exception()
 
         upf_name = "some.upf.name"
         self.webui.delete_upf(upf_name)
