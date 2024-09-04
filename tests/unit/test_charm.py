@@ -5,9 +5,10 @@ import json
 import unittest
 from unittest.mock import Mock
 
-from charm import SDCoreNMSOperatorCharm
 from ops import testing
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
+
+from charm import SDCoreNMSOperatorCharm
 
 FIVEG_N4_RELATION_NAME = "fiveg_n4"
 TEST_FIVEG_N4_PROVIDER_APP_NAME = "fiveg_n4_provider_app"
