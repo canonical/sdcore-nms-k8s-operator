@@ -24,7 +24,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
         with tempfile.TemporaryDirectory() as tempdir:
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -35,10 +35,10 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
+                containers={container},
             )
 
-            self.ctx.run(container.pebble_ready_event, state_in)
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             assert not os.path.exists(f"{tempdir}/webuicfg.conf")
 
@@ -61,7 +61,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -72,11 +72,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[common_database_relation, auth_database_relation],
+                containers={container},
+                relations={common_database_relation, auth_database_relation},
             )
 
-            self.ctx.run(container.pebble_ready_event, state_in)
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             assert not os.path.exists(f"{tempdir}/webuicfg.conf")
 
@@ -99,7 +99,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -110,11 +110,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[common_database_relation, auth_database_relation],
+                containers={container},
+                relations={common_database_relation, auth_database_relation},
             )
 
-            self.ctx.run(container.pebble_ready_event, state_in)
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             assert not os.path.exists(f"{tempdir}/webuicfg.conf")
 
@@ -142,7 +142,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -153,11 +153,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[common_database_relation, auth_database_relation],
+                containers={container},
+                relations={common_database_relation, auth_database_relation},
             )
 
-            self.ctx.run(container.pebble_ready_event, state_in)
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             assert os.path.exists(f"{tempdir}/webuicfg.conf")
             with open(f"{tempdir}/webuicfg.conf", "r") as f:
@@ -187,7 +187,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -198,13 +198,13 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[common_database_relation, auth_database_relation],
+                containers={container},
+                relations={common_database_relation, auth_database_relation},
             )
 
-            state_out = self.ctx.run(container.pebble_ready_event, state_in)
+            state_out = self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
-            assert state_out.containers[0].layers["nms"] == Layer(
+            assert state_out.get_container("nms").layers["nms"] == Layer(
                 {
                     "summary": "NMS layer",
                     "description": "pebble config layer for the NMS",
@@ -230,7 +230,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
         with tempfile.TemporaryDirectory() as tempdir:
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -241,12 +241,12 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
+                containers={container},
             )
 
-            state_out = self.ctx.run(container.pebble_ready_event, state_in)
+            state_out = self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
-            assert state_out.containers[0].layers == {}
+            assert state_out.get_container("nms").layers == {}
 
     def test_given_storage_not_attached_when_pebble_ready_then_config_url_is_not_published_for_relations(  # noqa: E501
         self,
@@ -279,11 +279,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
         )
         state_in = scenario.State(
             leader=True,
-            containers=[container],
-            relations=[sdcore_config_relation, common_database_relation, auth_database_relation],
+            containers={container},
+            relations={sdcore_config_relation, common_database_relation, auth_database_relation},
         )
 
-        self.ctx.run(container.pebble_ready_event, state_in)
+        self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
         self.mock_set_webui_url_in_all_relations.assert_not_called()
 
@@ -297,7 +297,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -308,11 +308,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[sdcore_config_relation],
+                containers={container},
+                relations={sdcore_config_relation},
             )
 
-            self.ctx.run(container.pebble_ready_event, state_in)
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             self.mock_set_webui_url_in_all_relations.assert_not_called()
 
@@ -349,7 +349,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -360,16 +360,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[
+                containers={container},
+                relations={
                     auth_database_relation,
                     common_database_relation,
                     sdcore_config_relation_1,
                     sdcore_config_relation_2,
-                ],
+                },
             )
 
-            self.ctx.run(container.pebble_ready_event, state_in)
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             self.mock_set_webui_url_in_all_relations.assert_called_with(
                 webui_url="sdcore-nms-k8s:9876"
@@ -403,7 +403,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -414,15 +414,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[
+                containers={container},
+                relations={
                     auth_database_relation,
                     common_database_relation,
                     sdcore_config_relation,
-                ],
+                },
             )
 
-            self.ctx.run(container.pebble_ready_event, state_in)
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             self.mock_set_webui_url_in_all_relations.assert_not_called()
 
@@ -441,11 +441,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
         state_in = scenario.State(
             leader=True,
-            relations=[relation],
-            containers=[container],
+            relations={relation},
+            containers={container},
         )
 
-        self.ctx.run(relation.broken_event, state_in)
+        self.ctx.run(self.ctx.on.relation_broken(relation), state_in)
 
     @pytest.mark.parametrize("relation_name", [("fiveg_n4"), ("fiveg_gnb_identity")])
     def test_given_cannot_connect_to_container_when_relation_broken_then_no_exception_is_raised(
@@ -458,7 +458,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -470,11 +470,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             state_in = scenario.State(
                 leader=True,
-                relations=[relation],
-                containers=[container],
+                relations={relation},
+                containers={container},
             )
 
-            self.ctx.run(relation.broken_event, state_in)
+            self.ctx.run(self.ctx.on.relation_broken(relation), state_in)
 
     @pytest.mark.parametrize(
         "relation_name,relation_data",
@@ -552,7 +552,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -563,11 +563,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                relations=[relation, auth_database_relation, common_database_relation],
-                containers=[container],
+                relations={relation, auth_database_relation, common_database_relation},
+                containers={container},
             )
 
-            self.ctx.run(container.pebble_ready_event, state_in)
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             self.mock_add_gnb.assert_not_called()
             self.mock_add_upf.assert_not_called()
@@ -594,7 +594,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -605,11 +605,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[fiveg_gnb_identity_relation, fiveg_n4_relation],
+                containers={container},
+                relations={fiveg_gnb_identity_relation, fiveg_n4_relation},
             )
 
-            self.ctx.run(container.pebble_ready_event, state_in)
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             self.mock_add_gnb.assert_not_called()
             self.mock_delete_gnb.assert_not_called()
@@ -656,7 +656,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -667,17 +667,17 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[
+                containers={container},
+                relations={
                     common_database_relation,
                     auth_database_relation,
                     fiveg_gnb_identity_relation,
                     fiveg_n4_relation,
-                ],
+                },
             )
             self.mock_check_output.return_value = "1.2.3.4".encode()
 
-            self.ctx.run(container.pebble_ready_event, state_in)
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             self.mock_webui_set_url.assert_called_once_with("http://1.2.3.4:5000")
 
@@ -721,7 +721,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -732,16 +732,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[
+                containers={container},
+                relations={
                     common_database_relation,
                     auth_database_relation,
                     fiveg_gnb_identity_relation,
                     fiveg_n4_relation,
-                ],
+                },
             )
 
-            self.ctx.run(container.pebble_ready_event, state_in)
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             expected_upf = Upf(hostname="some.host.name", port=1234)
             self.mock_add_upf.assert_called_once_with(expected_upf)
@@ -786,7 +786,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -797,16 +797,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[
+                containers={container},
+                relations={
                     common_database_relation,
                     auth_database_relation,
                     fiveg_gnb_identity_relation,
                     fiveg_n4_relation,
-                ],
+                },
             )
 
-            self.ctx.run(container.pebble_ready_event, state_in)
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             expected_gnb = GnodeB(name="some.gnb.name", tac=1234)
             self.mock_add_gnb.assert_called_once_with(expected_gnb)
@@ -851,7 +851,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -862,16 +862,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[
+                containers={container},
+                relations={
                     common_database_relation,
                     auth_database_relation,
                     fiveg_n4_relation_1,
                     fiveg_n4_relation_2,
-                ],
+                },
             )
 
-            self.ctx.run(container.pebble_ready_event, state_in)
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             calls = [
                 call(Upf(hostname="some.host.name", port=1234)),
@@ -919,7 +919,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -930,16 +930,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[
+                containers={container},
+                relations={
                     common_database_relation,
                     auth_database_relation,
                     fiveg_gnb_identity_relation_1,
                     fiveg_gnb_identity_relation_2,
-                ],
+                },
             )
 
-            self.ctx.run(container.pebble_ready_event, state_in)
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             calls = [
                 call(GnodeB(name="some.gnb.name", tac=1234)),
@@ -972,7 +972,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.mock_get_upfs.return_value = [Upf(hostname="some.host.name", port=1234)]
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -991,11 +991,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[common_database_relation, auth_database_relation, fiveg_n4_relation],
+                containers={container},
+                relations={common_database_relation, auth_database_relation, fiveg_n4_relation},
             )
 
-            self.ctx.run(container.pebble_ready_event, state_in)
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             self.mock_get_upfs.assert_called()
             self.mock_add_upf.assert_not_called()
@@ -1026,7 +1026,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.mock_get_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -1045,15 +1045,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[
+                containers={container},
+                relations={
                     common_database_relation,
                     auth_database_relation,
                     fiveg_gnb_identity_relation,
-                ],
+                },
             )
 
-            self.ctx.run(container.pebble_ready_event, state_in)
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             self.mock_get_gnbs.assert_called()
             self.mock_add_gnb.assert_not_called()
@@ -1064,7 +1064,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
         with tempfile.TemporaryDirectory() as tempdir:
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -1075,11 +1075,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[],
+                containers={container},
+                relations=frozenset(),
             )
 
-            self.ctx.run(container.pebble_ready_event, state_in)
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             self.mock_add_gnb.assert_not_called()
 
@@ -1109,7 +1109,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.mock_get_upfs.return_value = [existing_upf]
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -1136,16 +1136,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[
+                containers={container},
+                relations={
                     common_database_relation,
                     auth_database_relation,
                     fiveg_n4_relation_1,
                     fiveg_n4_relation_2,
-                ],
+                },
             )
 
-            self.ctx.run(fiveg_n4_relation_2.joined_event, state_in)
+            self.ctx.run(self.ctx.on.relation_joined(fiveg_n4_relation_2), state_in)
 
             expected_upf = Upf(hostname="my_host", port=4567)
             self.mock_add_upf.assert_called_once_with(expected_upf)
@@ -1177,7 +1177,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.mock_get_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -1204,16 +1204,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[
+                containers={container},
+                relations={
                     common_database_relation,
                     auth_database_relation,
                     fiveg_gnb_identity_relation_1,
                     fiveg_gnb_identity_relation_2,
-                ],
+                },
             )
 
-            self.ctx.run(fiveg_gnb_identity_relation_2.joined_event, state_in)
+            self.ctx.run(self.ctx.on.relation_joined(fiveg_gnb_identity_relation_2), state_in)
 
             expected_gnb = GnodeB(name="my_gnb", tac=4567)
             self.mock_add_gnb.assert_called_once_with(expected_gnb)
@@ -1248,7 +1248,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.mock_get_upfs.return_value = existing_upfs
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -1275,16 +1275,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[
+                containers={container},
+                relations={
                     common_database_relation,
                     auth_database_relation,
                     fiveg_n4_relation_1,
                     fiveg_n4_relation_2,
-                ],
+                },
             )
 
-            self.ctx.run(fiveg_n4_relation_1.broken_event, state_in)
+            self.ctx.run(self.ctx.on.relation_broken(fiveg_n4_relation_1), state_in)
 
             self.mock_delete_upf.assert_called_once_with("some.host.name")
             self.mock_add_upf.assert_not_called()
@@ -1318,7 +1318,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.mock_get_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -1345,16 +1345,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[
+                containers={container},
+                relations={
                     common_database_relation,
                     auth_database_relation,
                     gnb_identity_relation_1,
                     gnb_identity_relation_2,
-                ],
+                },
             )
 
-            self.ctx.run(gnb_identity_relation_1.broken_event, state_in)
+            self.ctx.run(self.ctx.on.relation_broken(gnb_identity_relation_1), state_in)
 
             self.mock_delete_gnb.assert_called_once_with("some.gnb.name")
             self.mock_add_gnb.assert_not_called()
@@ -1387,7 +1387,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.mock_get_upfs.return_value = existing_upfs
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -1406,11 +1406,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[common_database_relation, auth_database_relation, fiveg_n4_relation],
+                containers={container},
+                relations={common_database_relation, auth_database_relation, fiveg_n4_relation},
             )
 
-            self.ctx.run(fiveg_n4_relation.joined_event, state_in)
+            self.ctx.run(self.ctx.on.relation_joined(fiveg_n4_relation), state_in)
 
             self.mock_delete_upf.assert_called_once_with("some.host.name")
             expected_upf = Upf(hostname="some.host.name", port=22)
@@ -1444,7 +1444,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.mock_get_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -1463,15 +1463,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[
+                containers={container},
+                relations={
                     common_database_relation,
                     auth_database_relation,
                     gnb_identity_relation,
-                ],
+                },
             )
 
-            self.ctx.run(gnb_identity_relation.joined_event, state_in)
+            self.ctx.run(self.ctx.on.relation_joined(gnb_identity_relation), state_in)
 
             self.mock_delete_gnb.assert_called_once_with("some.gnb.name")
             expected_gnb = GnodeB(name="some.gnb.name", tac=6789)
@@ -1505,7 +1505,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.mock_get_upfs.return_value = existing_upfs
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -1524,11 +1524,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[common_database_relation, auth_database_relation, fiveg_n4_relation],
+                containers={container},
+                relations={common_database_relation, auth_database_relation, fiveg_n4_relation},
             )
 
-            self.ctx.run(fiveg_n4_relation.joined_event, state_in)
+            self.ctx.run(self.ctx.on.relation_joined(fiveg_n4_relation), state_in)
 
             self.mock_delete_upf.assert_called_once_with("old.name")
             expected_upf = Upf(hostname="some.host.name", port=22)
@@ -1562,7 +1562,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.mock_get_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -1581,15 +1581,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                containers=[container],
-                relations=[
+                containers={container},
+                relations={
                     common_database_relation,
                     auth_database_relation,
                     gnb_identity_relation,
-                ],
+                },
             )
 
-            self.ctx.run(gnb_identity_relation.joined_event, state_in)
+            self.ctx.run(self.ctx.on.relation_joined(gnb_identity_relation), state_in)
 
             self.mock_delete_gnb.assert_called_once_with("old.gnb.name")
             expected_gnb = GnodeB(name="some.gnb.name", tac=6789)

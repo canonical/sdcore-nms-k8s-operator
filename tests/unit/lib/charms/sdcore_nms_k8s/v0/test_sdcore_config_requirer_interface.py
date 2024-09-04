@@ -45,15 +45,11 @@ class TestSdcoreConfigRequirer:
             remote_app_data={"webui_url": WEBUI_URL},
         )
         state_in = scenario.State(
-            relations=[sdcore_relation],
-        )
-        action = scenario.Action(
-            name="get-webui-url",
+            relations={sdcore_relation},
         )
 
-        action_output = self.ctx.run_action(action, state_in)
-        assert action_output.success is True
-        assert action_output.results == {"webui-url": WEBUI_URL}
+        self.ctx.run(self.ctx.on.action("get-webui-url"), state_in)
+        assert self.ctx.action_results == {"webui-url": WEBUI_URL}
 
     def test_given_webui_information_not_in_relation_data_when_get_webui_url_then_webui_is_not_returned(  # noqa: E501
         self,
@@ -63,15 +59,11 @@ class TestSdcoreConfigRequirer:
             interface="sdcore_config",
         )
         state_in = scenario.State(
-            relations=[sdcore_relation],
-        )
-        action = scenario.Action(
-            name="get-webui-url",
+            relations={sdcore_relation},
         )
 
-        action_output = self.ctx.run_action(action, state_in)
-        assert action_output.success is True
-        assert action_output.results == {"webui-url": None}
+        self.ctx.run(self.ctx.on.action("get-webui-url"), state_in)
+        assert self.ctx.action_results == {"webui-url": None}
 
     def test_given_webui_url_info_in_relation_data_when_relation_changed_then_event_is_emitted(
         self,
@@ -83,10 +75,10 @@ class TestSdcoreConfigRequirer:
         )
 
         state_in = scenario.State(
-            relations=[sdcore_relation],
+            relations={sdcore_relation},
         )
 
-        self.ctx.run(sdcore_relation.changed_event, state_in)
+        self.ctx.run(self.ctx.on.relation_changed(sdcore_relation), state_in)
 
         assert len(self.ctx.emitted_events) == 2
         assert isinstance(self.ctx.emitted_events[1], WebuiUrlAvailable)
@@ -102,10 +94,10 @@ class TestSdcoreConfigRequirer:
         )
 
         state_in = scenario.State(
-            relations=[sdcore_relation],
+            relations={sdcore_relation},
         )
 
-        self.ctx.run(sdcore_relation.changed_event, state_in)
+        self.ctx.run(self.ctx.on.relation_changed(sdcore_relation), state_in)
 
         assert len(self.ctx.emitted_events) == 1
 
@@ -119,10 +111,10 @@ class TestSdcoreConfigRequirer:
         )
 
         state_in = scenario.State(
-            relations=[sdcore_relation],
+            relations={sdcore_relation},
         )
 
-        self.ctx.run(sdcore_relation.broken_event, state_in)
+        self.ctx.run(self.ctx.on.relation_broken(sdcore_relation), state_in)
 
         print(self.ctx.emitted_events)
         assert len(self.ctx.emitted_events) == 2
