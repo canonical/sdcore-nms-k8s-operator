@@ -139,7 +139,6 @@ async def _deploy_amf(ops_test: OpsTest):
         trust=True,
     )
     await ops_test.model.integrate(relation1=AMF_CHARM_NAME, relation2=NRF_CHARM_NAME)
-    await ops_test.model.integrate(relation1=AMF_CHARM_NAME, relation2=DATABASE_APP_NAME)
     await ops_test.model.integrate(relation1=AMF_CHARM_NAME, relation2=GNBSIM_CHARM_NAME)
     await ops_test.model.integrate(relation1=AMF_CHARM_NAME, relation2=TLS_PROVIDER_CHARM_NAME)
 
