@@ -28,7 +28,7 @@ click==8.1.7
     # via typer
 cosl==0.0.23
     # via -r requirements.in
-cryptography==42.0.5
+cryptography==43.0.1
     # via paramiko
 google-auth==2.28.1
     # via kubernetes
