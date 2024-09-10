@@ -147,7 +147,7 @@ requests==2.32.3
     #   requests-oauthlib
 requests-oauthlib==2.0.0
     # via kubernetes
-rpds-py==0.18.1
+rpds-py==0.20.0
     # via
     #   -r requirements.in
     #   jsonschema

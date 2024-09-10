@@ -5,4 +5,4 @@ ops
 pydantic
 pytest-interface-tester
 cosl
-rpds-py==0.18.1
+rpds-py==0.20.0
