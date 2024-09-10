@@ -70,7 +70,7 @@ oauthlib==3.2.2
     #   requests-oauthlib
 ops==2.16.0
     # via ops-scenario
-ops-scenario==6.1.6
+ops-scenario==6.1.7
     # via -r test-requirements.in
 packaging==23.2
     # via
@@ -116,7 +116,7 @@ pyrfc3339==1.1
     #   macaroonbakery
 pyright==1.1.379
     # via -r test-requirements.in
-pytest==8.3.2
+pytest==8.3.3
     # via
     #   -r test-requirements.in
     #   pytest-asyncio
