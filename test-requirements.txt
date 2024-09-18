@@ -70,7 +70,7 @@ oauthlib==3.2.2
     #   requests-oauthlib
 ops==2.15.0
     # via ops-scenario
-ops-scenario==7.0.1
+ops-scenario==7.0.4
     # via -r test-requirements.in
 packaging==23.2
     # via
