@@ -17,7 +17,7 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
     def test_given_unit_is_not_leader_when_collect_unit_status_then_status_is_blocked(self):
         state_in = scenario.State(leader=False)
 
-        state_out = self.ctx.run("collect_unit_status", state_in)
+        state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
         assert state_out.unit_status == BlockedStatus("Scaling is not implemented for this charm")
 
@@ -28,9 +28,9 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             endpoint="auth_database",
             interface="mongodb_client",
         )
-        state_in = scenario.State(leader=True, relations=[auth_database_relation])
+        state_in = scenario.State(leader=True, relations={auth_database_relation})
 
-        state_out = self.ctx.run("collect_unit_status", state_in)
+        state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
         assert state_out.unit_status == BlockedStatus(
             "Waiting for common_database relation to be created"
@@ -43,9 +43,9 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             endpoint="common_database",
             interface="mongodb_client",
         )
-        state_in = scenario.State(leader=True, relations=[common_database_relation])
+        state_in = scenario.State(leader=True, relations={common_database_relation})
 
-        state_out = self.ctx.run("collect_unit_status", state_in)
+        state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
         assert state_out.unit_status == BlockedStatus(
             "Waiting for auth_database relation to be created"
@@ -68,10 +68,10 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
         )
         state_in = scenario.State(
             leader=True,
-            relations=[auth_database_relation, common_database_relation],
+            relations={auth_database_relation, common_database_relation},
         )
 
-        state_out = self.ctx.run("collect_unit_status", state_in)
+        state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
         assert state_out.unit_status == WaitingStatus(
             "Waiting for the common database to be available"
@@ -94,10 +94,10 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
         )
         state_in = scenario.State(
             leader=True,
-            relations=[auth_database_relation, common_database_relation],
+            relations={auth_database_relation, common_database_relation},
         )
 
-        state_out = self.ctx.run("collect_unit_status", state_in)
+        state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
         assert state_out.unit_status == WaitingStatus(
             "Waiting for the auth database to be available"
@@ -130,11 +130,11 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
         )
         state_in = scenario.State(
             leader=True,
-            relations=[auth_database_relation, common_database_relation],
-            containers=[container],
+            relations={auth_database_relation, common_database_relation},
+            containers={container},
         )
 
-        state_out = self.ctx.run("collect_unit_status", state_in)
+        state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
         assert state_out.unit_status == WaitingStatus("Waiting for container to be ready")
 
@@ -167,11 +167,11 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
         )
         state_in = scenario.State(
             leader=True,
-            relations=[auth_database_relation, common_database_relation],
-            containers=[container],
+            relations={auth_database_relation, common_database_relation},
+            containers={container},
         )
 
-        state_out = self.ctx.run("collect_unit_status", state_in)
+        state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
         assert state_out.unit_status == WaitingStatus("Waiting for storage to be attached")
 
@@ -199,7 +199,7 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -208,11 +208,11 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                relations=[auth_database_relation, common_database_relation],
-                containers=[container],
+                relations={auth_database_relation, common_database_relation},
+                containers={container},
             )
 
-            state_out = self.ctx.run("collect_unit_status", state_in)
+            state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
             assert state_out.unit_status == WaitingStatus(
                 "Waiting for webui config file to be stored"
@@ -242,7 +242,7 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
@@ -251,13 +251,13 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                relations=[auth_database_relation, common_database_relation],
-                containers=[container],
+                relations={auth_database_relation, common_database_relation},
+                containers={container},
             )
             with open(f"{tempdir}/webuicfg.conf", "w") as f:
                 f.write("whatever config file content")
 
-            state_out = self.ctx.run("collect_unit_status", state_in)
+            state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
             assert state_out.unit_status == WaitingStatus("Waiting for NMS service to start")
 
@@ -285,24 +285,24 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
                 mounts={"config": config_mount},
                 layers={"nms": Layer({"services": {"nms": {}}})},
-                service_status={"nms": ServiceStatus.ACTIVE},
+                service_statuses={"nms": ServiceStatus.ACTIVE},
             )
             state_in = scenario.State(
                 leader=True,
-                relations=[auth_database_relation, common_database_relation],
-                containers=[container],
+                relations={auth_database_relation, common_database_relation},
+                containers={container},
             )
             with open(f"{tempdir}/webuicfg.conf", "w") as f:
                 f.write("whatever config file content")
 
-            state_out = self.ctx.run("collect_unit_status", state_in)
+            state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
             assert state_out.unit_status == ActiveStatus()
 
@@ -332,15 +332,15 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             name="nms",
             can_connect=True,
             layers={"nms": Layer({"services": {"nms": {}}})},
-            service_status={"nms": ServiceStatus.ACTIVE},
+            service_statuses={"nms": ServiceStatus.ACTIVE},
         )
         state_in = scenario.State(
             leader=True,
-            relations=[auth_database_relation, common_database_relation],
-            containers=[container],
+            relations={auth_database_relation, common_database_relation},
+            containers={container},
         )
 
-        state_out = self.ctx.run("collect_unit_status", state_in)
+        state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
         assert state_out.workload_version == ""
 
@@ -351,7 +351,7 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             expected_version = "1.2.3"
             workload_version_mount = scenario.Mount(
                 location="/etc",
-                src=tempdir,
+                source=tempdir,
             )
             auth_database_relation = scenario.Relation(
                 endpoint="auth_database",
@@ -378,13 +378,13 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                relations=[auth_database_relation, common_database_relation],
-                containers=[container],
+                relations={auth_database_relation, common_database_relation},
+                containers={container},
             )
 
             with open(f"{tempdir}/workload-version", "w") as f:
                 f.write(expected_version)
 
-            state_out = self.ctx.run("collect_unit_status", state_in)
+            state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
             assert state_out.workload_version == expected_version

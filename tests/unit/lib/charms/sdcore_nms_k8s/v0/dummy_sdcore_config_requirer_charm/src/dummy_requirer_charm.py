@@ -6,8 +6,7 @@
 
 import logging
 
-from ops.charm import ActionEvent, CharmBase
-from ops.main import main
+import ops
 
 from lib.charms.sdcore_nms_k8s.v0.sdcore_config import (
     SdcoreConfigRequires,
@@ -18,17 +17,17 @@ from lib.charms.sdcore_nms_k8s.v0.sdcore_config import (
 logger = logging.getLogger(__name__)
 
 
-class DummySdcoreConfigRequirerCharm(CharmBase):
+class DummySdcoreConfigRequirerCharm(ops.CharmBase):
     """Charm the service."""
 
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, framework):
+        super().__init__(framework)
         self.webui_requirer = SdcoreConfigRequires(self, "sdcore_config")
         self.framework.observe(
             self.webui_requirer.on.webui_url_available, self._on_webui_url_available
         )
-        self.framework.observe(self.webui_requirer.on.webui_broken, self._on_webui_broken)
-        self.framework.observe(self.on.get_webui_url_action, self._on_get_webui_url_action)
+        framework.observe(self.webui_requirer.on.webui_broken, self._on_webui_broken)
+        framework.observe(self.on.get_webui_url_action, self._on_get_webui_url_action)
 
     def _on_webui_url_available(self, event: WebuiUrlAvailable):
         logging.info(f"Webui URL from the event: {event.webui_url}")
@@ -37,9 +36,9 @@ class DummySdcoreConfigRequirerCharm(CharmBase):
     def _on_webui_broken(self, event: WebuiBroken) -> None:
         logging.info(f"Received {event}")
 
-    def _on_get_webui_url_action(self, event: ActionEvent):
+    def _on_get_webui_url_action(self, event: ops.ActionEvent):
         event.set_results({"webui-url": self.webui_requirer.webui_url})
 
 
 if __name__ == "__main__":
-    main(DummySdcoreConfigRequirerCharm)
+    ops.main(DummySdcoreConfigRequirerCharm)  # type: ignore

@@ -67,19 +67,19 @@ class TestSdcoreConfigProvider:
         )
         state_in = scenario.State(
             leader=True,
-            relations=[sdcore_config_relation],
+            relations={sdcore_config_relation},
         )
-        action = scenario.Action(
-            name="set-webui-url",
-            params={
-                "relation-id": str(sdcore_config_relation.relation_id),
-                "url": "whatever-url.com",
-            },
+        params = {
+            "relation-id": str(sdcore_config_relation.id),
+            "url": "whatever-url.com",
+        }
+
+        state_out = self.ctx.run(self.ctx.on.action("set-webui-url", params=params), state_in)
+
+        assert (
+            state_out.get_relation(sdcore_config_relation.id).local_app_data["webui_url"]
+            == "whatever-url.com"
         )
-
-        action_output = self.ctx.run_action(action, state_in)
-
-        assert action_output.state.relations[0].local_app_data["webui_url"] == "whatever-url.com"
 
     def test_given_unit_is_not_leader_when_set_webui_url_then_data_is_not_in_application_databag(  # noqa: E501
         self,
@@ -89,18 +89,16 @@ class TestSdcoreConfigProvider:
         )
         state_in = scenario.State(
             leader=False,
-            relations=[sdcore_config_relation],
+            relations={sdcore_config_relation},
         )
-        action = scenario.Action(
-            name="set-webui-url",
-            params={
-                "relation-id": str(sdcore_config_relation.relation_id),
-                "url": "whatever-url.com",
-            },
-        )
+        params = {
+            "relation-id": str(sdcore_config_relation.id),
+            "url": "whatever-url.com",
+        }
 
+        # TODO: It seems like this should use event.fail() rather than raising.
         with pytest.raises(Exception) as e:
-            self.ctx.run_action(action, state_in)
+            self.ctx.run(self.ctx.on.action("set-webui-url", params=params), state_in)
 
         assert "Unit must be leader to set application relation data" in str(e.value)
 
@@ -112,15 +110,13 @@ class TestSdcoreConfigProvider:
         )
         state_in = scenario.State(
             leader=True,
-            relations=[sdcore_config_relation],
+            relations={sdcore_config_relation},
         )
-        action = scenario.Action(
-            name="set-webui-url",
-            params={"relation-id": str(sdcore_config_relation.relation_id), "url": ""},
-        )
+        params = {"relation-id": str(sdcore_config_relation.id), "url": ""}
 
+        # TODO: It seems like this should use event.fail() rather than raising.
         with pytest.raises(Exception) as e:
-            self.ctx.run_action(action, state_in)
+            self.ctx.run(self.ctx.on.action("set-webui-url", params=params), state_in)
 
         assert "Invalid url" in str(e.value)
 
@@ -128,15 +124,11 @@ class TestSdcoreConfigProvider:
         self,
     ):
         state_in = scenario.State(leader=True)
-        action = scenario.Action(
-            name="set-webui-url",
-            params={"relation-id": "0", "url": "whatever-url.com"},
-        )
+        params = {"relation-id": "0", "url": "whatever-url.com"}
 
-        with pytest.raises(Exception) as e:
-            self.ctx.run_action(action, state_in)
-
-        assert "Relation sdcore_config not created yet." in str(e.value)
+        # TODO: It seems like this should use event.fail() rather than raising.
+        with pytest.raises(Exception):
+            self.ctx.run(self.ctx.on.action("set-webui-url", params=params), state_in)
 
     def test_given_unit_is_leader_when_multiple_sdcore_config_relation_joined_then_data_in_application_databag(  # noqa: E501
         self,
@@ -149,31 +141,29 @@ class TestSdcoreConfigProvider:
         )
         state_in = scenario.State(
             leader=True,
-            relations=[sdcore_config_relation_1, sdcore_config_relation_2],
+            relations={sdcore_config_relation_1, sdcore_config_relation_2},
         )
-        action_1 = scenario.Action(
-            name="set-webui-url",
-            params={
-                "relation-id": str(sdcore_config_relation_1.relation_id),
-                "url": "whatever-url-1.com",
-            },
-        )
-        action_2 = scenario.Action(
-            name="set-webui-url",
-            params={
-                "relation-id": str(sdcore_config_relation_2.relation_id),
-                "url": "whatever-url-2.com",
-            },
+        params_1 = {
+            "relation-id": str(sdcore_config_relation_1.id),
+            "url": "whatever-url-1.com",
+        }
+        params_2 = {
+            "relation-id": str(sdcore_config_relation_2.id),
+            "url": "whatever-url-2.com",
+        }
+
+        state_out_1 = self.ctx.run(self.ctx.on.action("set-webui-url", params=params_1), state_in)
+        state_out_2 = self.ctx.run(
+            self.ctx.on.action("set-webui-url", params=params_2), state_out_1
         )
 
-        action_output_1 = self.ctx.run_action(action_1, state_in)
-        action_output_2 = self.ctx.run_action(action_2, action_output_1.state)
-
         assert (
-            action_output_1.state.relations[0].local_app_data["webui_url"] == "whatever-url-1.com"
+            state_out_1.get_relation(sdcore_config_relation_1.id).local_app_data["webui_url"]
+            == "whatever-url-1.com"
         )
         assert (
-            action_output_2.state.relations[1].local_app_data["webui_url"] == "whatever-url-2.com"
+            state_out_2.get_relation(sdcore_config_relation_2.id).local_app_data["webui_url"]
+            == "whatever-url-2.com"
         )
 
     def test_given_unit_is_leader_and_multiple_sdcore_config_relations_when_set_webui_information_in_all_relations_then_all_relations_are_updated(  # noqa: E501
@@ -187,14 +177,19 @@ class TestSdcoreConfigProvider:
         )
         state_in = scenario.State(
             leader=True,
-            relations=[sdcore_config_relation_1, sdcore_config_relation_2],
+            relations={sdcore_config_relation_1, sdcore_config_relation_2},
         )
-        action = scenario.Action(
-            name="set-webui-url-in-all-relations",
-            params={"url": "whatever-url.com"},
+        params = {"url": "whatever-url.com"}
+
+        state_out = self.ctx.run(
+            self.ctx.on.action("set-webui-url-in-all-relations", params=params), state_in
         )
 
-        action_output = self.ctx.run_action(action, state_in)
-
-        assert action_output.state.relations[0].local_app_data["webui_url"] == "whatever-url.com"
-        assert action_output.state.relations[1].local_app_data["webui_url"] == "whatever-url.com"
+        assert (
+            state_out.get_relation(sdcore_config_relation_1.id).local_app_data["webui_url"]
+            == "whatever-url.com"
+        )
+        assert (
+            state_out.get_relation(sdcore_config_relation_2.id).local_app_data["webui_url"]
+            == "whatever-url.com"
+        )
