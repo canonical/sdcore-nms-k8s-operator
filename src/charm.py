@@ -58,6 +58,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self.framework.observe(self.on.update_status, self._configure_sdcore_nms)
         self.framework.observe(self.fiveg_n4.on.fiveg_n4_available, self._configure_sdcore_nms)
         self.framework.observe(
+            self.on.sdcore_management_relation_joined, self._configure_sdcore_nms
+        )
+        self.framework.observe(
             self._sdcore_management.on.management_url_available,
             self._configure_sdcore_nms,
         )
