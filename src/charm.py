@@ -30,8 +30,6 @@ GNB_IDENTITY_RELATION_NAME = "fiveg_gnb_identity"
 NMS_PORT = 3000
 SDCORE_MANAGEMENT_RELATION_NAME = "sdcore-management"
 CONFIG_DIR_PATH = "/nms/config"
-GNB_CONFIG_PATH = f"{CONFIG_DIR_PATH}/gnb_config.json"
-UPF_CONFIG_PATH = f"{CONFIG_DIR_PATH}/upf_config.json"
 LOGGING_RELATION_NAME = "logging"
 
 
@@ -80,8 +78,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         if not self._container.exists(path=CONFIG_DIR_PATH):
             return
-        self._configure_upf_information()
-        self._configure_gnb_information()
         self._configure_pebble()
 
     def _configure_pebble(self) -> None:
@@ -118,14 +114,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
             event.add_status(WaitingStatus("Waiting for storage to be attached"))
             logger.info("Waiting for storage to be attached")
             return
-        if not self._container.exists(path=UPF_CONFIG_PATH):
-            event.add_status(WaitingStatus("Waiting for UPF config file to be stored"))
-            logger.info("Waiting for UPF config file to be stored")
-            return
-        if not self._container.exists(path=GNB_CONFIG_PATH):
-            event.add_status(WaitingStatus("Waiting for GNB config file to be stored"))
-            logger.info("Waiting for GNB config file to be stored")
-            return
         if not self._nms_service_is_running():
             event.add_status(WaitingStatus("Waiting for NMS service to start"))
             logger.info("Waiting for NMS service to start")
@@ -140,37 +128,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
         except ModelError:
             return False
         return True
-
-    def _configure_upf_information(self) -> None:
-        """Create the UPF config file.
-
-        The config file is generated based on the various `fiveg_n4` relations and their content.
-        """
-        if not self.model.relations.get(FIVEG_N4_RELATION_NAME):
-            logger.info("Relation %s not available", FIVEG_N4_RELATION_NAME)
-        upf_existing_content = self._get_existing_config_file(path=UPF_CONFIG_PATH)
-        upf_config_content = self._get_upf_config()
-        if not upf_existing_content or not config_file_content_matches(
-            existing_content=upf_existing_content,
-            new_content=upf_config_content,
-        ):
-            self._push_upf_config_file_to_workload(upf_config_content)
-
-    def _configure_gnb_information(self) -> None:
-        """Create the GNB config file.
-
-        The config file is generated based on the various `fiveg_gnb_identity` relations
-        and their content.
-        """
-        if not self.model.relations.get(GNB_IDENTITY_RELATION_NAME):
-            logger.info("Relation %s not available", GNB_IDENTITY_RELATION_NAME)
-        gnb_existing_content = self._get_existing_config_file(path=GNB_CONFIG_PATH)
-        gnb_config_content = self._get_gnb_config()
-        if not gnb_existing_content or not config_file_content_matches(
-            existing_content=gnb_existing_content,
-            new_content=gnb_config_content,
-        ):
-            self._push_gnb_config_file_to_workload(gnb_config_content)
 
     def _get_existing_config_file(self, path: str) -> str:
         """Get the existing config file from the workload.
@@ -260,16 +217,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
         return json.dumps(gnb_config, sort_keys=True)
 
-    def _push_upf_config_file_to_workload(self, content: str):
-        """Push the upf config files to the NMS workload."""
-        self._container.push(path=UPF_CONFIG_PATH, source=content)
-        logger.info("Pushed %s config file", UPF_CONFIG_PATH)
-
-    def _push_gnb_config_file_to_workload(self, content: str):
-        """Push the gnb config files to the NMS workload."""
-        self._container.push(path=GNB_CONFIG_PATH, source=content)
-        logger.info("Pushed %s config file", GNB_CONFIG_PATH)
-
     @property
     def _pebble_layer(self) -> Layer:
         """Return pebble layer for the charm.
@@ -301,8 +248,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
         """
         return {
             "WEBUI_ENDPOINT": self._sdcore_management.management_url,
-            "UPF_CONFIG_PATH": UPF_CONFIG_PATH,
-            "GNB_CONFIG_PATH": GNB_CONFIG_PATH,
         }
 
 
@@ -318,3 +263,4 @@ def config_file_content_matches(existing_content: str, new_content: str) -> bool
 
 if __name__ == "__main__":  # pragma: no cover
     main(SDCoreNMSOperatorCharm)
+
