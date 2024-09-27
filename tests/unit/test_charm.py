@@ -79,7 +79,7 @@ class TestCharm(unittest.TestCase):
         self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
-            WaitingStatus("Waiting for webui management URL to be available"),
+            WaitingStatus("Waiting for Webui management URL to be available"),
         )
 
     def test_given_management_url_available_when_pebble_ready_then_status_is_active(self):
