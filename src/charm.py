@@ -111,8 +111,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
             logger.info(f"Waiting for `{SDCORE_MANAGEMENT_RELATION_NAME}` relation to be created")
             return
         if not self._sdcore_management.management_url:
-            event.add_status(WaitingStatus("Waiting for webui management URL to be available"))
-            logger.info("Waiting for webui management URL to be available")
+            event.add_status(WaitingStatus("Waiting for Webui management URL to be available"))
+            logger.info("Waiting for Webui management URL to be available")
             return
         if not self._container.exists(path=CONFIG_DIR_PATH):
             event.add_status(WaitingStatus("Waiting for storage to be attached"))
