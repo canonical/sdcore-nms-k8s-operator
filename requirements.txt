@@ -30,7 +30,7 @@ charset-normalizer==3.3.2
     # via requests
 click==8.1.7
     # via typer
-cosl==0.0.36
+cosl==0.0.38
     # via -r requirements.in
 cryptography==43.0.1
     # via paramiko
@@ -149,7 +149,7 @@ requests==2.32.3
     #   requests-oauthlib
 requests-oauthlib==2.0.0
     # via kubernetes
-rpds-py==0.18.1
+rpds-py==0.19.1
     # via
     #   -r requirements.in
     #   jsonschema
