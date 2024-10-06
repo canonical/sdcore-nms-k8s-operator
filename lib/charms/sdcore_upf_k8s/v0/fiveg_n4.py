@@ -85,7 +85,7 @@ Typical usage of this class would look something like:
 
 import logging
 
-from interface_tester.schema_base import DataBagSchema  # type: ignore[import]
+from interface_tester.schema_base import DataBagSchema
 from ops.charm import CharmBase, CharmEvents, RelationChangedEvent, RelationJoinedEvent
 from ops.framework import EventBase, EventSource, Object
 from pydantic import BaseModel, Field, ValidationError
@@ -98,7 +98,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 2
+LIBPATCH = 3
 
 PYDEPS = ["pydantic", "pytest-interface-tester"]
 
@@ -138,7 +138,7 @@ class FivegN4ProviderAppData(BaseModel):
 class ProviderSchema(DataBagSchema):
     """Provider schema for fiveg_n4."""
 
-    app: FivegN4ProviderAppData
+    app_data: FivegN4ProviderAppData
 
 
 def data_matches_provider_schema(data: dict) -> bool:
@@ -151,7 +151,7 @@ def data_matches_provider_schema(data: dict) -> bool:
         bool: True if data matches provider schema, False otherwise.
     """
     try:
-        ProviderSchema(app=data)
+        ProviderSchema(app_data=FivegN4ProviderAppData(**data))
         return True
     except ValidationError as e:
         logger.error("Invalid data: %s", e)
@@ -186,7 +186,7 @@ class N4ProviderCharmEvents(CharmEvents):
 class N4Provides(Object):
     """Class to be instantiated by provider of the `fiveg_n4`."""
 
-    on = N4ProviderCharmEvents()
+    on = N4ProviderCharmEvents()  # type: ignore
 
     def __init__(self, charm: CharmBase, relation_name: str):
         """Observe relation joined event.
@@ -262,7 +262,7 @@ class N4RequirerCharmEvents(CharmEvents):
 class N4Requires(Object):
     """Class to be instantiated by requirer of the `fiveg_n4`."""
 
-    on = N4RequirerCharmEvents()
+    on = N4RequirerCharmEvents()  # type: ignore
 
     def __init__(self, charm: CharmBase, relation_name: str):
         """Observe relation joined and relation changed events.
@@ -284,7 +284,7 @@ class N4Requires(Object):
             event (RelationChangedEvent): Juju event
         """
         relation_data = event.relation.data
-        upf_hostname = relation_data[event.app].get("upf_hostname")  # type: ignore[index]
-        upf_port = relation_data[event.app].get("upf_port")  # type: ignore[index]
+        upf_hostname = relation_data[event.app].get("upf_hostname")
+        upf_port = relation_data[event.app].get("upf_port")
         if upf_hostname and upf_port:
             self.on.fiveg_n4_available.emit(upf_hostname=upf_hostname, upf_port=upf_port)
