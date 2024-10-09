@@ -3,44 +3,22 @@
 
 output "app_name" {
   description = "Name of the deployed application."
-  value       = juju_application.sdcore-nms-k8s.name
+  value       = juju_application.nms.name
 }
 
-# Required integration endpoints
-
-output "ingress_endpoint" {
-  description = "Name of the endpoint to integrate with ingress interface."
-  value       = "ingress"
+output "requires" {
+  value = {
+    auth_database      = "auth_database"
+    common_database    = "common_database"
+    fiveg_gnb_identity = "fiveg_gnb_identity"
+    fiveg_n4           = "fiveg_n4"
+    ingress            = "ingress"
+    logging            = "logging"
+  }
 }
 
-output "fiveg_gnb_identity_endpoint" {
-  description = "Name of the endpoint to integrate with fiveg_gnb_identity interface."
-  value       = "fiveg_gnb_identity"
-}
-
-output "fiveg_n4_endpoint" {
-  description = "Name of the endpoint to integrate with fiveg_n4 interface."
-  value       = "fiveg_n4"
-}
-
-output "common_database_endpoint" {
-  description = "Name of the endpoint to integrate with MongoDB for common database using mongodb_client interface."
-  value       = "common_database"
-}
-
-output "auth_database_endpoint" {
-  description = "Name of the endpoint to integrate with MongoDB for authentication database using mongodb_client interface."
-  value       = "auth_database"
-}
-
-output "logging_endpoint" {
-  description = "Name of the endpoint used to integrate with the Logging provider."
-  value       = "logging"
-}
-
-# Provided integration endpoints
-
-output "sdcore_config_endpoint" {
-  description = "Name of the endpoint to provide `sdcore_config` interface."
-  value       = "sdcore_config"
+output "provides" {
+  value = {
+    sdcore_config = "sdcore_config"
+  }
 }
