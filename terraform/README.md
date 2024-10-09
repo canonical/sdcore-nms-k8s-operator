@@ -35,7 +35,7 @@ Create the integrations, for instance:
 
 ```text
 resource "juju_integration" "nms-gnb" {
-  model = var.model
+  model = juju_model.my_model.name
 
   application {
     name     = module.nms.app_name
