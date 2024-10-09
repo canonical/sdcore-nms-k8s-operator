@@ -9,10 +9,10 @@ import pytest
 import scenario
 from ops.pebble import Layer
 
+from nms import GnodeB, Upf
 from tests.unit.fixtures import (
     NMSUnitTestFixtures,
 )
-from webui import GnodeB, Upf
 
 EXPECTED_CONFIG_FILE_PATH = "tests/unit/expected_webui_cfg.yaml"
 

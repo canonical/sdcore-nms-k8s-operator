@@ -1,25 +1,25 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 
-from webui import GnodeB, Upf, Webui
+from nms import NMS, GnodeB, Upf
 
 
-class TestWebui:
+class TestNMS:
     patcher_request_get = patch("requests.get")
     patcher_request_post = patch("requests.post")
     patcher_request_delete = patch("requests.delete")
 
     @pytest.fixture(autouse=True)
     def setUp(self, request):
-        self.mock_request_get = TestWebui.patcher_request_get.start()
-        self.mock_request_post = TestWebui.patcher_request_post.start()
-        self.mock_request_delete = TestWebui.patcher_request_delete.start()
-        self.webui = Webui("some_url")
+        self.mock_request_get = TestNMS.patcher_request_get.start()
+        self.mock_request_post = TestNMS.patcher_request_post.start()
+        self.mock_request_delete = TestNMS.patcher_request_delete.start()
+        self.nms = NMS("some_url")
         request.addfinalizer(self.tearDown)
 
     @staticmethod
@@ -47,7 +47,6 @@ class TestWebui:
         mock_response.json.return_value = resource_list
         return mock_response
 
-
     @pytest.mark.parametrize(
         "exception",
         [
@@ -64,36 +63,36 @@ class TestWebui:
     ):
         self.mock_request_get.return_value = exception()
 
-        gnbs = self.webui.get_gnbs()
+        gnbs = self.nms.list_gnbs(token="some token")
 
         assert gnbs == []
 
-    def test_when_get_gnbs_then_gnb_url_is_used(self):
+    def test_when_list_gnbs_then_gnb_url_is_used(self):
         self.mock_request_get.return_value = self.mock_response_with_list([])
 
-        self.webui.get_gnbs()
+        self.nms.list_gnbs(token="some_token")
 
         self.mock_request_get.assert_called_once_with("some_url/config/v1/inventory/gnb")
 
-    def test_given_webui_returns_a_gnb_list_when_get_gnbs_then_a_gnb_list_is_returned(self):
+    def test_given_webui_returns_a_gnb_list_when_list_gnbs_then_a_gnb_list_is_returned(self):
         webui_gnbs = [{"name": "some.gnb.name", "tac": "111"}]
         self.mock_request_get.return_value = self.mock_response_with_list(webui_gnbs)
 
-        gnbs = self.webui.get_gnbs()
+        gnbs = self.nms.list_gnbs(token="some_token")
 
         expected_gnb = GnodeB(name="some.gnb.name", tac=111)
         assert len(gnbs) == 1
         assert gnbs[0] == expected_gnb
 
-    def test_given_webui_returns_an_empty_list_when_get_gnbs_then_empty_list_is_returned(self):
+    def test_given_webui_returns_an_empty_list_when_list_gnbs_then_empty_list_is_returned(self):
         webui_gnbs = []
         self.mock_request_get.return_value = self.mock_response_with_list(webui_gnbs)
 
-        gnbs = self.webui.get_gnbs()
+        gnbs = self.nms.list_gnbs(token="some_token")
 
         assert gnbs == []
 
-    def test_given_multiple_gnbs_in_webui_when_get_gnbs_then_multiple_gnbs_are_returned(self):
+    def test_given_multiple_gnbs_in_webui_when_list_gnbs_then_multiple_gnbs_are_returned(self):
         webui_gnbs = [
             {"name": "some.gnb.name", "tac": "111"},
             {"name": "a_gnb_name", "tac": "342"},
@@ -101,7 +100,7 @@ class TestWebui:
         ]
         self.mock_request_get.return_value = self.mock_response_with_list(webui_gnbs)
 
-        gnbs = self.webui.get_gnbs()
+        gnbs = self.nms.list_gnbs(token="some_token")
 
         expected_gnbs = [
             GnodeB(name="some.gnb.name", tac=111),
@@ -123,11 +122,10 @@ class TestWebui:
             ),
         ],
     )
-    def test_given_exception_is_raised_when_add_gnb_then_exception_is_handled(self, exception):
+    def test_given_exception_is_raised_when_create_gnb_then_exception_is_handled(self, exception):
         self.mock_request_post.return_value = exception()
 
-        gnb = GnodeB(name="some.gnb.name", tac=111)
-        self.webui.add_gnb(gnb)
+        self.nms.create_gnb(name="some.gnb.name", tac=111, token="some token")
 
         self.mock_request_post.assert_called_once_with(
             "some_url/config/v1/inventory/gnb/some.gnb.name",
@@ -135,9 +133,8 @@ class TestWebui:
             json={"tac": "111"},
         )
 
-    def test_given_a_valid_gnb_when_add_gnb_then_gnb_is_added_to_webui(self):
-        gnb = GnodeB(name="some.gnb.name", tac=111)
-        self.webui.add_gnb(gnb)
+    def test_given_a_valid_gnb_when_create_gnb_then_gnb_is_added_to_webui(self):
+        self.nms.create_gnb(name="some.gnb.name", tac=111, token="some_token")
 
         self.mock_request_post.assert_called_once_with(
             "some_url/config/v1/inventory/gnb/some.gnb.name",
@@ -160,7 +157,7 @@ class TestWebui:
         self.mock_request_delete.return_value = exception()
 
         gnb_name = "some.gnb.name"
-        self.webui.delete_gnb(gnb_name)
+        self.nms.delete_gnb(name=gnb_name, token="some_token")
 
         self.mock_request_delete.assert_called_once_with(
             f"some_url/config/v1/inventory/gnb/{gnb_name}"
@@ -168,7 +165,7 @@ class TestWebui:
 
     def test_given_valid_gnb_when_delete_gnb_then_gnb_is_successfully_deleted(self):
         gnb_name = "some.gnb.name"
-        self.webui.delete_gnb(gnb_name)
+        self.nms.delete_gnb(name=gnb_name, token="some_token")
 
         self.mock_request_delete.assert_called_once_with(
             f"some_url/config/v1/inventory/gnb/{gnb_name}"
@@ -185,42 +182,42 @@ class TestWebui:
             ),
         ],
     )
-    def test_given_exception_is_raised_when_get_upfs_then_an_empty_list_is_returned(
+    def test_given_exception_is_raised_when_list_upfs_then_an_empty_list_is_returned(
         self, exception
     ):
         self.mock_request_get.return_value = exception()
 
-        upfs = self.webui.get_upfs()
+        upfs = self.nms.list_upfs(token="some_token")
 
         assert upfs == []
 
-    def test_when_get_upfs_then_upf_url_is_used(self):
+    def test_when_list_upfs_then_upf_url_is_used(self):
         webui_upfs = []
         self.mock_request_get.return_value = self.mock_response_with_list(webui_upfs)
 
-        self.webui.get_upfs()
+        self.nms.list_upfs(token="some_token")
 
         self.mock_request_get.assert_called_once_with("some_url/config/v1/inventory/upf")
 
-    def test_given_webui_returns_a_upf_list_when_get_upfs_then_a_upf_list_is_returned(self):
+    def test_given_webui_returns_a_upf_list_when_list_upfs_then_a_upf_list_is_returned(self):
         webui_upfs = [{"hostname": "some.host.name", "port": "111"}]
         self.mock_request_get.return_value = self.mock_response_with_list(webui_upfs)
 
-        upfs = self.webui.get_upfs()
+        upfs = self.nms.list_upfs(token="some_token")
 
         expected_upf = Upf(hostname="some.host.name", port=111)
         assert len(upfs) == 1
         assert upfs[0] == expected_upf
 
-    def test_given_webui_returns_an_empty_list_when_get_upfs_then_empty_list_is_returned(self):
+    def test_given_webui_returns_an_empty_list_when_list_upfs_then_empty_list_is_returned(self):
         webui_upfs = []
         self.mock_request_get.return_value = self.mock_response_with_list(webui_upfs)
 
-        upfs = self.webui.get_upfs()
+        upfs = self.nms.list_upfs(token="some_token")
 
         assert upfs == []
 
-    def test_given_multiple_upfs_in_webui_when_get_upfs_then_multiple_upfs_are_returned(self):
+    def test_given_multiple_upfs_in_webui_when_list_upfs_then_multiple_upfs_are_returned(self):
         webui_upfs = [
             {"hostname": "some.host.name", "port": "111"},
             {"hostname": "a_host_name", "port": "342"},
@@ -228,7 +225,7 @@ class TestWebui:
         ]
         self.mock_request_get.return_value = self.mock_response_with_list(webui_upfs)
 
-        upfs = self.webui.get_upfs()
+        upfs = self.nms.list_upfs(token="some_token")
 
         expected_upfs = [
             Upf(hostname="some.host.name", port=111),
@@ -250,11 +247,10 @@ class TestWebui:
             ),
         ],
     )
-    def test_given_exception_is_raised_when_add_upf_then_exception_is_handled(self, exception):
+    def test_given_exception_is_raised_when_create_upf_then_exception_is_handled(self, exception):
         self.mock_request_post.return_value = exception()
 
-        upf = Upf(hostname="some.upf.name", port=111)
-        self.webui.add_upf(upf)
+        self.nms.create_upf(hostname="some.upf.name", port=111, token="some token")
 
         self.mock_request_post.assert_called_once_with(
             "some_url/config/v1/inventory/upf/some.upf.name",
@@ -262,9 +258,8 @@ class TestWebui:
             json={"port": "111"},
         )
 
-    def test_given_a_valid_upf_when_add_upf_then_upf_is_added_to_webui(self):
-        upf = Upf(hostname="some.upf.name", port=22)
-        self.webui.add_upf(upf)
+    def test_given_a_valid_upf_when_create_upf_then_upf_is_added_to_webui(self):
+        self.nms.create_upf(hostname="some.upf.name", port=22, token="some_token")
 
         self.mock_request_post.assert_called_once_with(
             "some_url/config/v1/inventory/upf/some.upf.name",
@@ -287,7 +282,7 @@ class TestWebui:
         self.mock_request_delete.return_value = exception()
 
         upf_name = "some.upf.name"
-        self.webui.delete_upf(upf_name)
+        self.nms.delete_upf(hostname=upf_name, token="some_token")
 
         self.mock_request_delete.assert_called_once_with(
             f"some_url/config/v1/inventory/upf/{upf_name}"
@@ -295,25 +290,11 @@ class TestWebui:
 
     def test_given_valid_upf_when_delete_upf_then_upf_is_successfully_deleted(self):
         upf_name = "some.upf.name"
-        self.webui.delete_upf(upf_name)
+        self.nms.delete_upf(hostname=upf_name, token="some_token")
 
         self.mock_request_delete.assert_called_once_with(
             f"some_url/config/v1/inventory/upf/{upf_name}"
         )
-
-    def test_given_url_is_changed_when_get_upfs_then_new_url_is_used(self):
-        webui_upfs = []
-        self.mock_request_get.return_value = self.mock_response_with_list(webui_upfs)
-        self.webui.get_upfs()
-
-        self.webui.set_url("new_url")
-        self.webui.get_upfs()
-
-        calls = [
-            call("some_url/config/v1/inventory/upf"),
-            call("new_url/config/v1/inventory/upf"),
-        ]
-        self.mock_request_get.assert_has_calls(calls, any_order=True)
 
     @pytest.mark.parametrize(
         "gnb",
@@ -332,11 +313,11 @@ class TestWebui:
             ),
         ],
     )
-    def test_given_webui_returns_an_invalid_gnb_when_get_gnbs_then_gnb_is_not_returned(self, gnb):
+    def test_given_webui_returns_an_invalid_gnb_when_list_gnbs_then_gnb_is_not_returned(self, gnb):
         webui_gnbs = [gnb]
         self.mock_request_get.return_value = self.mock_response_with_list(webui_gnbs)
 
-        gnbs = self.webui.get_gnbs()
+        gnbs = self.nms.list_gnbs(token="some_token")
 
         assert gnbs == []
 
@@ -357,10 +338,10 @@ class TestWebui:
             ),
         ],
     )
-    def test_given_webui_returns_an_invalid_upf_when_get_upfs_then_upf_is_not_returned(self, upf):
+    def test_given_webui_returns_an_invalid_upf_when_list_upfs_then_upf_is_not_returned(self, upf):
         webui_upfs = [upf]
         self.mock_request_get.return_value = self.mock_response_with_list(webui_upfs)
 
-        upfs = self.webui.get_upfs()
+        upfs = self.nms.list_upfs(token="some_token")
 
         assert upfs == []

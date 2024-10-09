@@ -5,6 +5,9 @@
 """Charmed operator for the Aether SD-Core Graphical User Interface for K8s."""
 
 import logging
+import random
+import string
+from dataclasses import dataclass
 from ipaddress import IPv4Address
 from subprocess import CalledProcessError, check_output
 from typing import List, Optional
@@ -20,19 +23,26 @@ from charms.sdcore_nms_k8s.v0.sdcore_config import (
 from charms.sdcore_upf_k8s.v0.fiveg_n4 import N4Requires
 from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
 from jinja2 import Environment, FileSystemLoader
-from ops import ActiveStatus, BlockedStatus, CollectStatusEvent, ModelError, WaitingStatus
+from ops import (
+    ActiveStatus,
+    BlockedStatus,
+    CollectStatusEvent,
+    ModelError,
+    SecretNotFoundError,
+    WaitingStatus,
+)
 from ops.charm import CharmBase
 from ops.framework import EventBase
 from ops.main import main
 from ops.pebble import Layer
 
-from webui import GnodeB, Upf, Webui
+from nms import NMS, GnodeB, Upf
 
 logger = logging.getLogger(__name__)
 
 BASE_CONFIG_PATH = "/nms/config"
-CONFIG_FILE_NAME = "webuicfg.conf"
-WEBUI_CONFIG_PATH = f"{BASE_CONFIG_PATH}/{CONFIG_FILE_NAME}"
+CONFIG_FILE_NAME = "nmscfg.conf"
+NMS_CONFIG_PATH = f"{BASE_CONFIG_PATH}/{CONFIG_FILE_NAME}"
 WORKLOAD_VERSION_FILE_NAME = "/etc/workload-version"
 AUTH_DATABASE_RELATION_NAME = "auth_database"
 COMMON_DATABASE_RELATION_NAME = "common_database"
@@ -43,7 +53,25 @@ SDCORE_CONFIG_RELATION_NAME = "sdcore_config"
 AUTH_DATABASE_NAME = "authentication"
 COMMON_DATABASE_NAME = "free5gc"
 GRPC_PORT = 9876
-WEBUI_URL_PORT = 5000
+NMS_URL_PORT = 5000
+NMS_LOGIN_SECRET_LABEL = "NMS_LOGIN"
+
+
+@dataclass
+class LoginSecret:
+    """The format of the secret for the login details that are required to login to NMS."""
+
+    username: str
+    password: str
+    token: str | None
+
+    def to_dict(self) -> dict[str, str]:
+        """Return a dict version of the secret."""
+        return {
+            "username": self.username,
+            "password": self.password,
+            "token": self.token if self.token else "",
+        }
 
 
 def _get_pod_ip() -> Optional[str]:
@@ -61,9 +89,9 @@ def render_config_file(
     auth_database_name: str,
     auth_database_url: str,
 ) -> str:
-    """Render webui configuration file based on Jinja template."""
+    """Render nms configuration file based on Jinja template."""
     jinja2_environment = Environment(loader=FileSystemLoader("src/templates/"))
-    template = jinja2_environment.get_template("webuicfg.conf.j2")
+    template = jinja2_environment.get_template("nmscfg.conf.j2")
     return template.render(
         common_database_name=common_database_name,
         common_database_url=common_database_url,
@@ -99,10 +127,10 @@ class SDCoreNMSOperatorCharm(CharmBase):
             database_name=AUTH_DATABASE_NAME,
             extra_user_roles="admin",
         )
-        self.unit.set_ports(GRPC_PORT, WEBUI_URL_PORT)
+        self.unit.set_ports(GRPC_PORT, NMS_URL_PORT)
         self.ingress = IngressPerAppRequirer(
             charm=self,
-            port=WEBUI_URL_PORT,
+            port=NMS_URL_PORT,
             relation_name="ingress",
             strip_prefix=True,
         )
@@ -140,7 +168,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         )
         # Handling config changed event to publish the new url if the unit reboots and gets new IP
         self.framework.observe(self.on.config_changed, self._configure_sdcore_nms)
-        self._webui = Webui(url="")
+        self._nms = NMS(url=f"http://{self._nms_endpoint}")
 
     def _configure_sdcore_nms(self, event: EventBase) -> None:
         """Handle Juju events.
@@ -160,9 +188,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         if not self._auth_database_resource_is_available():
             return
+        self._configure_charm_authorization()
         self._configure_workload()
         self._publish_sdcore_config_url()
-        self._setup_webui_endpoint_url()
         self._sync_gnbs()
         self._sync_upfs()
 
@@ -203,9 +231,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
             event.add_status(WaitingStatus("Waiting for storage to be attached"))
             logger.info("Waiting for storage to be attached")
             return
-        if not self._webui_config_file_exists():
-            event.add_status(WaitingStatus("Waiting for webui config file to be stored"))
-            logger.info("Waiting for webui config file to be stored")
+        if not self._nms_config_file_exists():
+            event.add_status(WaitingStatus("Waiting for nms config file to be stored"))
+            logger.info("Waiting for nms config file to be stored")
             return
         if not self._is_nms_service_running():
             event.add_status(WaitingStatus("Waiting for NMS service to start"))
@@ -219,14 +247,14 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         if not self._is_nms_service_running():
             return
-        self._sdcore_config.set_webui_url_in_all_relations(webui_url=self._webui_config_url)
+        self._sdcore_config.set_webui_url_in_all_relations(webui_url=self._nms_config_url)
 
     def _configure_workload(self):
-        desired_config_file = self._generate_webui_config_file()
+        desired_config_file = self._generate_nms_config_file()
         if not self._is_config_file_update_required(desired_config_file):
             self._configure_pebble()
             return
-        self._write_file_in_workload(WEBUI_CONFIG_PATH, desired_config_file)
+        self._write_file_in_workload(NMS_CONFIG_PATH, desired_config_file)
         self._configure_pebble()
         self._container.restart(self._container_name)
         logger.info("Restarted container %s", self._container_name)
@@ -240,15 +268,15 @@ class SDCoreNMSOperatorCharm(CharmBase):
             logger.info("New layer added: %s", self._pebble_layer)
 
     def _is_config_file_update_required(self, content: str) -> bool:
-        if not self._webui_config_file_exists():
+        if not self._nms_config_file_exists():
             return True
-        existing_content = self._container.pull(path=WEBUI_CONFIG_PATH)
+        existing_content = self._container.pull(path=NMS_CONFIG_PATH)
         return existing_content.read() != content
 
-    def _webui_config_file_exists(self) -> bool:
-        return bool(self._container.exists(WEBUI_CONFIG_PATH))
+    def _nms_config_file_exists(self) -> bool:
+        return bool(self._container.exists(NMS_CONFIG_PATH))
 
-    def _generate_webui_config_file(self) -> str:
+    def _generate_nms_config_file(self) -> str:
         return render_config_file(
             common_database_name=COMMON_DATABASE_NAME,
             common_database_url=self._get_common_database_url(),
@@ -296,30 +324,40 @@ class SDCoreNMSOperatorCharm(CharmBase):
         return gnb_name_tac_list
 
     def _sync_gnbs(self) -> None:
-        """Align the gNBs from the `fiveg_gnb_identity`relations with the ones in webui."""
+        """Align the gNBs from the `fiveg_gnb_identity`relations with the ones in nms."""
+        login_details = self._get_or_create_admin_account()
+        if not login_details or not login_details.token:
+            logger.warning("couldn't sync gNBs: couldn't get admin token")
+            return
         if not self.model.relations.get(GNB_IDENTITY_RELATION_NAME):
             logger.info("Relation %s not available", GNB_IDENTITY_RELATION_NAME)
-        webui_gnbs = self._webui.get_gnbs()
+        nms_gnbs = self._nms.list_gnbs(token=login_details.token)
         relation_gnbs = self._get_gnb_config_from_relations()
-        for gnb in webui_gnbs:
+        for gnb in nms_gnbs:
             if gnb not in relation_gnbs:
-                self._webui.delete_gnb(gnb.name)
+                self._nms.delete_gnb(name=gnb.name, token=login_details.token)
         for gnb in relation_gnbs:
-            if gnb not in webui_gnbs:
-                self._webui.add_gnb(gnb)
+            if gnb not in nms_gnbs:
+                self._nms.create_gnb(name=gnb.name, tac=gnb.tac, token=login_details.token)
 
     def _sync_upfs(self) -> None:
-        """Align the UPFs from the `fiveg_n4` relations with the ones in webui."""
+        """Align the UPFs from the `fiveg_n4` relations with the ones in nms."""
+        login_details = self._get_or_create_admin_account()
+        if not login_details or not login_details.token:
+            logger.warning("couldn't sync UPFs: couldn't get admin token")
+            return
         if not self.model.relations.get(FIVEG_N4_RELATION_NAME):
             logger.info("Relation %s not available", FIVEG_N4_RELATION_NAME)
-        webui_upfs = self._webui.get_upfs()
+        nms_upfs = self._nms.list_upfs(token=login_details.token)
         relation_upfs = self._get_upf_config_from_relations()
-        for upf in webui_upfs:
+        for upf in nms_upfs:
             if upf not in relation_upfs:
-                self._webui.delete_upf(upf.hostname)
+                self._nms.delete_upf(hostname=upf.hostname, token=login_details.token)
         for upf in relation_upfs:
-            if upf not in webui_upfs:
-                self._webui.add_upf(upf)
+            if upf not in nms_upfs:
+                self._nms.create_upf(
+                    hostname=upf.hostname, port=upf.port, token=login_details.token
+                )
 
     def _get_common_database_url(self) -> str:
         if not self._common_database_resource_is_available():
@@ -366,16 +404,13 @@ class SDCoreNMSOperatorCharm(CharmBase):
     def _relation_created(self, relation_name: str) -> bool:
         return bool(self.model.relations[relation_name])
 
-    def _setup_webui_endpoint_url(self) -> None:
-        self._webui.set_url(f"http://{self._webui_endpoint}")
-
     @property
-    def _webui_config_url(self) -> str:
+    def _nms_config_url(self) -> str:
         return f"{self.app.name}:{GRPC_PORT}"
 
     @property
-    def _webui_endpoint(self) -> str:
-        return f"{_get_pod_ip()}:{WEBUI_URL_PORT}"
+    def _nms_endpoint(self) -> str:
+        return f"{_get_pod_ip()}:{NMS_URL_PORT}"
 
     @property
     def _pebble_layer(self) -> Layer:
@@ -387,7 +422,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
                     "nms": {
                         "override": "replace",
                         "startup": "enabled",
-                        "command": f"/bin/webconsole --webuicfg {WEBUI_CONFIG_PATH}",  # noqa: E501
+                        "command": f"/bin/webconsole --webuicfg {NMS_CONFIG_PATH}",  # noqa: E501
                         "environment": self._environment_variables,
                     },
                 },
@@ -402,8 +437,74 @@ class SDCoreNMSOperatorCharm(CharmBase):
             "GRPC_TRACE": "all",
             "GRPC_VERBOSITY": "debug",
             "CONFIGPOD_DEPLOYMENT": "5G",
-            "WEBUI_ENDPOINT": self._webui_endpoint,
+            "WEBUI_ENDPOINT": self._nms_endpoint,
         }
+
+    def _configure_charm_authorization(self):
+        """Create an admin user to manage NMS if needed."""
+        login_details = self._get_or_create_admin_account()
+        if not login_details:
+            return
+        if not login_details.token or not self._nms.token_is_valid(login_details.token):
+            login_response = self._nms.login(login_details.username, login_details.password)
+            if not login_response or not login_response.token:
+                logger.warning(
+                    "failed to login with the existing admin credentials."
+                    " If you've manually modified the admin account credentials,"
+                    " please update the charm's credentials secret accordingly."
+                )
+                return
+            login_details.token = login_response.token
+            login_details_secret = self.model.get_secret(label=NMS_LOGIN_SECRET_LABEL)
+            login_details_secret.set_content(login_details.to_dict())
+
+    def _get_or_create_admin_account(self) -> LoginSecret | None:
+        """Get or create the first admin user for the charm to use from secrets.
+
+        Returns:
+            Login details secret if they exist.
+             None if the related account couldn't be created in NMS.
+        """
+        try:
+            secret = self.model.get_secret(label=NMS_LOGIN_SECRET_LABEL)
+            secret_content = secret.get_content(refresh=True)
+            username = secret_content.get("username", "")
+            password = secret_content.get("password", "")
+            token = secret_content.get("token")
+            account = LoginSecret(username, password, token)
+        except SecretNotFoundError:
+            username = _generate_username()
+            password = _generate_password()
+            account = LoginSecret(username, password, None)
+            self.app.add_secret(
+                label=NMS_LOGIN_SECRET_LABEL,
+                content=account.to_dict(),
+            )
+            logger.info("admin account details saved to secrets.")
+        if self._nms.is_api_available() and not self._nms.is_initialized():
+            response = self._nms.create_first_user(username, password)
+            if not response:
+                return None
+        return account
+
+
+def _generate_password() -> str:
+    """Generate a password for the NMS Account."""
+    pw = []
+    pw.append(random.choice(string.ascii_lowercase))
+    pw.append(random.choice(string.ascii_uppercase))
+    pw.append(random.choice(string.digits))
+    pw.append(random.choice(string.punctuation))
+    for i in range(8):
+        pw.append(random.choice(string.ascii_letters + string.digits + string.punctuation))
+    random.shuffle(pw)
+    return "".join(pw)
+
+
+def _generate_username() -> str:
+    """Generate a username for the NMS Account."""
+    suffix = [random.choice(string.ascii_uppercase) for i in range(4)]
+    return "charm-admin-" + "".join(suffix)
 
 
 if __name__ == "__main__":  # pragma: no cover
