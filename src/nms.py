@@ -53,6 +53,8 @@ class NMS:
     """Handle NMS API calls."""
 
     def __init__(self, url: str):
+        if url.endswith("/"):
+            url = url[:-1]
         self.url = url
 
     def _make_request(
