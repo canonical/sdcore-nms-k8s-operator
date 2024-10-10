@@ -64,6 +64,7 @@ class NMS:
         """Make an HTTP request and handle common error patterns."""
         headers = JSON_HEADER
         url = f"{self.url}{endpoint}"
+        logger.info("Request: %s %s", method, url)
         try:
             req = requests.request(
                 method=method,
@@ -89,6 +90,7 @@ class NMS:
             response = req.json()
         except json.JSONDecodeError:
             return None
+        logger.info("Response: %s", response)
         return response
 
     def list_gnbs(self) -> List[GnodeB]:
@@ -96,14 +98,13 @@ class NMS:
         response = self._make_request("GET", f"/{GNB_CONFIG_URL}")
         if not response:
             return []
-        try:
-            return [GnodeB(name=item["name"], tac=int(item["tac"])) for item in response]
-        except KeyError:
-            logger.error("Failed to parse gNB list")
-            return []
-        except ValueError:
-            logger.error("Failed to parse gNB list")
-            return []
+        gnb_list = []
+        for item in response:
+            try:
+                gnb_list.append(GnodeB(name=item["name"], tac=int(item["tac"])))
+            except (ValueError, KeyError):
+                logger.error("invalid gNB data: %s", item)
+        return gnb_list
 
     def create_gnb(self, name: str, tac: int) -> None:
         """Create a gNB in the NMS inventory."""
@@ -121,14 +122,13 @@ class NMS:
         response = self._make_request("GET", f"/{UPF_CONFIG_URL}")
         if not response:
             return []
-        try:
-            return [Upf(hostname=item["hostname"], port=int(item["port"])) for item in response]
-        except KeyError:
-            logger.error("Failed to parse UPF list")
-            return []
-        except ValueError:
-            logger.error("Failed to parse UPF list")
-            return []
+        upf_list = []
+        for item in response:
+            try:
+                upf_list.append(Upf(hostname=item["hostname"], port=int(item["port"])))
+            except (ValueError, KeyError):
+                logger.error("invalid UPF data: %s", item)
+        return upf_list
 
     def create_upf(self, hostname: str, port: int) -> None:
         """Create a UPF in the NMS inventory."""
