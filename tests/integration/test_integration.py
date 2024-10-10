@@ -15,7 +15,7 @@ import yaml
 from juju.application import Application
 from pytest_operator.plugin import OpsTest
 
-from webui import GnodeB, Upf, Webui
+from nms import NMS, GnodeB, Upf
 
 logger = logging.getLogger(__name__)
 
@@ -201,21 +201,7 @@ def ui_is_running(nms_endpoint: str) -> bool:
     return False
 
 
-def get_webui_gnbs(nms_endpoint: str) -> List[GnodeB]:
-    url = f"{nms_endpoint}/config/v1/inventory/gnb"
-    webui_response = get_webui_inventory_resource(url)
-    logger.info("Obtained gNBs: %s", webui_response)
-    return Webui._transform_response_to_gnb(webui_response)
-
-
-def get_webui_upfs(nms_endpoint: str) -> List[Upf]:
-    url = f"{nms_endpoint}/config/v1/inventory/upf"
-    webui_response = get_webui_inventory_resource(url)
-    logger.info("Obtained UPFs: %s", webui_response)
-    return Webui._transform_response_to_upf(webui_response)
-
-
-def get_webui_inventory_resource(url: str) -> List:
+def get_nms_inventory_resource(url: str) -> List:
     t0 = time.time()
     timeout = 100  # seconds
     while time.time() - t0 < timeout:
@@ -224,7 +210,7 @@ def get_webui_inventory_resource(url: str) -> List:
             response.raise_for_status()
             return response.json()
         except Exception as e:
-            logger.error("Cannot connect to the webui inventory: %s", e)
+            logger.error("Cannot connect to the nms inventory: %s", e)
         time.sleep(2)
     return []
 
@@ -335,14 +321,15 @@ async def test_given_related_to_traefik_when_fetch_ui_then_returns_html_content(
 
 
 @pytest.mark.abort_on_fail
-async def test_given_nms_related_to_gnbsim_and_gnbsim_status_is_active_then_webui_inventory_contains_gnb_information(  # noqa: E501
+async def test_given_nms_related_to_gnbsim_and_gnbsim_status_is_active_then_nms_inventory_contains_gnb_information(  # noqa: E501
     ops_test: OpsTest, deploy
 ):
     assert ops_test.model
     await ops_test.model.wait_for_idle(apps=[GNBSIM_CHARM_NAME], status="active", timeout=TIMEOUT)
     nms_url = await get_sdcore_nms_endpoint(ops_test)
+    nms_client = NMS(url=nms_url)
 
-    gnbs = get_webui_gnbs(nms_endpoint=nms_url)
+    gnbs = nms_client.list_gnbs()
 
     expected_gnb_name = f"{ops_test.model.name}-gnbsim-{GNBSIM_CHARM_NAME}"
     expected_gnb = GnodeB(name=expected_gnb_name, tac=1)
@@ -350,14 +337,15 @@ async def test_given_nms_related_to_gnbsim_and_gnbsim_status_is_active_then_webu
 
 
 @pytest.mark.abort_on_fail
-async def test_given_nms_related_to_upf_and_upf_status_is_active_then_webui_inventory_contains_upf_information(  # noqa: E501
+async def test_given_nms_related_to_upf_and_upf_status_is_active_then_nms_inventory_contains_upf_information(  # noqa: E501
     ops_test: OpsTest, deploy
 ):
     assert ops_test.model
     await ops_test.model.wait_for_idle(apps=[UPF_CHARM_NAME], status="active", timeout=TIMEOUT)
     nms_url = await get_sdcore_nms_endpoint(ops_test)
+    nms_client = NMS(url=nms_url)
 
-    upfs = get_webui_upfs(nms_endpoint=nms_url)
+    upfs = nms_client.list_upfs()
 
     expected_upf_hostname = f"{UPF_CHARM_NAME}-external.{ops_test.model.name}.svc.cluster.local"
     expected_upf = Upf(hostname=expected_upf_hostname, port=8805)
@@ -365,7 +353,7 @@ async def test_given_nms_related_to_upf_and_upf_status_is_active_then_webui_inve
 
 
 @pytest.mark.abort_on_fail
-async def test_given_gnb_and_upf_are_remove_then_webui_inventory_does_not_contain_upf_nor_gnb_information(  # noqa: E501
+async def test_given_gnb_and_upf_are_remove_then_nms_inventory_does_not_contain_upf_nor_gnb_information(  # noqa: E501
     ops_test: OpsTest, deploy
 ):
     assert ops_test.model
@@ -373,11 +361,12 @@ async def test_given_gnb_and_upf_are_remove_then_webui_inventory_does_not_contai
     await ops_test.model.remove_application(GNBSIM_CHARM_NAME, block_until_done=True)
     await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
     nms_url = await get_sdcore_nms_endpoint(ops_test)
+    nms_client = NMS(url=nms_url)
 
-    gnbs = get_webui_gnbs(nms_endpoint=nms_url)
+    gnbs = nms_client.list_gnbs()
     assert gnbs == []
 
-    upfs = get_webui_upfs(nms_endpoint=nms_url)
+    upfs = nms_client.list_upfs()
     assert upfs == []
 
 

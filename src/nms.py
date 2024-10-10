@@ -2,7 +2,7 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-"""Module use to handle webui API calls."""
+"""Module use to handle NMS API calls."""
 
 import logging
 from dataclasses import dataclass
@@ -33,49 +33,45 @@ class Upf:
     port: int
 
 
-class Webui:
-    """Handle webui API calls."""
+class NMS:
+    """Handle NMS API calls."""
 
     def __init__(self, url: str):
         self.url = url
 
-    def set_url(self, new_url: str) -> None:
-        """Set a new URL for the Webui instance."""
-        self.url = new_url
-
-    def get_gnbs(self) -> List[GnodeB]:
-        """Get a gNB list from the webui inventory."""
+    def list_gnbs(self) -> List[GnodeB]:
+        """List gNBs from the NMS inventory."""
         inventory_url = f"{self.url}/{GNB_CONFIG_URL}"
         json_gnb_list = self._get_resources_from_inventory(inventory_url)
         return self._transform_response_to_gnb(json_gnb_list)
 
-    def add_gnb(self, gnb: GnodeB) -> None:
-        """Add a gNB list to the webui inventory."""
-        inventory_url = f"{self.url}/{GNB_CONFIG_URL}/{gnb.name}"
-        data = {"tac": str(gnb.tac)}
-        self._add_resource_to_inventory(inventory_url, gnb.name, data)
+    def create_gnb(self, name: str, tac: int) -> None:
+        """Create a gNB in the NMS inventory."""
+        inventory_url = f"{self.url}/{GNB_CONFIG_URL}/{name}"
+        data = {"tac": str(tac)}
+        self._add_resource_to_inventory(inventory_url, name, data)
 
-    def delete_gnb(self, gnb_name: str) -> None:
-        """Delete a gNB list from the webui inventory."""
-        inventory_url = f"{self.url}/{GNB_CONFIG_URL}/{gnb_name}"
-        self._delete_resource_from_inventory(inventory_url, gnb_name)
+    def delete_gnb(self, name: str) -> None:
+        """Delete a gNB list from the NMS inventory."""
+        inventory_url = f"{self.url}/{GNB_CONFIG_URL}/{name}"
+        self._delete_resource_from_inventory(inventory_url, name)
 
-    def get_upfs(self) -> List[Upf]:
-        """Get a UPF list from the webui inventory."""
+    def list_upfs(self) -> List[Upf]:
+        """List UPFs from the NMS inventory."""
         inventory_url = f"{self.url}/{UPF_CONFIG_URL}"
         json_upf_list = self._get_resources_from_inventory(inventory_url)
         return self._transform_response_to_upf(json_upf_list)
 
-    def add_upf(self, upf: Upf) -> None:
-        """Add a UPF list to the webui inventory."""
-        inventory_url = f"{self.url}/{UPF_CONFIG_URL}/{upf.hostname}"
-        data = {"port": str(upf.port)}
-        self._add_resource_to_inventory(inventory_url, upf.hostname, data)
+    def create_upf(self, hostname: str, port: int) -> None:
+        """Create a UPF in the NMS inventory."""
+        inventory_url = f"{self.url}/{UPF_CONFIG_URL}/{hostname}"
+        data = {"port": str(port)}
+        self._add_resource_to_inventory(inventory_url, hostname, data)
 
-    def delete_upf(self, upf_hostname: str) -> None:
-        """Delete a UPF list from the webui inventory."""
-        inventory_url = f"{self.url}/{UPF_CONFIG_URL}/{upf_hostname}"
-        self._delete_resource_from_inventory(inventory_url, upf_hostname)
+    def delete_upf(self, hostname: str) -> None:
+        """Delete a UPF list from the NMS inventory."""
+        inventory_url = f"{self.url}/{UPF_CONFIG_URL}/{hostname}"
+        self._delete_resource_from_inventory(inventory_url, hostname)
 
     @staticmethod
     def _get_resources_from_inventory(inventory_url: str) -> List[Dict]:
@@ -83,7 +79,7 @@ class Webui:
             response = requests.get(inventory_url)
             response.raise_for_status()
         except requests.exceptions.ConnectionError as e:
-            logger.error("Failed to connect to webui: %s", e)
+            logger.error("Failed to connect to NMS: %s", e)
             return []
         except requests.HTTPError as e:
             logger.error("Failed to get resource from inventory: %s", e)
@@ -98,12 +94,12 @@ class Webui:
             response = requests.post(url, headers=JSON_HEADER, json=data)
             response.raise_for_status()
         except requests.exceptions.ConnectionError as e:
-            logger.error("Failed to connect to webui: %s", e)
+            logger.error("Failed to connect to NMS: %s", e)
             return
         except requests.HTTPError as e:
-            logger.error("Failed to add %s to webui: %s", resource_name, e)
+            logger.error("Failed to add %s to NMS: %s", resource_name, e)
             return
-        logger.info("%s added to webui", resource_name)
+        logger.info("%s added to NMS", resource_name)
 
     @staticmethod
     def _delete_resource_from_inventory(inventory_url: str, resource_name: str) -> None:
@@ -111,12 +107,12 @@ class Webui:
             response = requests.delete(inventory_url)
             response.raise_for_status()
         except requests.exceptions.ConnectionError as e:
-            logger.error("Failed to connect to webui: %s", e)
+            logger.error("Failed to connect to NMS: %s", e)
             return
         except requests.HTTPError as e:
-            logger.error("Failed to remove %s from webui: %s", resource_name, e)
+            logger.error("Failed to remove %s from NMS: %s", resource_name, e)
             return
-        logger.info("%s removed from webui", resource_name)
+        logger.info("%s removed from NMS", resource_name)
 
     @staticmethod
     def _transform_response_to_gnb(json_data: List[Dict]) -> List[GnodeB]:
