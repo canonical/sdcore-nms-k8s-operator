@@ -39,14 +39,14 @@ class Upf:
 class CreateGnbParams:
     """Parameters to create a gNB."""
 
-    tac: int
+    tac: str
 
 
 @dataclass
 class CreateUPFParams:
     """Parameters to create a UPF."""
 
-    port: int
+    port: str
 
 
 class NMS:
@@ -66,7 +66,6 @@ class NMS:
         """Make an HTTP request and handle common error patterns."""
         headers = JSON_HEADER
         url = f"{self.url}{endpoint}"
-        logger.info("Request: %s %s", method, url)
         try:
             response = requests.request(
                 method=method,
@@ -74,8 +73,6 @@ class NMS:
                 headers=headers,
                 json=data,
             )
-            logger.info("Raw response: %s", response.text)
-            logger.info("Response code: %s", response.status_code)
         except requests.RequestException as e:
             logger.error("HTTP request failed: %s", e)
             return None
@@ -94,8 +91,7 @@ class NMS:
             json_response = response.json()
         except json.JSONDecodeError:
             return None
-        logger.info("JSON Response: %s", json_response)
-        return response
+        return json_response
 
     def list_gnbs(self) -> List[GnodeB]:
         """List gNBs from the NMS inventory."""
@@ -112,7 +108,7 @@ class NMS:
 
     def create_gnb(self, name: str, tac: int) -> None:
         """Create a gNB in the NMS inventory."""
-        create_gnb_params = CreateGnbParams(tac=tac)
+        create_gnb_params = CreateGnbParams(tac=str(tac))
         self._make_request("POST", f"/{GNB_CONFIG_URL}/{name}", data=asdict(create_gnb_params))
         logger.info("gNB %s created in NMS", name)
 
@@ -136,7 +132,7 @@ class NMS:
 
     def create_upf(self, hostname: str, port: int) -> None:
         """Create a UPF in the NMS inventory."""
-        create_upf_params = CreateUPFParams(port=port)
+        create_upf_params = CreateUPFParams(port=str(port))
         self._make_request("POST", f"/{UPF_CONFIG_URL}/{hostname}", data=asdict(create_upf_params))
         logger.info("UPF %s created in NMS", hostname)
 

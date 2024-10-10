@@ -128,7 +128,7 @@ class TestNMS:
             method="POST",
             url="some_url/config/v1/inventory/gnb/some.gnb.name",
             headers={"Content-Type": "application/json"},
-            json={"tac": 111},
+            json={"tac": "111"},
         )
 
     def test_given_a_valid_gnb_when_create_gnb_then_gnb_is_added_to_nms(self):
@@ -138,7 +138,7 @@ class TestNMS:
             method="POST",
             url="some_url/config/v1/inventory/gnb/some.gnb.name",
             headers={"Content-Type": "application/json"},
-            json={"tac": 111},
+            json={"tac": "111"},
         )
 
     @pytest.mark.parametrize(
@@ -266,7 +266,7 @@ class TestNMS:
             method="POST",
             url="some_url/config/v1/inventory/upf/some.upf.name",
             headers={"Content-Type": "application/json"},
-            json={"port": 111},
+            json={"port": "111"},
         )
 
     def test_given_a_valid_upf_when_create_upf_then_upf_is_added_to_nms(self):
@@ -276,7 +276,7 @@ class TestNMS:
             method="POST",
             url="some_url/config/v1/inventory/upf/some.upf.name",
             headers={"Content-Type": "application/json"},
-            json={"port": 22},
+            json={"port": "22"},
         )
 
     @pytest.mark.parametrize(
