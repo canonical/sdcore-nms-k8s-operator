@@ -4,10 +4,9 @@
 
 """Module use to handle NMS API calls."""
 
-import json
 import logging
-from dataclasses import asdict, dataclass
-from typing import List, Optional
+from dataclasses import dataclass
+from typing import Dict, List
 
 import requests
 
@@ -15,54 +14,7 @@ logger = logging.getLogger(__name__)
 
 GNB_CONFIG_URL = "config/v1/inventory/gnb"
 UPF_CONFIG_URL = "config/v1/inventory/upf"
-ACCOUNTS_URL = "config/v1/accounts"
-
 JSON_HEADER = {"Content-Type": "application/json"}
-
-
-@dataclass
-class Response:
-    """Response from NMS."""
-
-    result: any  # type: ignore[reportGeneralTypeIssues]
-    error: str
-
-
-@dataclass
-class StatusResponse:
-    """Response from NMS when checking the status."""
-
-    initialized: bool
-
-
-@dataclass
-class LoginParams:
-    """Parameters to login to NMS."""
-
-    username: str
-    password: str
-
-
-@dataclass
-class LoginResponse:
-    """Response from NMS when logging in."""
-
-    token: str
-
-
-@dataclass
-class CreateUserParams:
-    """Parameters to create a user in NMS."""
-
-    username: str
-    password: str
-
-
-@dataclass
-class CreateUserResponse:
-    """Response from NMS when creating a user."""
-
-    id: int
 
 
 @dataclass
@@ -81,165 +33,103 @@ class Upf:
     port: int
 
 
-@dataclass(frozen=True)
-class CreateUPFParams:
-    """Parameters to create a UPF in NMS."""
-
-    port: int
-
-
-@dataclass(frozen=True)
-class CreateGnbParams:
-    """Parameters to create a gNB in NMS."""
-
-    tac: int
-
-
 class NMS:
     """Handle NMS API calls."""
 
     def __init__(self, url: str):
         self.url = url
 
-    def _make_request(
-        self,
-        method: str,
-        endpoint: str,
-        token: Optional[str] = None,
-        data: any = None,  # type: ignore[reportGeneralTypeIssues]
-    ) -> Response | None:
-        """Make an HTTP request and handle common error patterns."""
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
-        url = f"{self.url}{endpoint}"
-        try:
-            req = requests.request(
-                method=method,
-                url=url,
-                headers=headers,
-                json=data,
-            )
-        except requests.RequestException as e:
-            logger.error("HTTP request failed: %s", e)
-            return None
-        except OSError as e:
-            logger.error("couldn't complete HTTP request: %s", e)
-            return None
-
-        response = self._get_result(req)
-        try:
-            req.raise_for_status()
-        except requests.HTTPError:
-            logger.error(
-                "Request failed: code %s, %s",
-                req.status_code,
-                response.error if response else "unknown",
-            )
-            return None
-        return response
-
-    def _get_result(self, req: requests.Response) -> Response | None:
-        """Return the response from a request."""
-        try:
-            response = req.json()
-        except json.JSONDecodeError:
-            return None
-        return Response(
-            result=response.get("result"),
-            error=response.get("error"),
-        )
-
-    def list_gnbs(self, token: str) -> List[GnodeB]:
+    def list_gnbs(self) -> List[GnodeB]:
         """List gNBs from the NMS inventory."""
-        response = self._make_request("GET", f"/{GNB_CONFIG_URL}", token=token)
-        if response and response.result:
-            return [
-                GnodeB(
-                    name=item.get("name"),
-                    tac=item.get("tac"),
-                )
-                for item in response.result
-            ]
-        return []
+        inventory_url = f"{self.url}/{GNB_CONFIG_URL}"
+        json_gnb_list = self._get_resources_from_inventory(inventory_url)
+        return self._transform_response_to_gnb(json_gnb_list)
 
-    def create_gnb(self, name: str, tac: int, token: str) -> None:
+    def create_gnb(self, name: str, tac: int) -> None:
         """Create a gNB in the NMS inventory."""
-        create_gnb_params = CreateGnbParams(tac=tac)
-        self._make_request(
-            "POST", f"/{GNB_CONFIG_URL}/{name}", token=token, data=asdict(create_gnb_params)
-        )
-        logger.info("gNB %s created in NMS", name)
+        inventory_url = f"{self.url}/{GNB_CONFIG_URL}/{name}"
+        data = {"tac": str(tac)}
+        self._add_resource_to_inventory(inventory_url, name, data)
 
-    def delete_gnb(self, name: str, token: str) -> None:
-        """Delete a gNB from the NMS inventory."""
-        self._make_request("DELETE", f"/{GNB_CONFIG_URL}/{name}", token=token)
-        logger.info("gNB %s removed from NMS", name)
+    def delete_gnb(self, name: str) -> None:
+        """Delete a gNB list from the NMS inventory."""
+        inventory_url = f"{self.url}/{GNB_CONFIG_URL}/{name}"
+        self._delete_resource_from_inventory(inventory_url, name)
 
-    def list_upfs(self, token: str) -> List[Upf]:
+    def list_upfs(self) -> List[Upf]:
         """List UPFs from the NMS inventory."""
-        response = self._make_request("GET", f"/{UPF_CONFIG_URL}", token=token)
-        if response and response.result:
-            return [
-                Upf(
-                    hostname=item.get("hostname"),
-                    port=item.get("port"),
-                )
-                for item in response.result
-            ]
-        return []
+        inventory_url = f"{self.url}/{UPF_CONFIG_URL}"
+        json_upf_list = self._get_resources_from_inventory(inventory_url)
+        return self._transform_response_to_upf(json_upf_list)
 
-    def create_upf(self, hostname: str, port: int, token: str) -> None:
+    def create_upf(self, hostname: str, port: int) -> None:
         """Create a UPF in the NMS inventory."""
-        create_upf_params = CreateUPFParams(port=port)
-        self._make_request(
-            "POST", f"/{UPF_CONFIG_URL}/{hostname}", token=token, data=asdict(create_upf_params)
-        )
-        logger.info("UPF %s added to NMS", hostname)
+        inventory_url = f"{self.url}/{UPF_CONFIG_URL}/{hostname}"
+        data = {"port": str(port)}
+        self._add_resource_to_inventory(inventory_url, hostname, data)
 
-    def delete_upf(self, hostname: str, token: str) -> None:
-        """Delete a UPF from the NMS inventory."""
-        self._make_request("DELETE", f"/{UPF_CONFIG_URL}/{hostname}", token=token)
-        logger.info("UPF %s removed from NMS", hostname)
+    def delete_upf(self, hostname: str) -> None:
+        """Delete a UPF list from the NMS inventory."""
+        inventory_url = f"{self.url}/{UPF_CONFIG_URL}/{hostname}"
+        self._delete_resource_from_inventory(inventory_url, hostname)
 
-    def login(self, username: str, password: str) -> LoginResponse | None:
-        """Login to NMS by sending the username and password and return a Token."""
-        login_params = LoginParams(username=username, password=password)
-        response = self._make_request("POST", "/login", data=asdict(login_params))
-        if response and response.result:
-            return LoginResponse(
-                token=response.result.get("token"),
-            )
-        return None
+    @staticmethod
+    def _get_resources_from_inventory(inventory_url: str) -> List[Dict]:
+        try:
+            response = requests.get(inventory_url)
+            response.raise_for_status()
+        except requests.exceptions.ConnectionError as e:
+            logger.error("Failed to connect to NMS: %s", e)
+            return []
+        except requests.HTTPError as e:
+            logger.error("Failed to get resource from inventory: %s", e)
+            return []
+        resources = response.json()
+        logger.info("Got %s from inventory", resources)
+        return resources
 
-    def token_is_valid(self, token: str) -> bool:
-        """Return if the token is still valid by attempting to connect to an endpoint."""
-        response = self._make_request("GET", f"/{ACCOUNTS_URL}/me", token=token)
-        return response is not None
+    @staticmethod
+    def _add_resource_to_inventory(url: str, resource_name: str, data: dict) -> None:
+        try:
+            response = requests.post(url, headers=JSON_HEADER, json=data)
+            response.raise_for_status()
+        except requests.exceptions.ConnectionError as e:
+            logger.error("Failed to connect to NMS: %s", e)
+            return
+        except requests.HTTPError as e:
+            logger.error("Failed to add %s to NMS: %s", resource_name, e)
+            return
+        logger.info("%s added to NMS", resource_name)
 
-    def get_status(self) -> StatusResponse | None:
-        """Return whether NMS is initialized."""
-        response = self._make_request("GET", "/status")
-        if response and response.result:
-            return StatusResponse(
-                initialized=response.result.get("initialized"),
-            )
-        return None
+    @staticmethod
+    def _delete_resource_from_inventory(inventory_url: str, resource_name: str) -> None:
+        try:
+            response = requests.delete(inventory_url)
+            response.raise_for_status()
+        except requests.exceptions.ConnectionError as e:
+            logger.error("Failed to connect to NMS: %s", e)
+            return
+        except requests.HTTPError as e:
+            logger.error("Failed to remove %s from NMS: %s", resource_name, e)
+            return
+        logger.info("%s removed from NMS", resource_name)
 
-    def create_first_user(self, username: str, password: str) -> CreateUserResponse | None:
-        """Create the first admin user."""
-        create_user_params = CreateUserParams(username=username, password=password)
-        response = self._make_request("POST", ACCOUNTS_URL, data=asdict(create_user_params))
-        if response and response.result:
-            return CreateUserResponse(
-                id=response.result.get("id"),
-            )
-        return None
+    @staticmethod
+    def _transform_response_to_gnb(json_data: List[Dict]) -> List[GnodeB]:
+        gnb_list = []
+        for item in json_data:
+            try:
+                gnb_list.append(GnodeB(name=item["name"], tac=int(item["tac"])))
+            except (ValueError, KeyError):
+                logger.error("invalid gnB %s", item)
+        return gnb_list
 
-    def is_initialized(self) -> bool:
-        """Return whether NMS is initialized."""
-        status = self.get_status()
-        return status.initialized if status else False
-
-    def is_api_available(self) -> bool:
-        """Return whether NMS is reachable."""
-        status = self.get_status()
-        return status is not None
+    @staticmethod
+    def _transform_response_to_upf(json_data: List[Dict]) -> List[Upf]:
+        upf_list = []
+        for item in json_data:
+            try:
+                upf_list.append(Upf(hostname=item["hostname"], port=int(item["port"])))
+            except (ValueError, KeyError):
+                logger.error("invalid UPF %s", item)
+        return upf_list

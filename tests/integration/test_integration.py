@@ -5,7 +5,6 @@
 import json
 import logging
 import time
-from base64 import b64decode
 from collections import Counter
 from pathlib import Path
 from typing import List
@@ -14,10 +13,8 @@ import pytest
 import requests
 import yaml
 from juju.application import Application
-from juju.client.client import SecretsFilter
 from pytest_operator.plugin import OpsTest
 
-from charm import NMS_LOGIN_SECRET_LABEL
 from nms import NMS, GnodeB, Upf
 
 logger = logging.getLogger(__name__)
@@ -218,17 +215,6 @@ def get_nms_inventory_resource(url: str) -> List:
     return []
 
 
-async def get_nms_credentials(ops_test: OpsTest) -> dict[str, str]:
-    assert ops_test.model
-    secrets = await ops_test.model.list_secrets(
-        filter=SecretsFilter(label=NMS_LOGIN_SECRET_LABEL), show_secrets=True
-    )
-    return {
-        field: b64decode(secrets[0].value.data[field]).decode("utf-8")
-        for field in ["username", "password", "token"]
-    }
-
-
 @pytest.fixture(scope="module")
 @pytest.mark.abort_on_fail
 async def deploy(ops_test: OpsTest, request):
@@ -340,14 +326,10 @@ async def test_given_nms_related_to_gnbsim_and_gnbsim_status_is_active_then_nms_
 ):
     assert ops_test.model
     await ops_test.model.wait_for_idle(apps=[GNBSIM_CHARM_NAME], status="active", timeout=TIMEOUT)
-    admin_credentials = await get_nms_credentials(ops_test)
-    token = admin_credentials.get("token")
-    assert token
     nms_url = await get_sdcore_nms_endpoint(ops_test)
     nms_client = NMS(url=nms_url)
-    assert nms_client.token_is_valid(token=token)
 
-    gnbs = nms_client.list_gnbs(token=token)
+    gnbs = nms_client.list_gnbs()
 
     expected_gnb_name = f"{ops_test.model.name}-gnbsim-{GNBSIM_CHARM_NAME}"
     expected_gnb = GnodeB(name=expected_gnb_name, tac=1)
@@ -360,14 +342,10 @@ async def test_given_nms_related_to_upf_and_upf_status_is_active_then_nms_invent
 ):
     assert ops_test.model
     await ops_test.model.wait_for_idle(apps=[UPF_CHARM_NAME], status="active", timeout=TIMEOUT)
-    admin_credentials = await get_nms_credentials(ops_test)
-    token = admin_credentials.get("token")
-    assert token
     nms_url = await get_sdcore_nms_endpoint(ops_test)
     nms_client = NMS(url=nms_url)
-    assert nms_client.token_is_valid(token=token)
 
-    upfs = nms_client.list_upfs(token=token)
+    upfs = nms_client.list_upfs()
 
     expected_upf_hostname = f"{UPF_CHARM_NAME}-external.{ops_test.model.name}.svc.cluster.local"
     expected_upf = Upf(hostname=expected_upf_hostname, port=8805)
@@ -382,17 +360,13 @@ async def test_given_gnb_and_upf_are_remove_then_nms_inventory_does_not_contain_
     await ops_test.model.remove_application(UPF_CHARM_NAME, block_until_done=False)
     await ops_test.model.remove_application(GNBSIM_CHARM_NAME, block_until_done=True)
     await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
-    admin_credentials = await get_nms_credentials(ops_test)
-    token = admin_credentials.get("token")
-    assert token
     nms_url = await get_sdcore_nms_endpoint(ops_test)
     nms_client = NMS(url=nms_url)
-    assert nms_client.token_is_valid(token=token)
 
-    gnbs = nms_client.list_gnbs(token=token)
+    gnbs = nms_client.list_gnbs()
     assert gnbs == []
 
-    upfs = nms_client.list_upfs(token=token)
+    upfs = nms_client.list_upfs()
     assert upfs == []
 
 

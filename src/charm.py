@@ -5,9 +5,6 @@
 """Charmed operator for the Aether SD-Core Graphical User Interface for K8s."""
 
 import logging
-import random
-import string
-from dataclasses import dataclass
 from ipaddress import IPv4Address
 from subprocess import CalledProcessError, check_output
 from typing import List, Optional
@@ -28,7 +25,6 @@ from ops import (
     BlockedStatus,
     CollectStatusEvent,
     ModelError,
-    SecretNotFoundError,
     WaitingStatus,
 )
 from ops.charm import CharmBase
@@ -54,24 +50,6 @@ AUTH_DATABASE_NAME = "authentication"
 COMMON_DATABASE_NAME = "free5gc"
 GRPC_PORT = 9876
 NMS_URL_PORT = 5000
-NMS_LOGIN_SECRET_LABEL = "NMS_LOGIN"
-
-
-@dataclass
-class LoginSecret:
-    """The format of the secret for the login details that are required to login to NMS."""
-
-    username: str
-    password: str
-    token: str | None
-
-    def to_dict(self) -> dict[str, str]:
-        """Return a dict version of the secret."""
-        return {
-            "username": self.username,
-            "password": self.password,
-            "token": self.token if self.token else "",
-        }
 
 
 def _get_pod_ip() -> Optional[str]:
@@ -188,7 +166,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         if not self._auth_database_resource_is_available():
             return
-        self._configure_charm_authorization()
         self._configure_workload()
         self._publish_sdcore_config_url()
         self._sync_gnbs()
@@ -325,39 +302,29 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
     def _sync_gnbs(self) -> None:
         """Align the gNBs from the `fiveg_gnb_identity`relations with the ones in nms."""
-        login_details = self._get_or_create_admin_account()
-        if not login_details or not login_details.token:
-            logger.warning("couldn't sync gNBs: couldn't get admin token")
-            return
         if not self.model.relations.get(GNB_IDENTITY_RELATION_NAME):
             logger.info("Relation %s not available", GNB_IDENTITY_RELATION_NAME)
-        nms_gnbs = self._nms.list_gnbs(token=login_details.token)
+        nms_gnbs = self._nms.list_gnbs()
         relation_gnbs = self._get_gnb_config_from_relations()
         for gnb in nms_gnbs:
             if gnb not in relation_gnbs:
-                self._nms.delete_gnb(name=gnb.name, token=login_details.token)
+                self._nms.delete_gnb(name=gnb.name)
         for gnb in relation_gnbs:
             if gnb not in nms_gnbs:
-                self._nms.create_gnb(name=gnb.name, tac=gnb.tac, token=login_details.token)
+                self._nms.create_gnb(name=gnb.name, tac=gnb.tac)
 
     def _sync_upfs(self) -> None:
         """Align the UPFs from the `fiveg_n4` relations with the ones in nms."""
-        login_details = self._get_or_create_admin_account()
-        if not login_details or not login_details.token:
-            logger.warning("couldn't sync UPFs: couldn't get admin token")
-            return
         if not self.model.relations.get(FIVEG_N4_RELATION_NAME):
             logger.info("Relation %s not available", FIVEG_N4_RELATION_NAME)
-        nms_upfs = self._nms.list_upfs(token=login_details.token)
+        nms_upfs = self._nms.list_upfs()
         relation_upfs = self._get_upf_config_from_relations()
         for upf in nms_upfs:
             if upf not in relation_upfs:
-                self._nms.delete_upf(hostname=upf.hostname, token=login_details.token)
+                self._nms.delete_upf(hostname=upf.hostname)
         for upf in relation_upfs:
             if upf not in nms_upfs:
-                self._nms.create_upf(
-                    hostname=upf.hostname, port=upf.port, token=login_details.token
-                )
+                self._nms.create_upf(hostname=upf.hostname, port=upf.port)
 
     def _get_common_database_url(self) -> str:
         if not self._common_database_resource_is_available():
@@ -439,72 +406,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
             "CONFIGPOD_DEPLOYMENT": "5G",
             "WEBUI_ENDPOINT": self._nms_endpoint,
         }
-
-    def _configure_charm_authorization(self):
-        """Create an admin user to manage NMS if needed."""
-        login_details = self._get_or_create_admin_account()
-        if not login_details:
-            return
-        if not login_details.token or not self._nms.token_is_valid(login_details.token):
-            login_response = self._nms.login(login_details.username, login_details.password)
-            if not login_response or not login_response.token:
-                logger.warning(
-                    "failed to login with the existing admin credentials."
-                    " If you've manually modified the admin account credentials,"
-                    " please update the charm's credentials secret accordingly."
-                )
-                return
-            login_details.token = login_response.token
-            login_details_secret = self.model.get_secret(label=NMS_LOGIN_SECRET_LABEL)
-            login_details_secret.set_content(login_details.to_dict())
-
-    def _get_or_create_admin_account(self) -> LoginSecret | None:
-        """Get or create the first admin user for the charm to use from secrets.
-
-        Returns:
-            Login details secret if they exist.
-             None if the related account couldn't be created in NMS.
-        """
-        try:
-            secret = self.model.get_secret(label=NMS_LOGIN_SECRET_LABEL)
-            secret_content = secret.get_content(refresh=True)
-            username = secret_content.get("username", "")
-            password = secret_content.get("password", "")
-            token = secret_content.get("token")
-            account = LoginSecret(username, password, token)
-        except SecretNotFoundError:
-            username = _generate_username()
-            password = _generate_password()
-            account = LoginSecret(username, password, None)
-            self.app.add_secret(
-                label=NMS_LOGIN_SECRET_LABEL,
-                content=account.to_dict(),
-            )
-            logger.info("admin account details saved to secrets.")
-        if self._nms.is_api_available() and not self._nms.is_initialized():
-            response = self._nms.create_first_user(username, password)
-            if not response:
-                return None
-        return account
-
-
-def _generate_password() -> str:
-    """Generate a password for the NMS Account."""
-    pw = []
-    pw.append(random.choice(string.ascii_lowercase))
-    pw.append(random.choice(string.ascii_uppercase))
-    pw.append(random.choice(string.digits))
-    pw.append(random.choice(string.punctuation))
-    for i in range(8):
-        pw.append(random.choice(string.ascii_letters + string.digits + string.punctuation))
-    random.shuffle(pw)
-    return "".join(pw)
-
-
-def _generate_username() -> str:
-    """Generate a username for the NMS Account."""
-    suffix = [random.choice(string.ascii_uppercase) for i in range(4)]
-    return "charm-admin-" + "".join(suffix)
 
 
 if __name__ == "__main__":  # pragma: no cover

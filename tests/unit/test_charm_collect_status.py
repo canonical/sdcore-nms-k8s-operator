@@ -8,9 +8,7 @@ import scenario
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 from ops.pebble import Layer, ServiceStatus
 
-from tests.unit.fixtures import (
-    NMSUnitTestFixtures,
-)
+from tests.unit.fixtures import NMSUnitTestFixtures
 
 
 class TestCharmCollectStatus(NMSUnitTestFixtures):
@@ -175,7 +173,7 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
 
         assert state_out.unit_status == WaitingStatus("Waiting for storage to be attached")
 
-    def test_given_webui_config_file_does_not_exist_when_collect_unit_status_then_status_is_waiting(  # noqa: E501
+    def test_given_nms_config_file_does_not_exist_when_collect_unit_status_then_status_is_waiting(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -215,7 +213,7 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
             assert state_out.unit_status == WaitingStatus(
-                "Waiting for webui config file to be stored"
+                "Waiting for nms config file to be stored"
             )
 
     def test_given_service_is_not_running_when_collect_unit_status_then_status_is_waiting(
@@ -254,7 +252,7 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
                 relations={auth_database_relation, common_database_relation},
                 containers={container},
             )
-            with open(f"{tempdir}/webuicfg.conf", "w") as f:
+            with open(f"{tempdir}/nmscfg.conf", "w") as f:
                 f.write("whatever config file content")
 
             state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
@@ -299,7 +297,7 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
                 relations={auth_database_relation, common_database_relation},
                 containers={container},
             )
-            with open(f"{tempdir}/webuicfg.conf", "w") as f:
+            with open(f"{tempdir}/nmscfg.conf", "w") as f:
                 f.write("whatever config file content")
 
             state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)

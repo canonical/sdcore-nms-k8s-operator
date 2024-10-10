@@ -14,11 +14,11 @@ from tests.unit.fixtures import (
     NMSUnitTestFixtures,
 )
 
-EXPECTED_CONFIG_FILE_PATH = "tests/unit/expected_webui_cfg.yaml"
+EXPECTED_CONFIG_FILE_PATH = "tests/unit/expected_nms_cfg.yaml"
 
 
 class TestCharmConfigure(NMSUnitTestFixtures):
-    def test_given_db_relations_do_not_exist_when_pebble_ready_then_webui_config_file_is_not_written(  # noqa: E501
+    def test_given_db_relations_do_not_exist_when_pebble_ready_then_nms_config_file_is_not_written(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -40,9 +40,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
-            assert not os.path.exists(f"{tempdir}/webuicfg.conf")
+            assert not os.path.exists(f"{tempdir}/nmscfg.conf")
 
-    def test_given_common_db_resource_not_available_when_pebble_ready_then_webui_config_file_is_not_written(  # noqa: E501
+    def test_given_common_db_resource_not_available_when_pebble_ready_then_nms_config_file_is_not_written(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -78,9 +78,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
-            assert not os.path.exists(f"{tempdir}/webuicfg.conf")
+            assert not os.path.exists(f"{tempdir}/nmscfg.conf")
 
-    def test_given_auth_db_resource_not_available_when_pebble_ready_then_webui_config_file_is_not_written(  # noqa: E501
+    def test_given_auth_db_resource_not_available_when_pebble_ready_then_nms_config_file_is_not_written(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -116,9 +116,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
-            assert not os.path.exists(f"{tempdir}/webuicfg.conf")
+            assert not os.path.exists(f"{tempdir}/nmscfg.conf")
 
-    def test_given_storage_attached_and_webui_config_file_does_not_exist_when_pebble_ready_then_config_file_is_written(  # noqa: E501
+    def test_given_storage_attached_and_nms_config_file_does_not_exist_when_pebble_ready_then_config_file_is_written(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -159,8 +159,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
-            assert os.path.exists(f"{tempdir}/webuicfg.conf")
-            with open(f"{tempdir}/webuicfg.conf", "r") as f:
+            assert os.path.exists(f"{tempdir}/nmscfg.conf")
+            with open(f"{tempdir}/nmscfg.conf", "r") as f:
                 assert f.read() == open(EXPECTED_CONFIG_FILE_PATH, "r").read()
 
     def test_given_container_is_ready_db_relations_exist_and_storage_attached_when_pebble_ready_then_pebble_plan_is_applied(  # noqa: E501
@@ -212,7 +212,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                         "nms": {
                             "startup": "enabled",
                             "override": "replace",
-                            "command": "/bin/webconsole --webuicfg /nms/config/webuicfg.conf",
+                            "command": "/bin/webconsole --webuicfg /nms/config/nmscfg.conf",
                             "environment": {
                                 "GRPC_GO_LOG_VERBOSITY_LEVEL": "99",
                                 "GRPC_GO_LOG_SEVERITY_LEVEL": "info",
@@ -287,7 +287,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
         self.mock_set_webui_url_in_all_relations.assert_not_called()
 
-    def test_given_webui_service_is_running_db_relations_are_not_joined_when_pebble_ready_then_config_url_is_not_published_for_relations(  # noqa: E501
+    def test_given_nms_service_is_running_db_relations_are_not_joined_when_pebble_ready_then_config_url_is_not_published_for_relations(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -316,7 +316,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.mock_set_webui_url_in_all_relations.assert_not_called()
 
-    def test_given_webui_service_is_running_db_relations_are_joined_when_several_sdcore_config_relations_are_joined_then_config_url_is_set_in_all_relations(  # noqa: E501
+    def test_given_nms_service_is_running_db_relations_are_joined_when_several_sdcore_config_relations_are_joined_then_config_url_is_set_in_all_relations(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -375,7 +375,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 webui_url="sdcore-nms-k8s:9876"
             )
 
-    def test_given_webui_service_is_not_running_when_pebble_ready_then_config_url_is_not_set_in_the_relations(  # noqa: E501
+    def test_given_nms_service_is_not_running_when_pebble_ready_then_config_url_is_not_set_in_the_relations(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -521,7 +521,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             ),
         ],
     )
-    def test_given_incomplete_data_in_relation_when_pebble_ready_then_is_not_updated_in_webui_db(
+    def test_given_incomplete_data_in_relation_when_pebble_ready_then_is_not_updated_in_nms_db(
         self,
         relation_name,
         relation_data,
@@ -569,12 +569,12 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
-            self.mock_add_gnb.assert_not_called()
-            self.mock_add_upf.assert_not_called()
+            self.mock_create_gnb.assert_not_called()
+            self.mock_create_upf.assert_not_called()
             self.mock_delete_gnb.assert_not_called()
             self.mock_delete_upf.assert_not_called()
 
-    def test_given_no_db_relations_when_pebble_ready_then_webui_resources_are_not_updated(self):
+    def test_given_no_db_relations_when_pebble_ready_then_nms_resources_are_not_updated(self):
         with tempfile.TemporaryDirectory() as tempdir:
             fiveg_gnb_identity_relation = scenario.Relation(
                 endpoint="fiveg_gnb_identity",
@@ -611,77 +611,12 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
-            self.mock_add_gnb.assert_not_called()
+            self.mock_create_gnb.assert_not_called()
             self.mock_delete_gnb.assert_not_called()
-            self.mock_add_upf.assert_not_called()
+            self.mock_create_upf.assert_not_called()
             self.mock_delete_upf.assert_not_called()
 
-    def test_given_db_relations_when_pebble_ready_then_webui_url_is_updated(
-        self,
-    ):
-        with tempfile.TemporaryDirectory() as tempdir:
-            common_database_relation = scenario.Relation(
-                endpoint="common_database",
-                interface="mongodb_client",
-                remote_app_data={
-                    "username": "banana",
-                    "password": "pizza",
-                    "uris": "1.1.1.1:1234",
-                },
-            )
-            auth_database_relation = scenario.Relation(
-                endpoint="auth_database",
-                interface="mongodb_client",
-                remote_app_data={
-                    "username": "banana",
-                    "password": "pizza",
-                    "uris": "2.2.2.2:1234",
-                },
-            )
-            fiveg_gnb_identity_relation = scenario.Relation(
-                endpoint="fiveg_gnb_identity",
-                interface="fiveg_gnb_identity",
-                remote_app_data={
-                    "gnb_name": "some.gnb.name",
-                    "tac": "1234",
-                },
-            )
-            fiveg_n4_relation = scenario.Relation(
-                endpoint="fiveg_n4",
-                interface="fiveg_n4",
-                remote_app_data={
-                    "upf_hostname": "some.host.name",
-                    "upf_port": "1234",
-                },
-            )
-            config_mount = scenario.Mount(
-                location="/nms/config",
-                source=tempdir,
-            )
-            container = scenario.Container(
-                name="nms",
-                can_connect=True,
-                mounts={
-                    "config": config_mount,
-                },
-            )
-            state_in = scenario.State(
-                leader=True,
-                containers={container},
-                relations={
-                    common_database_relation,
-                    auth_database_relation,
-                    fiveg_gnb_identity_relation,
-                    fiveg_n4_relation,
-                },
-            )
-            self.mock_check_output.return_value = "1.2.3.4".encode()
-
-            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
-
-            self.mock_webui_set_url.assert_called_once_with("http://1.2.3.4:5000")
-
-    def test_given_db_relations_when_pebble_ready_then_webui_upf_is_updated(
+    def test_given_db_relations_when_pebble_ready_then_nms_upf_is_updated(
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -743,10 +678,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
-            expected_upf = Upf(hostname="some.host.name", port=1234)
-            self.mock_add_upf.assert_called_once_with(expected_upf)
+            self.mock_create_upf.assert_called_once_with(hostname="some.host.name", port=1234)
 
-    def test_given_db_relations_when_pebble_ready_then_webui_gnb_is_updated(
+    def test_given_db_relations_when_pebble_ready_then_nms_gnb_is_updated(
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -808,10 +742,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
-            expected_gnb = GnodeB(name="some.gnb.name", tac=1234)
-            self.mock_add_gnb.assert_called_once_with(expected_gnb)
+            self.mock_create_gnb.assert_called_once_with(name="some.gnb.name", tac=1234)
 
-    def test_given_multiple_n4_relations_when_pebble_ready_then_both_upfs_are_added_to_webui(
+    def test_given_multiple_n4_relations_when_pebble_ready_then_both_upfs_are_added_to_nms(
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -874,12 +807,12 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             calls = [
-                call(Upf(hostname="some.host.name", port=1234)),
-                call(Upf(hostname="my_host", port=77)),
+                call(hostname="some.host.name", port=1234),
+                call(hostname="my_host", port=77),
             ]
-            self.mock_add_upf.assert_has_calls(calls)
+            self.mock_create_upf.assert_has_calls(calls)
 
-    def test_given_multiple_gnb_relations_when_pebble_ready_then_both_gnbs_are_added_to_webui(
+    def test_given_multiple_gnb_relations_when_pebble_ready_then_both_gnbs_are_added_to_nms(
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -942,12 +875,12 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             calls = [
-                call(GnodeB(name="some.gnb.name", tac=1234)),
-                call(GnodeB(name="my_gnb", tac=77)),
+                call(name="some.gnb.name", tac=1234),
+                call(name="my_gnb", tac=77),
             ]
-            self.mock_add_gnb.assert_has_calls(calls)
+            self.mock_create_gnb.assert_has_calls(calls)
 
-    def test_given_upf_exist_in_webui_and_relation_matches_when_pebble_ready_then_webui_upfs_are_not_updated(  # noqa: E501
+    def test_given_upf_exist_in_nms_and_relation_matches_when_pebble_ready_then_nms_upfs_are_not_updated(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -969,7 +902,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
-            self.mock_get_upfs.return_value = [Upf(hostname="some.host.name", port=1234)]
+            self.mock_list_upfs.return_value = [Upf(hostname="some.host.name", port=1234)]
             config_mount = scenario.Mount(
                 location="/nms/config",
                 source=tempdir,
@@ -997,10 +930,10 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
-            self.mock_get_upfs.assert_called()
-            self.mock_add_upf.assert_not_called()
+            self.mock_list_upfs.assert_called()
+            self.mock_create_upf.assert_not_called()
 
-    def test_given_gnb_exist_in_webui_and_relation_matches_when_pebble_ready_then_webui_gnbs_are_not_updated(  # noqa: E501
+    def test_given_gnb_exist_in_nms_and_relation_matches_when_pebble_ready_then_nms_gnbs_are_not_updated(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -1023,7 +956,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 },
             )
             existing_gnbs = [GnodeB(name="some.gnb.name", tac=1234)]
-            self.mock_get_gnbs.return_value = existing_gnbs
+            self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
                 location="/nms/config",
                 source=tempdir,
@@ -1055,10 +988,10 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
-            self.mock_get_gnbs.assert_called()
-            self.mock_add_gnb.assert_not_called()
+            self.mock_list_gnbs.assert_called()
+            self.mock_create_gnb.assert_not_called()
 
-    def test_given_no_upf_or_gnb_relation_or_db_when_pebble_ready_then_webui_resources_are_not_updated(  # noqa: E501
+    def test_given_no_upf_or_gnb_relation_or_db_when_pebble_ready_then_nms_resources_are_not_updated(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -1081,9 +1014,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
-            self.mock_add_gnb.assert_not_called()
+            self.mock_create_gnb.assert_not_called()
 
-    def test_given_upf_exists_in_webui_and_new_upf_relation_is_added_when_pebble_ready_then_second_upf_is_added_to_webui(  # noqa: E501
+    def test_given_upf_exists_in_nms_and_new_upf_relation_is_added_when_pebble_ready_then_second_upf_is_added_to_nms(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -1106,7 +1039,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 },
             )
             existing_upf = Upf(hostname="some.host.name", port=1234)
-            self.mock_get_upfs.return_value = [existing_upf]
+            self.mock_list_upfs.return_value = [existing_upf]
             config_mount = scenario.Mount(
                 location="/nms/config",
                 source=tempdir,
@@ -1147,11 +1080,10 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_joined(fiveg_n4_relation_2), state_in)
 
-            expected_upf = Upf(hostname="my_host", port=4567)
-            self.mock_add_upf.assert_called_once_with(expected_upf)
+            self.mock_create_upf.assert_called_once_with(hostname="my_host", port=4567)
             self.mock_delete_upf.assert_not_called()
 
-    def test_given_gnb_exists_in_webui_and_new_gnb_relation_is_added_when_pebble_ready_then_second_gnb_is_added_to_webui(  # noqa: E501
+    def test_given_gnb_exists_in_nms_and_new_gnb_relation_is_added_when_pebble_ready_then_second_gnb_is_added_to_nms(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -1174,7 +1106,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 },
             )
             existing_gnbs = [GnodeB(name="some.gnb.name", tac=1234)]
-            self.mock_get_gnbs.return_value = existing_gnbs
+            self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
                 location="/nms/config",
                 source=tempdir,
@@ -1215,11 +1147,10 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_joined(fiveg_gnb_identity_relation_2), state_in)
 
-            expected_gnb = GnodeB(name="my_gnb", tac=4567)
-            self.mock_add_gnb.assert_called_once_with(expected_gnb)
+            self.mock_create_gnb.assert_called_once_with(name="my_gnb", tac=4567)
             self.mock_delete_gnb.assert_not_called()
 
-    def test_given_two_n4_relations_when_n4_relation_broken_then_upf_is_removed_from_webui(
+    def test_given_two_n4_relations_when_n4_relation_broken_then_upf_is_removed_from_nms(
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -1245,7 +1176,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 Upf(hostname="some.host.name", port=1234),
                 Upf(hostname="some.host", port=22),
             ]
-            self.mock_get_upfs.return_value = existing_upfs
+            self.mock_list_upfs.return_value = existing_upfs
             config_mount = scenario.Mount(
                 location="/nms/config",
                 source=tempdir,
@@ -1286,10 +1217,10 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_broken(fiveg_n4_relation_1), state_in)
 
-            self.mock_delete_upf.assert_called_once_with("some.host.name")
-            self.mock_add_upf.assert_not_called()
+            self.mock_delete_upf.assert_called_once_with(hostname="some.host.name")
+            self.mock_create_upf.assert_not_called()
 
-    def test_given_two_gnb_identity_relations_when_relation_broken_then_gnb_is_removed_from_webui(  # noqa: E501
+    def test_given_two_gnb_identity_relations_when_relation_broken_then_gnb_is_removed_from_nms(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -1315,7 +1246,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 GnodeB(name="some.gnb.name", tac=1234),
                 GnodeB(name="gnb.name", tac=333),
             ]
-            self.mock_get_gnbs.return_value = existing_gnbs
+            self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
                 location="/nms/config",
                 source=tempdir,
@@ -1356,10 +1287,10 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_broken(gnb_identity_relation_1), state_in)
 
-            self.mock_delete_gnb.assert_called_once_with("some.gnb.name")
-            self.mock_add_gnb.assert_not_called()
+            self.mock_delete_gnb.assert_called_once_with(name="some.gnb.name")
+            self.mock_create_gnb.assert_not_called()
 
-    def test_given_one_upf_in_webui_when_upf_is_modified_in_relation_then_webui_upfs_are_updated(  # noqa: E501
+    def test_given_one_upf_in_nms_when_upf_is_modified_in_relation_then_nms_upfs_are_updated(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -1384,7 +1315,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             existing_upfs = [
                 Upf(hostname="some.host.name", port=1234),
             ]
-            self.mock_get_upfs.return_value = existing_upfs
+            self.mock_list_upfs.return_value = existing_upfs
             config_mount = scenario.Mount(
                 location="/nms/config",
                 source=tempdir,
@@ -1412,11 +1343,10 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_joined(fiveg_n4_relation), state_in)
 
-            self.mock_delete_upf.assert_called_once_with("some.host.name")
-            expected_upf = Upf(hostname="some.host.name", port=22)
-            self.mock_add_upf.assert_called_once_with(expected_upf)
+            self.mock_delete_upf.assert_called_once_with(hostname="some.host.name")
+            self.mock_create_upf.assert_called_once_with(hostname="some.host.name", port=22)
 
-    def test_given_one_gnb_in_webui_when_gnb_is_modified_in_relation_then_webui_gnbs_are_updated(  # noqa: E501
+    def test_given_one_gnb_in_nms_when_gnb_is_modified_in_relation_then_nms_gnbs_are_updated(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -1441,7 +1371,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             existing_gnbs = [
                 GnodeB(name="some.gnb.name", tac=1234),
             ]
-            self.mock_get_gnbs.return_value = existing_gnbs
+            self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
                 location="/nms/config",
                 source=tempdir,
@@ -1473,11 +1403,10 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_joined(gnb_identity_relation), state_in)
 
-            self.mock_delete_gnb.assert_called_once_with("some.gnb.name")
-            expected_gnb = GnodeB(name="some.gnb.name", tac=6789)
-            self.mock_add_gnb.assert_called_once_with(expected_gnb)
+            self.mock_delete_gnb.assert_called_once_with(name="some.gnb.name")
+            self.mock_create_gnb.assert_called_once_with(name="some.gnb.name", tac=6789)
 
-    def test_given_one_upf_in_webui_when_new_upf_is_added_then_old_upf_is_removed_and_new_upf_is_added(  # noqa: E501
+    def test_given_one_upf_in_nms_when_new_upf_is_added_then_old_upf_is_removed_and_new_upf_is_added(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -1502,7 +1431,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             existing_upfs = [
                 Upf(hostname="old.name", port=1234),
             ]
-            self.mock_get_upfs.return_value = existing_upfs
+            self.mock_list_upfs.return_value = existing_upfs
             config_mount = scenario.Mount(
                 location="/nms/config",
                 source=tempdir,
@@ -1530,11 +1459,10 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_joined(fiveg_n4_relation), state_in)
 
-            self.mock_delete_upf.assert_called_once_with("old.name")
-            expected_upf = Upf(hostname="some.host.name", port=22)
-            self.mock_add_upf.assert_called_once_with(expected_upf)
+            self.mock_delete_upf.assert_called_once_with(hostname="old.name")
+            self.mock_create_upf.assert_called_once_with(hostname="some.host.name", port=22)
 
-    def test_given_one_gnb_in_webui_when_new_gnb_is_added_then_old_gnb_is_removed_and_new_gnb_is_added(  # noqa: E501
+    def test_given_one_gnb_in_nms_when_new_gnb_is_added_then_old_gnb_is_removed_and_new_gnb_is_added(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -1559,7 +1487,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             existing_gnbs = [
                 GnodeB(name="old.gnb.name", tac=1234),
             ]
-            self.mock_get_gnbs.return_value = existing_gnbs
+            self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
                 location="/nms/config",
                 source=tempdir,
@@ -1591,6 +1519,5 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_joined(gnb_identity_relation), state_in)
 
-            self.mock_delete_gnb.assert_called_once_with("old.gnb.name")
-            expected_gnb = GnodeB(name="some.gnb.name", tac=6789)
-            self.mock_add_gnb.assert_called_once_with(expected_gnb)
+            self.mock_delete_gnb.assert_called_once_with(name="old.gnb.name")
+            self.mock_create_gnb.assert_called_once_with(name="some.gnb.name", tac=6789)
