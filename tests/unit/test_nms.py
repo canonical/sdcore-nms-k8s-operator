@@ -36,7 +36,7 @@ class TestNMS:
     def mock_response_with_connection_error_exception() -> MagicMock:
         mock_response = MagicMock()
         mock_response.raise_for_status.side_effect = requests.exceptions.ConnectionError(
-            "Error connecting to the webui"
+            "Error connecting to NMS"
         )
         return mock_response
 
@@ -74,9 +74,9 @@ class TestNMS:
 
         self.mock_request_get.assert_called_once_with("some_url/config/v1/inventory/gnb")
 
-    def test_given_webui_returns_a_gnb_list_when_list_gnbs_then_a_gnb_list_is_returned(self):
-        webui_gnbs = [{"name": "some.gnb.name", "tac": "111"}]
-        self.mock_request_get.return_value = self.mock_response_with_list(webui_gnbs)
+    def test_given_nms_returns_a_gnb_list_when_list_gnbs_then_a_gnb_list_is_returned(self):
+        nms_gnbs = [{"name": "some.gnb.name", "tac": "111"}]
+        self.mock_request_get.return_value = self.mock_response_with_list(nms_gnbs)
 
         gnbs = self.nms.list_gnbs()
 
@@ -84,21 +84,21 @@ class TestNMS:
         assert len(gnbs) == 1
         assert gnbs[0] == expected_gnb
 
-    def test_given_webui_returns_an_empty_list_when_list_gnbs_then_empty_list_is_returned(self):
-        webui_gnbs = []
-        self.mock_request_get.return_value = self.mock_response_with_list(webui_gnbs)
+    def test_given_nms_returns_an_empty_list_when_list_gnbs_then_empty_list_is_returned(self):
+        nms_gnbs = []
+        self.mock_request_get.return_value = self.mock_response_with_list(nms_gnbs)
 
         gnbs = self.nms.list_gnbs()
 
         assert gnbs == []
 
-    def test_given_multiple_gnbs_in_webui_when_list_gnbs_then_multiple_gnbs_are_returned(self):
-        webui_gnbs = [
+    def test_given_multiple_gnbs_in_nms_when_list_gnbs_then_multiple_gnbs_are_returned(self):
+        nms_gnbs = [
             {"name": "some.gnb.name", "tac": "111"},
             {"name": "a_gnb_name", "tac": "342"},
             {"name": "other.gnb_name", "tac": "99"},
         ]
-        self.mock_request_get.return_value = self.mock_response_with_list(webui_gnbs)
+        self.mock_request_get.return_value = self.mock_response_with_list(nms_gnbs)
 
         gnbs = self.nms.list_gnbs()
 
@@ -133,7 +133,7 @@ class TestNMS:
             json={"tac": "111"},
         )
 
-    def test_given_a_valid_gnb_when_create_gnb_then_gnb_is_added_to_webui(self):
+    def test_given_a_valid_gnb_when_create_gnb_then_gnb_is_added_to_nms(self):
         self.nms.create_gnb(name="some.gnb.name", tac=111)
 
         self.mock_request_post.assert_called_once_with(
@@ -192,16 +192,16 @@ class TestNMS:
         assert upfs == []
 
     def test_when_list_upfs_then_upf_url_is_used(self):
-        webui_upfs = []
-        self.mock_request_get.return_value = self.mock_response_with_list(webui_upfs)
+        nms_upfs = []
+        self.mock_request_get.return_value = self.mock_response_with_list(nms_upfs)
 
         self.nms.list_upfs()
 
         self.mock_request_get.assert_called_once_with("some_url/config/v1/inventory/upf")
 
-    def test_given_webui_returns_a_upf_list_when_list_upfs_then_a_upf_list_is_returned(self):
-        webui_upfs = [{"hostname": "some.host.name", "port": "111"}]
-        self.mock_request_get.return_value = self.mock_response_with_list(webui_upfs)
+    def test_given_nms_returns_a_upf_list_when_list_upfs_then_a_upf_list_is_returned(self):
+        nms_upfs = [{"hostname": "some.host.name", "port": "111"}]
+        self.mock_request_get.return_value = self.mock_response_with_list(nms_upfs)
 
         upfs = self.nms.list_upfs()
 
@@ -209,21 +209,21 @@ class TestNMS:
         assert len(upfs) == 1
         assert upfs[0] == expected_upf
 
-    def test_given_webui_returns_an_empty_list_when_list_upfs_then_empty_list_is_returned(self):
-        webui_upfs = []
-        self.mock_request_get.return_value = self.mock_response_with_list(webui_upfs)
+    def test_given_nms_returns_an_empty_list_when_list_upfs_then_empty_list_is_returned(self):
+        nms_upfs = []
+        self.mock_request_get.return_value = self.mock_response_with_list(nms_upfs)
 
         upfs = self.nms.list_upfs()
 
         assert upfs == []
 
-    def test_given_multiple_upfs_in_webui_when_list_upfs_then_multiple_upfs_are_returned(self):
-        webui_upfs = [
+    def test_given_multiple_upfs_in_nms_when_list_upfs_then_multiple_upfs_are_returned(self):
+        nms_upfs = [
             {"hostname": "some.host.name", "port": "111"},
             {"hostname": "a_host_name", "port": "342"},
             {"hostname": "other.host_name", "port": "99"},
         ]
-        self.mock_request_get.return_value = self.mock_response_with_list(webui_upfs)
+        self.mock_request_get.return_value = self.mock_response_with_list(nms_upfs)
 
         upfs = self.nms.list_upfs()
 
@@ -258,7 +258,7 @@ class TestNMS:
             json={"port": "111"},
         )
 
-    def test_given_a_valid_upf_when_create_upf_then_upf_is_added_to_webui(self):
+    def test_given_a_valid_upf_when_create_upf_then_upf_is_added_to_nms(self):
         self.nms.create_upf(hostname="some.upf.name", port=22)
 
         self.mock_request_post.assert_called_once_with(
@@ -313,9 +313,9 @@ class TestNMS:
             ),
         ],
     )
-    def test_given_webui_returns_an_invalid_gnb_when_list_gnbs_then_gnb_is_not_returned(self, gnb):
-        webui_gnbs = [gnb]
-        self.mock_request_get.return_value = self.mock_response_with_list(webui_gnbs)
+    def test_given_nms_returns_an_invalid_gnb_when_list_gnbs_then_gnb_is_not_returned(self, gnb):
+        nms_gnbs = [gnb]
+        self.mock_request_get.return_value = self.mock_response_with_list(nms_gnbs)
 
         gnbs = self.nms.list_gnbs()
 
@@ -338,9 +338,9 @@ class TestNMS:
             ),
         ],
     )
-    def test_given_webui_returns_an_invalid_upf_when_list_upfs_then_upf_is_not_returned(self, upf):
-        webui_upfs = [upf]
-        self.mock_request_get.return_value = self.mock_response_with_list(webui_upfs)
+    def test_given_nms_returns_an_invalid_upf_when_list_upfs_then_upf_is_not_returned(self, upf):
+        nms_upfs = [upf]
+        self.mock_request_get.return_value = self.mock_response_with_list(nms_upfs)
 
         upfs = self.nms.list_upfs()
 

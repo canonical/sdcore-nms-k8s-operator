@@ -14,12 +14,12 @@ class NMSUnitTestFixtures:
     patcher_set_webui_url_in_all_relations = patch(
         "charms.sdcore_nms_k8s.v0.sdcore_config.SdcoreConfigProvides.set_webui_url_in_all_relations"
     )
-    patcher_webui_list_gnbs = patch("nms.NMS.list_gnbs")
-    patcher_webui_create_gnb = patch("nms.NMS.create_gnb")
-    patcher_webui_delete_gnb = patch("nms.NMS.delete_gnb")
-    patcher_webui_list_upfs = patch("nms.NMS.list_upfs")
-    patcher_webui_create_upf = patch("nms.NMS.create_upf")
-    patcher_webui_delete_upf = patch("nms.NMS.delete_upf")
+    patcher_nms_list_gnbs = patch("nms.NMS.list_gnbs")
+    patcher_nms_create_gnb = patch("nms.NMS.create_gnb")
+    patcher_nms_delete_gnb = patch("nms.NMS.delete_gnb")
+    patcher_nms_list_upfs = patch("nms.NMS.list_upfs")
+    patcher_nms_create_upf = patch("nms.NMS.create_upf")
+    patcher_nms_delete_upf = patch("nms.NMS.delete_upf")
 
     @pytest.fixture(autouse=True)
     def setUp(self, request):
@@ -27,12 +27,12 @@ class NMSUnitTestFixtures:
         self.mock_set_webui_url_in_all_relations = (
             NMSUnitTestFixtures.patcher_set_webui_url_in_all_relations.start()
         )
-        self.mock_list_gnbs = NMSUnitTestFixtures.patcher_webui_list_gnbs.start()
-        self.mock_create_gnb = NMSUnitTestFixtures.patcher_webui_create_gnb.start()
-        self.mock_delete_gnb = NMSUnitTestFixtures.patcher_webui_delete_gnb.start()
-        self.mock_list_upfs = NMSUnitTestFixtures.patcher_webui_list_upfs.start()
-        self.mock_create_upf = NMSUnitTestFixtures.patcher_webui_create_upf.start()
-        self.mock_delete_upf = NMSUnitTestFixtures.patcher_webui_delete_upf.start()
+        self.mock_list_gnbs = NMSUnitTestFixtures.patcher_nms_list_gnbs.start()
+        self.mock_create_gnb = NMSUnitTestFixtures.patcher_nms_create_gnb.start()
+        self.mock_delete_gnb = NMSUnitTestFixtures.patcher_nms_delete_gnb.start()
+        self.mock_list_upfs = NMSUnitTestFixtures.patcher_nms_list_upfs.start()
+        self.mock_create_upf = NMSUnitTestFixtures.patcher_nms_create_upf.start()
+        self.mock_delete_upf = NMSUnitTestFixtures.patcher_nms_delete_upf.start()
         yield
         request.addfinalizer(self.tearDown)
 
