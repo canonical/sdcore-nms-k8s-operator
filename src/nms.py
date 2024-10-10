@@ -68,12 +68,14 @@ class NMS:
         url = f"{self.url}{endpoint}"
         logger.info("Request: %s %s", method, url)
         try:
-            req = requests.request(
+            response = requests.request(
                 method=method,
                 url=url,
                 headers=headers,
                 json=data,
             )
+            logger.info("Raw response: %s", response.text)
+            logger.info("Response code: %s", response.status_code)
         except requests.RequestException as e:
             logger.error("HTTP request failed: %s", e)
             return None
@@ -81,18 +83,18 @@ class NMS:
             logger.error("couldn't complete HTTP request: %s", e)
             return None
         try:
-            req.raise_for_status()
+            response.raise_for_status()
         except requests.HTTPError:
             logger.error(
                 "Request failed: code %s",
-                req.status_code,
+                response.status_code,
             )
             return None
         try:
-            response = req.json()
+            json_response = response.json()
         except json.JSONDecodeError:
             return None
-        logger.info("Response: %s", response)
+        logger.info("JSON Response: %s", json_response)
         return response
 
     def list_gnbs(self) -> List[GnodeB]:
