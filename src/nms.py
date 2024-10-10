@@ -4,9 +4,10 @@
 
 """Module use to handle NMS API calls."""
 
+import json
 import logging
-from dataclasses import dataclass
-from typing import Dict, List
+from dataclasses import asdict, dataclass
+from typing import Any, List
 
 import requests
 
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 GNB_CONFIG_URL = "config/v1/inventory/gnb"
 UPF_CONFIG_URL = "config/v1/inventory/upf"
+
 JSON_HEADER = {"Content-Type": "application/json"}
 
 
@@ -33,103 +35,108 @@ class Upf:
     port: int
 
 
+@dataclass
+class CreateGnbParams:
+    """Parameters to create a gNB."""
+
+    tac: int
+
+
+@dataclass
+class CreateUPFParams:
+    """Parameters to create a UPF."""
+
+    port: int
+
+
 class NMS:
     """Handle NMS API calls."""
 
     def __init__(self, url: str):
         self.url = url
 
+    def _make_request(
+        self,
+        method: str,
+        endpoint: str,
+        data: any = None,  # type: ignore[reportGeneralTypeIssues]
+    ) -> Any | None:
+        """Make an HTTP request and handle common error patterns."""
+        headers = JSON_HEADER
+        url = f"{self.url}{endpoint}"
+        try:
+            req = requests.request(
+                method=method,
+                url=url,
+                headers=headers,
+                json=data,
+            )
+        except requests.RequestException as e:
+            logger.error("HTTP request failed: %s", e)
+            return None
+        except OSError as e:
+            logger.error("couldn't complete HTTP request: %s", e)
+            return None
+        try:
+            req.raise_for_status()
+        except requests.HTTPError:
+            logger.error(
+                "Request failed: code %s",
+                req.status_code,
+            )
+            return None
+        try:
+            response = req.json()
+        except json.JSONDecodeError:
+            return None
+        return response
+
     def list_gnbs(self) -> List[GnodeB]:
         """List gNBs from the NMS inventory."""
-        inventory_url = f"{self.url}/{GNB_CONFIG_URL}"
-        json_gnb_list = self._get_resources_from_inventory(inventory_url)
-        return self._transform_response_to_gnb(json_gnb_list)
+        response = self._make_request("GET", f"/{GNB_CONFIG_URL}")
+        if not response:
+            return []
+        try:
+            return [GnodeB(name=item["name"], tac=int(item["tac"])) for item in response]
+        except KeyError:
+            logger.error("Failed to parse gNB list")
+            return []
+        except ValueError:
+            logger.error("Failed to parse gNB list")
+            return []
 
     def create_gnb(self, name: str, tac: int) -> None:
         """Create a gNB in the NMS inventory."""
-        inventory_url = f"{self.url}/{GNB_CONFIG_URL}/{name}"
-        data = {"tac": str(tac)}
-        self._add_resource_to_inventory(inventory_url, name, data)
+        create_gnb_params = CreateGnbParams(tac=tac)
+        self._make_request("POST", f"/{GNB_CONFIG_URL}/{name}", data=asdict(create_gnb_params))
+        logger.info("gNB %s created in NMS", name)
 
     def delete_gnb(self, name: str) -> None:
         """Delete a gNB list from the NMS inventory."""
-        inventory_url = f"{self.url}/{GNB_CONFIG_URL}/{name}"
-        self._delete_resource_from_inventory(inventory_url, name)
+        self._make_request("DELETE", f"/{GNB_CONFIG_URL}/{name}")
+        logger.info("UPF %s deleted from NMS", name)
 
     def list_upfs(self) -> List[Upf]:
         """List UPFs from the NMS inventory."""
-        inventory_url = f"{self.url}/{UPF_CONFIG_URL}"
-        json_upf_list = self._get_resources_from_inventory(inventory_url)
-        return self._transform_response_to_upf(json_upf_list)
+        response = self._make_request("GET", f"/{UPF_CONFIG_URL}")
+        if not response:
+            return []
+        try:
+            return [Upf(hostname=item["hostname"], port=int(item["port"])) for item in response]
+        except KeyError:
+            logger.error("Failed to parse UPF list")
+            return []
+        except ValueError:
+            logger.error("Failed to parse UPF list")
+            return []
 
     def create_upf(self, hostname: str, port: int) -> None:
         """Create a UPF in the NMS inventory."""
-        inventory_url = f"{self.url}/{UPF_CONFIG_URL}/{hostname}"
-        data = {"port": str(port)}
-        self._add_resource_to_inventory(inventory_url, hostname, data)
+        create_upf_params = CreateUPFParams(port=port)
+        self._make_request("POST", f"/{UPF_CONFIG_URL}/{hostname}", data=asdict(create_upf_params))
+        logger.info("UPF %s created in NMS", hostname)
 
     def delete_upf(self, hostname: str) -> None:
         """Delete a UPF list from the NMS inventory."""
-        inventory_url = f"{self.url}/{UPF_CONFIG_URL}/{hostname}"
-        self._delete_resource_from_inventory(inventory_url, hostname)
-
-    @staticmethod
-    def _get_resources_from_inventory(inventory_url: str) -> List[Dict]:
-        try:
-            response = requests.get(inventory_url)
-            response.raise_for_status()
-        except requests.exceptions.ConnectionError as e:
-            logger.error("Failed to connect to NMS: %s", e)
-            return []
-        except requests.HTTPError as e:
-            logger.error("Failed to get resource from inventory: %s", e)
-            return []
-        resources = response.json()
-        logger.info("Got %s from inventory", resources)
-        return resources
-
-    @staticmethod
-    def _add_resource_to_inventory(url: str, resource_name: str, data: dict) -> None:
-        try:
-            response = requests.post(url, headers=JSON_HEADER, json=data)
-            response.raise_for_status()
-        except requests.exceptions.ConnectionError as e:
-            logger.error("Failed to connect to NMS: %s", e)
-            return
-        except requests.HTTPError as e:
-            logger.error("Failed to add %s to NMS: %s", resource_name, e)
-            return
-        logger.info("%s added to NMS", resource_name)
-
-    @staticmethod
-    def _delete_resource_from_inventory(inventory_url: str, resource_name: str) -> None:
-        try:
-            response = requests.delete(inventory_url)
-            response.raise_for_status()
-        except requests.exceptions.ConnectionError as e:
-            logger.error("Failed to connect to NMS: %s", e)
-            return
-        except requests.HTTPError as e:
-            logger.error("Failed to remove %s from NMS: %s", resource_name, e)
-            return
-        logger.info("%s removed from NMS", resource_name)
-
-    @staticmethod
-    def _transform_response_to_gnb(json_data: List[Dict]) -> List[GnodeB]:
-        gnb_list = []
-        for item in json_data:
-            try:
-                gnb_list.append(GnodeB(name=item["name"], tac=int(item["tac"])))
-            except (ValueError, KeyError):
-                logger.error("invalid gnB %s", item)
-        return gnb_list
-
-    @staticmethod
-    def _transform_response_to_upf(json_data: List[Dict]) -> List[Upf]:
-        upf_list = []
-        for item in json_data:
-            try:
-                upf_list.append(Upf(hostname=item["hostname"], port=int(item["port"])))
-            except (ValueError, KeyError):
-                logger.error("invalid UPF %s", item)
-        return upf_list
+        self._make_request("DELETE", f"/{UPF_CONFIG_URL}/{hostname}")
+        logger.info("UPF %s deleted from NMS", hostname)
