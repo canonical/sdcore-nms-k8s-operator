@@ -259,9 +259,104 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
 
             assert state_out.unit_status == WaitingStatus("Waiting for NMS service to start")
 
+    def test_given_nms_api_not_available_when_collect_unit_status_then_status_is_waiting(  # noqa: E501
+        self,
+    ):
+        self.mock_is_api_available.return_value = False
+        with tempfile.TemporaryDirectory() as tempdir:
+            auth_database_relation = scenario.Relation(
+                endpoint="auth_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "apple",
+                    "password": "hamburger",
+                    "uris": "1.2.3.4:1234",
+                },
+            )
+            common_database_relation = scenario.Relation(
+                endpoint="common_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            config_mount = scenario.Mount(
+                location="/nms/config",
+                source=tempdir,
+            )
+            container = scenario.Container(
+                name="nms",
+                can_connect=True,
+                mounts={"config": config_mount},
+                layers={"nms": Layer({"services": {"nms": {}}})},
+                service_statuses={"nms": ServiceStatus.ACTIVE},
+            )
+            state_in = scenario.State(
+                leader=True,
+                relations={auth_database_relation, common_database_relation},
+                containers={container},
+            )
+            with open(f"{tempdir}/nmscfg.conf", "w") as f:
+                f.write("whatever config file content")
+
+            state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
+
+            assert state_out.unit_status == WaitingStatus("NMS API not yet available")
+
+    def test_given_nms_not_initialized_when_collect_unit_status_then_status_is_waiting(  # noqa: E501
+        self,
+    ):
+        self.mock_is_api_available.return_value = True
+        self.mock_is_initialized.return_value = False
+        with tempfile.TemporaryDirectory() as tempdir:
+            auth_database_relation = scenario.Relation(
+                endpoint="auth_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "apple",
+                    "password": "hamburger",
+                    "uris": "1.2.3.4:1234",
+                },
+            )
+            common_database_relation = scenario.Relation(
+                endpoint="common_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            config_mount = scenario.Mount(
+                location="/nms/config",
+                source=tempdir,
+            )
+            container = scenario.Container(
+                name="nms",
+                can_connect=True,
+                mounts={"config": config_mount},
+                layers={"nms": Layer({"services": {"nms": {}}})},
+                service_statuses={"nms": ServiceStatus.ACTIVE},
+            )
+            state_in = scenario.State(
+                leader=True,
+                relations={auth_database_relation, common_database_relation},
+                containers={container},
+            )
+            with open(f"{tempdir}/nmscfg.conf", "w") as f:
+                f.write("whatever config file content")
+
+            state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
+
+            assert state_out.unit_status == WaitingStatus("NMS not yet initialized")
+
     def test_given_container_ready_db_relations_exist_storage_attached_and_config_files_exist_when_collect_unit_status_then_status_is_active(  # noqa: E501
         self,
     ):
+        self.mock_is_api_available.return_value = True
+        self.mock_is_initialized.return_value = True
         with tempfile.TemporaryDirectory() as tempdir:
             auth_database_relation = scenario.Relation(
                 endpoint="auth_database",
