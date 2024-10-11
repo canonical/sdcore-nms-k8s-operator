@@ -10,15 +10,11 @@ from nms import NMS, GnodeB, Upf
 
 
 class TestNMS:
-    patcher_request_get = patch("requests.get")
-    patcher_request_post = patch("requests.post")
-    patcher_request_delete = patch("requests.delete")
+    patcher_request = patch("requests.request")
 
     @pytest.fixture(autouse=True)
     def setUp(self, request):
-        self.mock_request_get = TestNMS.patcher_request_get.start()
-        self.mock_request_post = TestNMS.patcher_request_post.start()
-        self.mock_request_delete = TestNMS.patcher_request_delete.start()
+        self.mock_request = TestNMS.patcher_request.start()
         self.nms = NMS("some_url")
         request.addfinalizer(self.tearDown)
 
@@ -35,7 +31,7 @@ class TestNMS:
     @staticmethod
     def mock_response_with_connection_error_exception() -> MagicMock:
         mock_response = MagicMock()
-        mock_response.raise_for_status.side_effect = requests.exceptions.ConnectionError(
+        mock_response.raise_for_status.side_effect = requests.exceptions.RequestException(
             "Error connecting to NMS"
         )
         return mock_response
@@ -50,33 +46,34 @@ class TestNMS:
     @pytest.mark.parametrize(
         "exception",
         [
-            pytest.param(
-                mock_response_with_http_error_exception,
-            ),
-            pytest.param(
-                mock_response_with_connection_error_exception,
-            ),
+            requests.RequestException("Error connecting to NMS"),
+            OSError("Error connecting to NMS"),
         ],
     )
-    def test_given_exception_is_raised_when_get_gnb_then_an_empty_list_is_returned(
+    def test_given_exception_is_raised_when_list_gnbs_then_an_empty_list_is_returned(
         self, exception
     ):
-        self.mock_request_get.return_value = exception()
+        self.mock_request.side_effect = exception
 
         gnbs = self.nms.list_gnbs()
 
         assert gnbs == []
 
     def test_when_list_gnbs_then_gnb_url_is_used(self):
-        self.mock_request_get.return_value = self.mock_response_with_list([])
+        self.mock_request.return_value = self.mock_response_with_list([])
 
         self.nms.list_gnbs()
 
-        self.mock_request_get.assert_called_once_with("some_url/config/v1/inventory/gnb")
+        self.mock_request.assert_called_once_with(
+            method="GET",
+            url="some_url/config/v1/inventory/gnb",
+            headers={"Content-Type": "application/json"},
+            json=None,
+        )
 
     def test_given_nms_returns_a_gnb_list_when_list_gnbs_then_a_gnb_list_is_returned(self):
         nms_gnbs = [{"name": "some.gnb.name", "tac": "111"}]
-        self.mock_request_get.return_value = self.mock_response_with_list(nms_gnbs)
+        self.mock_request.return_value = self.mock_response_with_list(nms_gnbs)
 
         gnbs = self.nms.list_gnbs()
 
@@ -86,7 +83,7 @@ class TestNMS:
 
     def test_given_nms_returns_an_empty_list_when_list_gnbs_then_empty_list_is_returned(self):
         nms_gnbs = []
-        self.mock_request_get.return_value = self.mock_response_with_list(nms_gnbs)
+        self.mock_request.return_value = self.mock_response_with_list(nms_gnbs)
 
         gnbs = self.nms.list_gnbs()
 
@@ -98,7 +95,7 @@ class TestNMS:
             {"name": "a_gnb_name", "tac": "342"},
             {"name": "other.gnb_name", "tac": "99"},
         ]
-        self.mock_request_get.return_value = self.mock_response_with_list(nms_gnbs)
+        self.mock_request.return_value = self.mock_response_with_list(nms_gnbs)
 
         gnbs = self.nms.list_gnbs()
 
@@ -123,12 +120,13 @@ class TestNMS:
         ],
     )
     def test_given_exception_is_raised_when_create_gnb_then_exception_is_handled(self, exception):
-        self.mock_request_post.return_value = exception()
+        self.mock_request.side_effect = exception()
 
         self.nms.create_gnb(name="some.gnb.name", tac=111)
 
-        self.mock_request_post.assert_called_once_with(
-            "some_url/config/v1/inventory/gnb/some.gnb.name",
+        self.mock_request.assert_called_once_with(
+            method="POST",
+            url="some_url/config/v1/inventory/gnb/some.gnb.name",
             headers={"Content-Type": "application/json"},
             json={"tac": "111"},
         )
@@ -136,8 +134,9 @@ class TestNMS:
     def test_given_a_valid_gnb_when_create_gnb_then_gnb_is_added_to_nms(self):
         self.nms.create_gnb(name="some.gnb.name", tac=111)
 
-        self.mock_request_post.assert_called_once_with(
-            "some_url/config/v1/inventory/gnb/some.gnb.name",
+        self.mock_request.assert_called_once_with(
+            method="POST",
+            url="some_url/config/v1/inventory/gnb/some.gnb.name",
             headers={"Content-Type": "application/json"},
             json={"tac": "111"},
         )
@@ -154,21 +153,27 @@ class TestNMS:
         ],
     )
     def test_given_exception_is_raised_when_delete_gnb_then_exceptions_is_handled(self, exception):
-        self.mock_request_delete.return_value = exception()
+        self.mock_request.side_effect = exception()
 
         gnb_name = "some.gnb.name"
         self.nms.delete_gnb(name=gnb_name)
 
-        self.mock_request_delete.assert_called_once_with(
-            f"some_url/config/v1/inventory/gnb/{gnb_name}"
+        self.mock_request.assert_called_once_with(
+            method="DELETE",
+            url="some_url/config/v1/inventory/gnb/some.gnb.name",
+            headers={"Content-Type": "application/json"},
+            json=None,
         )
 
     def test_given_valid_gnb_when_delete_gnb_then_gnb_is_successfully_deleted(self):
         gnb_name = "some.gnb.name"
         self.nms.delete_gnb(name=gnb_name)
 
-        self.mock_request_delete.assert_called_once_with(
-            f"some_url/config/v1/inventory/gnb/{gnb_name}"
+        self.mock_request.assert_called_once_with(
+            method="DELETE",
+            url="some_url/config/v1/inventory/gnb/some.gnb.name",
+            headers={"Content-Type": "application/json"},
+            json=None,
         )
 
     @pytest.mark.parametrize(
@@ -185,7 +190,7 @@ class TestNMS:
     def test_given_exception_is_raised_when_list_upfs_then_an_empty_list_is_returned(
         self, exception
     ):
-        self.mock_request_get.return_value = exception()
+        self.mock_request.side_effect = exception()
 
         upfs = self.nms.list_upfs()
 
@@ -193,15 +198,20 @@ class TestNMS:
 
     def test_when_list_upfs_then_upf_url_is_used(self):
         nms_upfs = []
-        self.mock_request_get.return_value = self.mock_response_with_list(nms_upfs)
+        self.mock_request.side_effect = self.mock_response_with_list(nms_upfs)
 
         self.nms.list_upfs()
 
-        self.mock_request_get.assert_called_once_with("some_url/config/v1/inventory/upf")
+        self.mock_request.assert_called_once_with(
+            method="GET",
+            url="some_url/config/v1/inventory/upf",
+            headers={"Content-Type": "application/json"},
+            json=None,
+        )
 
     def test_given_nms_returns_a_upf_list_when_list_upfs_then_a_upf_list_is_returned(self):
         nms_upfs = [{"hostname": "some.host.name", "port": "111"}]
-        self.mock_request_get.return_value = self.mock_response_with_list(nms_upfs)
+        self.mock_request.return_value = self.mock_response_with_list(nms_upfs)
 
         upfs = self.nms.list_upfs()
 
@@ -211,7 +221,7 @@ class TestNMS:
 
     def test_given_nms_returns_an_empty_list_when_list_upfs_then_empty_list_is_returned(self):
         nms_upfs = []
-        self.mock_request_get.return_value = self.mock_response_with_list(nms_upfs)
+        self.mock_request.return_value = self.mock_response_with_list(nms_upfs)
 
         upfs = self.nms.list_upfs()
 
@@ -223,7 +233,7 @@ class TestNMS:
             {"hostname": "a_host_name", "port": "342"},
             {"hostname": "other.host_name", "port": "99"},
         ]
-        self.mock_request_get.return_value = self.mock_response_with_list(nms_upfs)
+        self.mock_request.return_value = self.mock_response_with_list(nms_upfs)
 
         upfs = self.nms.list_upfs()
 
@@ -248,12 +258,13 @@ class TestNMS:
         ],
     )
     def test_given_exception_is_raised_when_create_upf_then_exception_is_handled(self, exception):
-        self.mock_request_post.return_value = exception()
+        self.mock_request.side_effect = exception()
 
         self.nms.create_upf(hostname="some.upf.name", port=111)
 
-        self.mock_request_post.assert_called_once_with(
-            "some_url/config/v1/inventory/upf/some.upf.name",
+        self.mock_request.assert_called_once_with(
+            method="POST",
+            url="some_url/config/v1/inventory/upf/some.upf.name",
             headers={"Content-Type": "application/json"},
             json={"port": "111"},
         )
@@ -261,8 +272,9 @@ class TestNMS:
     def test_given_a_valid_upf_when_create_upf_then_upf_is_added_to_nms(self):
         self.nms.create_upf(hostname="some.upf.name", port=22)
 
-        self.mock_request_post.assert_called_once_with(
-            "some_url/config/v1/inventory/upf/some.upf.name",
+        self.mock_request.assert_called_once_with(
+            method="POST",
+            url="some_url/config/v1/inventory/upf/some.upf.name",
             headers={"Content-Type": "application/json"},
             json={"port": "22"},
         )
@@ -279,28 +291,35 @@ class TestNMS:
         ],
     )
     def test_given_exception_is_raised_when_delete_upf_then_exceptions_is_handled(self, exception):
-        self.mock_request_delete.return_value = exception()
+        self.mock_request.side_effect = exception()
 
         upf_name = "some.upf.name"
         self.nms.delete_upf(hostname=upf_name)
 
-        self.mock_request_delete.assert_called_once_with(
-            f"some_url/config/v1/inventory/upf/{upf_name}"
+        self.mock_request.assert_called_once_with(
+            method="DELETE",
+            url="some_url/config/v1/inventory/upf/some.upf.name",
+            headers={"Content-Type": "application/json"},
+            json=None,
         )
 
     def test_given_valid_upf_when_delete_upf_then_upf_is_successfully_deleted(self):
         upf_name = "some.upf.name"
+
         self.nms.delete_upf(hostname=upf_name)
 
-        self.mock_request_delete.assert_called_once_with(
-            f"some_url/config/v1/inventory/upf/{upf_name}"
+        self.mock_request.assert_called_once_with(
+            method="DELETE",
+            url="some_url/config/v1/inventory/upf/some.upf.name",
+            headers={"Content-Type": "application/json"},
+            json=None,
         )
 
     @pytest.mark.parametrize(
         "gnb",
         [
             pytest.param(
-                {"hostname": "some.gnb.name", "tac": "111"},
+                {"tac": "111"},
                 id="missing_name_parameter",
             ),
             pytest.param(
@@ -315,7 +334,7 @@ class TestNMS:
     )
     def test_given_nms_returns_an_invalid_gnb_when_list_gnbs_then_gnb_is_not_returned(self, gnb):
         nms_gnbs = [gnb]
-        self.mock_request_get.return_value = self.mock_response_with_list(nms_gnbs)
+        self.mock_request.return_value = self.mock_response_with_list(nms_gnbs)
 
         gnbs = self.nms.list_gnbs()
 
@@ -325,11 +344,11 @@ class TestNMS:
         "upf",
         [
             pytest.param(
-                {"name": "some.host.name", "port": "111"},
+                {"port": "111"},
                 id="missing_hostname_parameter",
             ),
             pytest.param(
-                {"hostname": "some.host.name", "tac": "111"},
+                {"hostname": "some.host.name"},
                 id="missing_port_parameter",
             ),
             pytest.param(
@@ -340,7 +359,7 @@ class TestNMS:
     )
     def test_given_nms_returns_an_invalid_upf_when_list_upfs_then_upf_is_not_returned(self, upf):
         nms_upfs = [upf]
-        self.mock_request_get.return_value = self.mock_response_with_list(nms_upfs)
+        self.mock_request.return_value = self.mock_response_with_list(nms_upfs)
 
         upfs = self.nms.list_upfs()
 
