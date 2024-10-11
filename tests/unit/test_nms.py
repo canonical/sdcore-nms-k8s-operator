@@ -55,19 +55,19 @@ class TestNMS:
     ):
         self.mock_request.side_effect = exception
 
-        gnbs = self.nms.list_gnbs()
+        gnbs = self.nms.list_gnbs(token="some_token")
 
         assert gnbs == []
 
     def test_when_list_gnbs_then_gnb_url_is_used(self):
         self.mock_request.return_value = self.mock_response_with_list([])
 
-        self.nms.list_gnbs()
+        self.nms.list_gnbs(token="some_token")
 
         self.mock_request.assert_called_once_with(
             method="GET",
             url="some_url/config/v1/inventory/gnb",
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
             json=None,
         )
 
@@ -75,7 +75,7 @@ class TestNMS:
         nms_gnbs = [{"name": "some.gnb.name", "tac": "111"}]
         self.mock_request.return_value = self.mock_response_with_list(nms_gnbs)
 
-        gnbs = self.nms.list_gnbs()
+        gnbs = self.nms.list_gnbs(token="some_token")
 
         expected_gnb = GnodeB(name="some.gnb.name", tac=111)
         assert len(gnbs) == 1
@@ -85,7 +85,7 @@ class TestNMS:
         nms_gnbs = []
         self.mock_request.return_value = self.mock_response_with_list(nms_gnbs)
 
-        gnbs = self.nms.list_gnbs()
+        gnbs = self.nms.list_gnbs(token="some_token")
 
         assert gnbs == []
 
@@ -97,7 +97,7 @@ class TestNMS:
         ]
         self.mock_request.return_value = self.mock_response_with_list(nms_gnbs)
 
-        gnbs = self.nms.list_gnbs()
+        gnbs = self.nms.list_gnbs(token="some_token")
 
         expected_gnbs = [
             GnodeB(name="some.gnb.name", tac=111),
@@ -122,22 +122,22 @@ class TestNMS:
     def test_given_exception_is_raised_when_create_gnb_then_exception_is_handled(self, exception):
         self.mock_request.side_effect = exception()
 
-        self.nms.create_gnb(name="some.gnb.name", tac=111)
+        self.nms.create_gnb(name="some.gnb.name", tac=111, token="some_token")
 
         self.mock_request.assert_called_once_with(
             method="POST",
             url="some_url/config/v1/inventory/gnb/some.gnb.name",
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
             json={"tac": "111"},
         )
 
     def test_given_a_valid_gnb_when_create_gnb_then_gnb_is_added_to_nms(self):
-        self.nms.create_gnb(name="some.gnb.name", tac=111)
+        self.nms.create_gnb(name="some.gnb.name", tac=111, token="some_token")
 
         self.mock_request.assert_called_once_with(
             method="POST",
             url="some_url/config/v1/inventory/gnb/some.gnb.name",
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
             json={"tac": "111"},
         )
 
@@ -156,23 +156,23 @@ class TestNMS:
         self.mock_request.side_effect = exception()
 
         gnb_name = "some.gnb.name"
-        self.nms.delete_gnb(name=gnb_name)
+        self.nms.delete_gnb(name=gnb_name, token="some_token")
 
         self.mock_request.assert_called_once_with(
             method="DELETE",
             url="some_url/config/v1/inventory/gnb/some.gnb.name",
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
             json=None,
         )
 
     def test_given_valid_gnb_when_delete_gnb_then_gnb_is_successfully_deleted(self):
         gnb_name = "some.gnb.name"
-        self.nms.delete_gnb(name=gnb_name)
+        self.nms.delete_gnb(name=gnb_name, token="some_token")
 
         self.mock_request.assert_called_once_with(
             method="DELETE",
             url="some_url/config/v1/inventory/gnb/some.gnb.name",
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
             json=None,
         )
 
@@ -192,7 +192,7 @@ class TestNMS:
     ):
         self.mock_request.side_effect = exception()
 
-        upfs = self.nms.list_upfs()
+        upfs = self.nms.list_upfs(token="some_token")
 
         assert upfs == []
 
@@ -200,12 +200,12 @@ class TestNMS:
         nms_upfs = []
         self.mock_request.side_effect = self.mock_response_with_list(nms_upfs)
 
-        self.nms.list_upfs()
+        self.nms.list_upfs(token="some_token")
 
         self.mock_request.assert_called_once_with(
             method="GET",
             url="some_url/config/v1/inventory/upf",
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
             json=None,
         )
 
@@ -213,7 +213,7 @@ class TestNMS:
         nms_upfs = [{"hostname": "some.host.name", "port": "111"}]
         self.mock_request.return_value = self.mock_response_with_list(nms_upfs)
 
-        upfs = self.nms.list_upfs()
+        upfs = self.nms.list_upfs(token="some_token")
 
         expected_upf = Upf(hostname="some.host.name", port=111)
         assert len(upfs) == 1
@@ -223,7 +223,7 @@ class TestNMS:
         nms_upfs = []
         self.mock_request.return_value = self.mock_response_with_list(nms_upfs)
 
-        upfs = self.nms.list_upfs()
+        upfs = self.nms.list_upfs(token="some_token")
 
         assert upfs == []
 
@@ -235,7 +235,7 @@ class TestNMS:
         ]
         self.mock_request.return_value = self.mock_response_with_list(nms_upfs)
 
-        upfs = self.nms.list_upfs()
+        upfs = self.nms.list_upfs(token="some_token")
 
         expected_upfs = [
             Upf(hostname="some.host.name", port=111),
@@ -260,22 +260,22 @@ class TestNMS:
     def test_given_exception_is_raised_when_create_upf_then_exception_is_handled(self, exception):
         self.mock_request.side_effect = exception()
 
-        self.nms.create_upf(hostname="some.upf.name", port=111)
+        self.nms.create_upf(hostname="some.upf.name", port=111, token="some_token")
 
         self.mock_request.assert_called_once_with(
             method="POST",
             url="some_url/config/v1/inventory/upf/some.upf.name",
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
             json={"port": "111"},
         )
 
     def test_given_a_valid_upf_when_create_upf_then_upf_is_added_to_nms(self):
-        self.nms.create_upf(hostname="some.upf.name", port=22)
+        self.nms.create_upf(hostname="some.upf.name", port=22, token="some_token")
 
         self.mock_request.assert_called_once_with(
             method="POST",
             url="some_url/config/v1/inventory/upf/some.upf.name",
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
             json={"port": "22"},
         )
 
@@ -294,24 +294,24 @@ class TestNMS:
         self.mock_request.side_effect = exception()
 
         upf_name = "some.upf.name"
-        self.nms.delete_upf(hostname=upf_name)
+        self.nms.delete_upf(hostname=upf_name, token="some_token")
 
         self.mock_request.assert_called_once_with(
             method="DELETE",
             url="some_url/config/v1/inventory/upf/some.upf.name",
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
             json=None,
         )
 
     def test_given_valid_upf_when_delete_upf_then_upf_is_successfully_deleted(self):
         upf_name = "some.upf.name"
 
-        self.nms.delete_upf(hostname=upf_name)
+        self.nms.delete_upf(hostname=upf_name, token="some_token")
 
         self.mock_request.assert_called_once_with(
             method="DELETE",
             url="some_url/config/v1/inventory/upf/some.upf.name",
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
             json=None,
         )
 
@@ -336,7 +336,7 @@ class TestNMS:
         nms_gnbs = [gnb]
         self.mock_request.return_value = self.mock_response_with_list(nms_gnbs)
 
-        gnbs = self.nms.list_gnbs()
+        gnbs = self.nms.list_gnbs(token="some_token")
 
         assert gnbs == []
 
@@ -361,6 +361,6 @@ class TestNMS:
         nms_upfs = [upf]
         self.mock_request.return_value = self.mock_response_with_list(nms_upfs)
 
-        upfs = self.nms.list_upfs()
+        upfs = self.nms.list_upfs(token="some_token")
 
         assert upfs == []
