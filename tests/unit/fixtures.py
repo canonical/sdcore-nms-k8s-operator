@@ -14,6 +14,11 @@ class NMSUnitTestFixtures:
     patcher_set_webui_url_in_all_relations = patch(
         "charms.sdcore_nms_k8s.v0.sdcore_config.SdcoreConfigProvides.set_webui_url_in_all_relations"
     )
+    patcher_nms_login = patch("nms.NMS.login")
+    patcher_nms_token_is_valid = patch("nms.NMS.token_is_valid")
+    patcher_nms_is_api_available = patch("nms.NMS.is_api_available")
+    patcher_nms_is_initialized = patch("nms.NMS.is_initialized")
+    patcher_nms_create_first_user = patch("nms.NMS.create_first_user")
     patcher_nms_list_gnbs = patch("nms.NMS.list_gnbs")
     patcher_nms_create_gnb = patch("nms.NMS.create_gnb")
     patcher_nms_delete_gnb = patch("nms.NMS.delete_gnb")
@@ -27,6 +32,11 @@ class NMSUnitTestFixtures:
         self.mock_set_webui_url_in_all_relations = (
             NMSUnitTestFixtures.patcher_set_webui_url_in_all_relations.start()
         )
+        self.mock_nms_login = NMSUnitTestFixtures.patcher_nms_login.start()
+        self.mock_nms_token_is_valid = NMSUnitTestFixtures.patcher_nms_token_is_valid.start()
+        self.mock_is_api_available = NMSUnitTestFixtures.patcher_nms_is_api_available.start()
+        self.mock_is_initialized = NMSUnitTestFixtures.patcher_nms_is_initialized.start()
+        self.mock_create_first_user = NMSUnitTestFixtures.patcher_nms_create_first_user.start()
         self.mock_list_gnbs = NMSUnitTestFixtures.patcher_nms_list_gnbs.start()
         self.mock_create_gnb = NMSUnitTestFixtures.patcher_nms_create_gnb.start()
         self.mock_delete_gnb = NMSUnitTestFixtures.patcher_nms_delete_gnb.start()
