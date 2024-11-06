@@ -14,6 +14,9 @@ class NMSUnitTestFixtures:
     patcher_set_webui_url_in_all_relations = patch(
         "charms.sdcore_nms_k8s.v0.sdcore_config.SdcoreConfigProvides.set_webui_url_in_all_relations"
     )
+    patcher_get_assigned_certificate = patch(
+        "charms.tls_certificates_interface.v4.tls_certificates.TLSCertificatesRequiresV4.get_assigned_certificate"
+    )
     patcher_nms_list_gnbs = patch("nms.NMS.list_gnbs")
     patcher_nms_create_gnb = patch("nms.NMS.create_gnb")
     patcher_nms_delete_gnb = patch("nms.NMS.delete_gnb")
@@ -26,6 +29,9 @@ class NMSUnitTestFixtures:
         self.mock_check_output = NMSUnitTestFixtures.patcher_check_output.start()
         self.mock_set_webui_url_in_all_relations = (
             NMSUnitTestFixtures.patcher_set_webui_url_in_all_relations.start()
+        )
+        self.mock_get_assigned_certificate = (
+            NMSUnitTestFixtures.patcher_get_assigned_certificate.start()
         )
         self.mock_list_gnbs = NMSUnitTestFixtures.patcher_nms_list_gnbs.start()
         self.mock_create_gnb = NMSUnitTestFixtures.patcher_nms_create_gnb.start()
