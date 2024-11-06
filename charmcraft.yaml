@@ -16,6 +16,8 @@ containers:
     mounts:
       - storage: config
         location: /nms/config
+      - storage: certs
+        location: /support/TLS
 
 resources:
   nms-image:
@@ -46,6 +48,8 @@ requires:
     interface: fiveg_n4
   logging:
     interface: loki_push_api
+  certificates:
+    interface: tls-certificates
 
 provides:
   sdcore_config:

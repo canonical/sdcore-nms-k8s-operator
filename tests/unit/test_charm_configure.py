@@ -10,6 +10,7 @@ import scenario
 from ops.pebble import Layer
 
 from nms import GnodeB, Upf
+from tests.unit.certificates_helpers import example_cert_and_key
 from tests.unit.fixtures import (
     NMSUnitTestFixtures,
 )
@@ -18,6 +19,7 @@ EXPECTED_CONFIG_FILE_PATH = "tests/unit/expected_nms_cfg.yaml"
 
 
 class TestCharmConfigure(NMSUnitTestFixtures):
+
     def test_given_db_relations_do_not_exist_when_pebble_ready_then_nms_config_file_is_not_written(  # noqa: E501
         self,
     ):
@@ -59,6 +61,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "11.11.1.1:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             config_mount = scenario.Mount(
                 location="/nms/config",
                 source=tempdir,
@@ -73,7 +78,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             state_in = scenario.State(
                 leader=True,
                 containers={container},
-                relations={common_database_relation, auth_database_relation},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    certificates_relation,
+                },
             )
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
@@ -96,6 +105,56 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             auth_database_relation = scenario.Relation(
                 endpoint="auth_database",
                 interface="mongodb_client",
+            )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
+            config_mount = scenario.Mount(
+                location="/nms/config",
+                source=tempdir,
+            )
+            container = scenario.Container(
+                name="nms",
+                can_connect=True,
+                mounts={
+                    "config": config_mount,
+                },
+            )
+            state_in = scenario.State(
+                leader=True,
+                containers={container},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    certificates_relation,
+                },
+            )
+
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
+
+            assert not os.path.exists(f"{tempdir}/nmscfg.conf")
+
+    def test_given_certificates_relation_doesnt_exist_when_pebble_ready_then_nms_config_file_is_not_written(  # noqa: E501
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as tempdir:
+            common_database_relation = scenario.Relation(
+                endpoint="common_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "1.9.11.4:1234",
+                },
+            )
+            auth_database_relation = scenario.Relation(
+                endpoint="auth_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "1.8.11.4:1234",
+                },
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
@@ -140,8 +199,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "1.8.11.4:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             config_mount = scenario.Mount(
                 location="/nms/config",
+                source=tempdir,
+            )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
                 source=tempdir,
             )
             container = scenario.Container(
@@ -149,13 +215,22 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             state_in = scenario.State(
                 leader=True,
                 containers={container},
-                relations={common_database_relation, auth_database_relation},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    certificates_relation,
+                },
             )
+            provider_certificate, private_key = example_cert_and_key(
+                relation_id=certificates_relation.id
+            )
+            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -185,8 +260,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             config_mount = scenario.Mount(
                 location="/nms/config",
+                source=tempdir,
+            )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
                 source=tempdir,
             )
             container = scenario.Container(
@@ -194,13 +276,24 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             state_in = scenario.State(
                 leader=True,
                 containers={container},
-                relations={common_database_relation, auth_database_relation},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    certificates_relation,
+                },
             )
+
+            provider_certificate, private_key = example_cert_and_key(
+                relation_id=certificates_relation.id
+            )
+            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
+
 
             state_out = self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -226,7 +319,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 }
             )
 
-    def test_given_db_relations_do_not_exist_when_pebble_ready_then_pebble_plan_is_empty(self):
+    def test_given_mandatory_relations_do_not_exist_when_pebble_ready_then_pebble_plan_is_empty(
+        self
+    ):
         with tempfile.TemporaryDirectory() as tempdir:
             config_mount = scenario.Mount(
                 location="/nms/config",
@@ -273,6 +368,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 "uris": "2.1.1.1:1234",
             },
         )
+        certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+        )
         container = scenario.Container(
             name="nms",
             can_connect=True,
@@ -280,14 +378,24 @@ class TestCharmConfigure(NMSUnitTestFixtures):
         state_in = scenario.State(
             leader=True,
             containers={container},
-            relations={sdcore_config_relation, common_database_relation, auth_database_relation},
+            relations={
+                sdcore_config_relation,
+                common_database_relation,
+                auth_database_relation,
+                certificates_relation,
+            },
         )
+        provider_certificate, private_key = example_cert_and_key(
+                relation_id=certificates_relation.id
+            )
+        self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
+
 
         self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
         self.mock_set_webui_url_in_all_relations.assert_not_called()
 
-    def test_given_nms_service_is_running_db_relations_are_not_joined_when_pebble_ready_then_config_url_is_not_published_for_relations(  # noqa: E501
+    def test_given_nms_service_is_running_mandatory_relations_are_not_joined_when_pebble_ready_then_config_url_is_not_published_for_relations(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -338,7 +446,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
-
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             sdcore_config_relation_1 = scenario.Relation(
                 endpoint="sdcore_config",
                 interface="sdcore_config",
@@ -351,11 +461,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 location="/nms/config",
                 source=tempdir,
             )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             state_in = scenario.State(
@@ -364,10 +479,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     auth_database_relation,
                     common_database_relation,
+                    certificates_relation,
                     sdcore_config_relation_1,
                     sdcore_config_relation_2,
                 },
             )
+            provider_certificate, private_key = example_cert_and_key(
+                relation_id=certificates_relation.id
+            )
+            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -397,6 +517,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             sdcore_config_relation = scenario.Relation(
                 endpoint="sdcore_config",
                 interface="sdcore_config",
@@ -405,11 +528,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 location="/nms/config",
                 source=tempdir,
             )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=False,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             state_in = scenario.State(
@@ -418,6 +546,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     auth_database_relation,
                     common_database_relation,
+                    certificates_relation,
                     sdcore_config_relation,
                 },
             )
@@ -545,6 +674,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             relation = scenario.Relation(
                 endpoint=relation_name,
                 interface=relation_name,
@@ -563,9 +695,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                relations={relation, auth_database_relation, common_database_relation},
+                relations={
+                    relation,
+                    auth_database_relation,
+                    common_database_relation,
+                    certificates_relation,
+                },
                 containers={container},
             )
+            self.mock_get_assigned_certificate.return_value = (None, None)
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -574,7 +712,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.mock_delete_gnb.assert_not_called()
             self.mock_delete_upf.assert_not_called()
 
-    def test_given_no_db_relations_when_pebble_ready_then_nms_resources_are_not_updated(self):
+    def test_given_no_mandatory_relations_when_pebble_ready_then_nms_resources_are_not_updated(
+        self
+    ):
         with tempfile.TemporaryDirectory() as tempdir:
             fiveg_gnb_identity_relation = scenario.Relation(
                 endpoint="fiveg_gnb_identity",
@@ -616,7 +756,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.mock_create_upf.assert_not_called()
             self.mock_delete_upf.assert_not_called()
 
-    def test_given_db_relations_when_pebble_ready_then_nms_upf_is_updated(
+    def test_given_mandatory_relations_when_pebble_ready_then_nms_upf_is_updated(
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -638,6 +778,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             fiveg_gnb_identity_relation = scenario.Relation(
                 endpoint="fiveg_gnb_identity",
                 interface="fiveg_gnb_identity",
@@ -658,11 +801,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 location="/nms/config",
                 source=tempdir,
             )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             state_in = scenario.State(
@@ -671,16 +819,21 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    certificates_relation,
                     fiveg_gnb_identity_relation,
                     fiveg_n4_relation,
                 },
             )
+            provider_certificate, private_key = example_cert_and_key(
+                relation_id=certificates_relation.id
+            )
+            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             self.mock_create_upf.assert_called_once_with(hostname="some.host.name", port=1234)
 
-    def test_given_db_relations_when_pebble_ready_then_nms_gnb_is_updated(
+    def test_given_mandatory_relations_when_pebble_ready_then_nms_gnb_is_updated(
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -702,6 +855,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             fiveg_gnb_identity_relation = scenario.Relation(
                 endpoint="fiveg_gnb_identity",
                 interface="fiveg_gnb_identity",
@@ -722,11 +878,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 location="/nms/config",
                 source=tempdir,
             )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             state_in = scenario.State(
@@ -735,10 +896,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    certificates_relation,
                     fiveg_gnb_identity_relation,
                     fiveg_n4_relation,
                 },
             )
+            provider_certificate, private_key = example_cert_and_key(
+                relation_id=certificates_relation.id
+            )
+            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -766,6 +932,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             fiveg_n4_relation_1 = scenario.Relation(
                 endpoint="fiveg_n4",
                 interface="fiveg_n4",
@@ -786,11 +955,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 location="/nms/config",
                 source=tempdir,
             )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             state_in = scenario.State(
@@ -799,10 +973,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    certificates_relation,
                     fiveg_n4_relation_1,
                     fiveg_n4_relation_2,
                 },
             )
+            provider_certificate, private_key = example_cert_and_key(
+                relation_id=certificates_relation.id
+            )
+            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -834,6 +1013,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             fiveg_gnb_identity_relation_1 = scenario.Relation(
                 endpoint="fiveg_gnb_identity",
                 interface="fiveg_gnb_identity",
@@ -854,11 +1036,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 location="/nms/config",
                 source=tempdir,
             )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             state_in = scenario.State(
@@ -867,10 +1054,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    certificates_relation,
                     fiveg_gnb_identity_relation_1,
                     fiveg_gnb_identity_relation_2,
                 },
             )
+            provider_certificate, private_key = example_cert_and_key(
+                relation_id=certificates_relation.id
+            )
+            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
+
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -902,9 +1095,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             self.mock_list_upfs.return_value = [Upf(hostname="some.host.name", port=1234)]
             config_mount = scenario.Mount(
                 location="/nms/config",
+                source=tempdir,
+            )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
                 source=tempdir,
             )
             container = scenario.Container(
@@ -912,6 +1112,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             fiveg_n4_relation = scenario.Relation(
@@ -925,8 +1126,18 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             state_in = scenario.State(
                 leader=True,
                 containers={container},
-                relations={common_database_relation, auth_database_relation, fiveg_n4_relation},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    certificates_relation,
+                    fiveg_n4_relation,
+                },
             )
+            provider_certificate, private_key = example_cert_and_key(
+                relation_id=certificates_relation.id
+            )
+            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
+
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -955,10 +1166,17 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             existing_gnbs = [GnodeB(name="some.gnb.name", tac=1234)]
             self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
                 location="/nms/config",
+                source=tempdir,
+            )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
                 source=tempdir,
             )
             container = scenario.Container(
@@ -966,6 +1184,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             fiveg_gnb_identity_relation = scenario.Relation(
@@ -982,9 +1201,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    certificates_relation,
                     fiveg_gnb_identity_relation,
                 },
             )
+            provider_certificate, private_key = example_cert_and_key(
+                relation_id=certificates_relation.id
+            )
+            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
+
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -1038,10 +1263,17 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             existing_upf = Upf(hostname="some.host.name", port=1234)
             self.mock_list_upfs.return_value = [existing_upf]
             config_mount = scenario.Mount(
                 location="/nms/config",
+                source=tempdir,
+            )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
                 source=tempdir,
             )
             container = scenario.Container(
@@ -1049,6 +1281,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             fiveg_n4_relation_1 = scenario.Relation(
@@ -1073,10 +1306,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    certificates_relation,
                     fiveg_n4_relation_1,
                     fiveg_n4_relation_2,
                 },
             )
+            provider_certificate, private_key = example_cert_and_key(
+                relation_id=certificates_relation.id
+            )
+            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
+
 
             self.ctx.run(self.ctx.on.relation_joined(fiveg_n4_relation_2), state_in)
 
@@ -1105,10 +1344,17 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             existing_gnbs = [GnodeB(name="some.gnb.name", tac=1234)]
             self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
                 location="/nms/config",
+                source=tempdir,
+            )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
                 source=tempdir,
             )
             container = scenario.Container(
@@ -1116,6 +1362,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             fiveg_gnb_identity_relation_1 = scenario.Relation(
@@ -1140,10 +1387,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    certificates_relation,
                     fiveg_gnb_identity_relation_1,
                     fiveg_gnb_identity_relation_2,
                 },
             )
+            provider_certificate, private_key = example_cert_and_key(
+                relation_id=certificates_relation.id
+            )
+            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
+
 
             self.ctx.run(self.ctx.on.relation_joined(fiveg_gnb_identity_relation_2), state_in)
 
@@ -1172,6 +1425,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             existing_upfs = [
                 Upf(hostname="some.host.name", port=1234),
                 Upf(hostname="some.host", port=22),
@@ -1181,11 +1437,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 location="/nms/config",
                 source=tempdir,
             )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             fiveg_n4_relation_1 = scenario.Relation(
@@ -1210,10 +1471,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    certificates_relation,
                     fiveg_n4_relation_1,
                     fiveg_n4_relation_2,
                 },
             )
+            provider_certificate, private_key = example_cert_and_key(
+                relation_id=certificates_relation.id
+            )
+            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
+
 
             self.ctx.run(self.ctx.on.relation_broken(fiveg_n4_relation_1), state_in)
 
@@ -1242,6 +1509,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             existing_gnbs = [
                 GnodeB(name="some.gnb.name", tac=1234),
                 GnodeB(name="gnb.name", tac=333),
@@ -1251,11 +1521,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 location="/nms/config",
                 source=tempdir,
             )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             gnb_identity_relation_1 = scenario.Relation(
@@ -1280,10 +1555,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    certificates_relation,
                     gnb_identity_relation_1,
                     gnb_identity_relation_2,
                 },
             )
+            provider_certificate, private_key = example_cert_and_key(
+                relation_id=certificates_relation.id
+            )
+            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
 
             self.ctx.run(self.ctx.on.relation_broken(gnb_identity_relation_1), state_in)
 
@@ -1312,6 +1592,13 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             existing_upfs = [
                 Upf(hostname="some.host.name", port=1234),
             ]
@@ -1325,6 +1612,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             fiveg_n4_relation = scenario.Relation(
@@ -1338,8 +1626,17 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             state_in = scenario.State(
                 leader=True,
                 containers={container},
-                relations={common_database_relation, auth_database_relation, fiveg_n4_relation},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    certificates_relation,
+                    fiveg_n4_relation,
+                },
             )
+            provider_certificate, private_key = example_cert_and_key(
+                relation_id=certificates_relation.id
+            )
+            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
 
             self.ctx.run(self.ctx.on.relation_joined(fiveg_n4_relation), state_in)
 
@@ -1368,6 +1665,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             existing_gnbs = [
                 GnodeB(name="some.gnb.name", tac=1234),
             ]
@@ -1376,11 +1676,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 location="/nms/config",
                 source=tempdir,
             )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             gnb_identity_relation = scenario.Relation(
@@ -1397,9 +1702,14 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    certificates_relation,
                     gnb_identity_relation,
                 },
             )
+            provider_certificate, private_key = example_cert_and_key(
+                relation_id=certificates_relation.id
+            )
+            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
 
             self.ctx.run(self.ctx.on.relation_joined(gnb_identity_relation), state_in)
 
@@ -1428,6 +1738,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             existing_upfs = [
                 Upf(hostname="old.name", port=1234),
             ]
@@ -1436,11 +1749,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 location="/nms/config",
                 source=tempdir,
             )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             fiveg_n4_relation = scenario.Relation(
@@ -1454,8 +1772,17 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             state_in = scenario.State(
                 leader=True,
                 containers={container},
-                relations={common_database_relation, auth_database_relation, fiveg_n4_relation},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    certificates_relation,
+                    fiveg_n4_relation,
+                },
             )
+            provider_certificate, private_key = example_cert_and_key(
+                relation_id=certificates_relation.id
+            )
+            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
 
             self.ctx.run(self.ctx.on.relation_joined(fiveg_n4_relation), state_in)
 
@@ -1484,6 +1811,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             existing_gnbs = [
                 GnodeB(name="old.gnb.name", tac=1234),
             ]
@@ -1492,11 +1822,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 location="/nms/config",
                 source=tempdir,
             )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             gnb_identity_relation = scenario.Relation(
@@ -1513,9 +1848,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    certificates_relation,
                     gnb_identity_relation,
                 },
             )
+            provider_certificate, private_key = example_cert_and_key(
+                relation_id=certificates_relation.id
+            )
+            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
+
 
             self.ctx.run(self.ctx.on.relation_joined(gnb_identity_relation), state_in)
 
