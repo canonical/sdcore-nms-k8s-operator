@@ -18,7 +18,6 @@ UPF_CONFIG_URL = "config/v1/inventory/upf"
 
 JSON_HEADER = {"Content-Type": "application/json"}
 
-
 @dataclass
 class GnodeB:
     """Class to represent a gNB."""
@@ -72,7 +71,11 @@ class NMS:
                 url=url,
                 headers=headers,
                 json=data,
+                verify=False
             )
+        except requests.exceptions.SSLError as e:
+            logger.error("SSL error: %s", e)
+            return None
         except requests.RequestException as e:
             logger.error("HTTP request failed: %s", e)
             return None
