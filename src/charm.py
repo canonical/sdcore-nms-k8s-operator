@@ -32,8 +32,8 @@ from ops.framework import EventBase
 from ops.main import main
 from ops.pebble import Layer
 
-from tls import CERTIFICATE_PATH, PRIVATE_KEY_PATH, Tls
 from nms import NMS, GnodeB, Upf
+from tls import CERTIFICATE_PATH, PRIVATE_KEY_PATH, Tls
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +141,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         )
         # Handling config changed event to publish the new url if the unit reboots and gets new IP
         self.framework.observe(self.on.config_changed, self._configure_sdcore_nms)
-        self._nms = NMS(url=f"http://{self._nms_endpoint}")
+        self._nms = NMS(url=f"https://{self._nms_endpoint}")
 
     def _configure_sdcore_nms(self, event: EventBase) -> None:
         """Handle Juju events.
@@ -405,7 +405,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
                     "nms": {
                         "override": "replace",
                         "startup": "enabled",
-                        "command": f"/bin/webconsole --webuicfg {NMS_CONFIG_PATH}",  # noqa: E501
+                        "command": f"/bin/webconsole --cfg {NMS_CONFIG_PATH}",  # noqa: E501
                         "environment": self._environment_variables,
                     },
                 },
