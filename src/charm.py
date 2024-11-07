@@ -18,12 +18,6 @@ from charms.sdcore_nms_k8s.v0.sdcore_config import (
     SdcoreConfigProvides,
 )
 from charms.sdcore_upf_k8s.v0.fiveg_n4 import N4Requires
-from charms.tls_certificates_interface.v4.tls_certificates import (
-    Certificate,
-    CertificateRequestAttributes,
-    PrivateKey,
-    TLSCertificatesRequiresV4,
-)
 from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
 from jinja2 import Environment, FileSystemLoader
 from ops import (
@@ -38,6 +32,7 @@ from ops.framework import EventBase
 from ops.main import main
 from ops.pebble import Layer
 
+from tls import CERTIFICATE_PATH, PRIVATE_KEY_PATH, Tls
 from nms import NMS, GnodeB, Upf
 
 logger = logging.getLogger(__name__)
@@ -56,11 +51,7 @@ AUTH_DATABASE_NAME = "authentication"
 COMMON_DATABASE_NAME = "free5gc"
 GRPC_PORT = 9876
 NMS_URL_PORT = 5000
-CERTS_DIR_PATH = "/support/TLS"
-CERTIFICATE_COMMON_NAME = "nms.sdcore"
 TLS_RELATION_NAME = "certificates"
-PRIVATE_KEY_NAME = "nms.key"
-CERTIFICATE_NAME = "nms.pem"
 MANDATORY_RELATIONS = [COMMON_DATABASE_RELATION_NAME, AUTH_DATABASE_RELATION_NAME, TLS_RELATION_NAME]  # noqa: E501
 
 
@@ -88,6 +79,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         self._container_name = self._service_name = "nms"
         self._container = self.unit.get_container(self._container_name)
+        self._tls = Tls(self, self._container)
         self._common_database = DatabaseRequires(
             self,
             relation_name=COMMON_DATABASE_RELATION_NAME,
@@ -107,11 +99,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             relation_name="ingress",
             strip_prefix=True,
         )
-        self._certificates = TLSCertificatesRequiresV4(
-            charm=self,
-            relationship_name=TLS_RELATION_NAME,
-            certificate_requests=[self._get_certificate_request()],
-        )
+
         self.fiveg_n4 = N4Requires(charm=self, relation_name=FIVEG_N4_RELATION_NAME)
         self._gnb_identity = GnbIdentityRequires(self, GNB_IDENTITY_RELATION_NAME)
         self._logging = LogForwarder(charm=self, relation_name=LOGGING_RELATION_NAME)
@@ -149,7 +137,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self.on.certificates_relation_broken, self._on_certificates_relation_broken
         )
         self.framework.observe(
-            self._certificates.on.certificate_available, self._configure_sdcore_nms
+            self._tls._certificates.on.certificate_available, self._configure_sdcore_nms
         )
         # Handling config changed event to publish the new url if the unit reboots and gets new IP
         self.framework.observe(self.on.config_changed, self._configure_sdcore_nms)
@@ -173,7 +161,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         if not self._auth_database_resource_is_available():
             return
-        if not self._certificate_is_available():
+        if not self._tls.certificate_is_available():
             logger.info("The TLS certificate is not available yet.")
             return
         self._configure_workload()
@@ -222,7 +210,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             event.add_status(WaitingStatus("Waiting for nms config file to be stored"))
             logger.info("Waiting for nms config file to be stored")
             return
-        if not self._certificate_is_available():
+        if not self._tls.certificate_is_available():
             event.add_status(WaitingStatus("Waiting for certificates to be available"))
             logger.info("Waiting for certificates to be available")
         if not self._is_nms_service_running():
@@ -232,6 +220,14 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
         event.add_status(ActiveStatus())
 
+    def _on_certificates_relation_broken(self, event: EventBase) -> None:
+        """Delete TLS related artifacts and reconfigures workload."""
+        if not self._container.can_connect():
+            event.defer()
+            return
+        self._tls._delete_private_key()
+        self._tls._delete_certificate()
+
     def _publish_sdcore_config_url(self) -> None:
         if not self._relation_created(SDCORE_CONFIG_RELATION_NAME):
             return
@@ -240,7 +236,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self._sdcore_config.set_webui_url_in_all_relations(webui_url=self._nms_config_url)
 
     def _configure_workload(self):
-        certificate_update_required = self._check_and_update_certificate()
+        certificate_update_required = self._tls.check_and_update_certificate()
         desired_config_file = self._generate_nms_config_file()
         if (not self._is_config_file_update_required(desired_config_file)
             and not certificate_update_required):
@@ -277,8 +273,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
             common_database_url=self._get_common_database_url(),
             auth_database_name=AUTH_DATABASE_NAME,
             auth_database_url=self._get_auth_database_url(),
-            tls_key_path=f"{CERTS_DIR_PATH}/{PRIVATE_KEY_NAME}",
-            tls_certificate_path=f"{CERTS_DIR_PATH}/{CERTIFICATE_NAME}",
+            tls_key_path=PRIVATE_KEY_PATH,
+            tls_certificate_path=CERTIFICATE_PATH,
         )
 
     def _is_nms_service_running(self) -> bool:
@@ -390,107 +386,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
     def _relation_created(self, relation_name: str) -> bool:
         return bool(self.model.relations[relation_name])
-
-    def _check_and_update_certificate(self) -> bool:
-        """Check if the certificate or private key needs an update and perform the update.
-
-        This method retrieves the currently assigned certificate and private key associated with
-        the charm's TLS relation. It checks whether the certificate or private key has changed
-        or needs to be updated. If an update is necessary, the new certificate or private key is
-        stored.
-
-        Returns:
-            bool: True if either the certificate or the private key was updated, False otherwise.
-        """
-        provider_certificate, private_key = self._certificates.get_assigned_certificate(
-            certificate_request=self._get_certificate_request()
-        )
-        if not provider_certificate or not private_key:
-            logger.debug("Certificate or private key is not available")
-            return False
-        if certificate_update_required := self._is_certificate_update_required(
-            provider_certificate.certificate
-        ):
-            self._store_certificate(certificate=provider_certificate.certificate)
-        if private_key_update_required := self._is_private_key_update_required(private_key):
-            self._store_private_key(private_key=private_key)
-        return certificate_update_required or private_key_update_required
-
-    def _is_certificate_update_required(self, certificate: Certificate) -> bool:
-        return self._get_existing_certificate() != certificate
-
-    def _is_private_key_update_required(self, private_key: PrivateKey) -> bool:
-        return self._get_existing_private_key() != private_key
-
-    def _get_existing_certificate(self) -> Optional[Certificate]:
-        return self._get_stored_certificate() if self._certificate_is_stored() else None
-
-    def _get_existing_private_key(self) -> Optional[PrivateKey]:
-        return self._get_stored_private_key() if self._private_key_is_stored() else None
-
-    def _on_certificates_relation_broken(self, event: EventBase) -> None:
-        """Delete TLS related artifacts and reconfigures workload."""
-        if not self._container.can_connect():
-            event.defer()
-            return
-        self._delete_private_key()
-        self._delete_certificate()
-
-    def _certificate_is_available(self) -> bool:
-        cert, key = self._certificates.get_assigned_certificate(
-            certificate_request=self._get_certificate_request()
-        )
-        return bool(cert and key)
-
-    def _delete_private_key(self) -> None:
-        """Remove private key from workload."""
-        if not self._private_key_is_stored():
-            return
-        self._container.remove_path(path=f"{CERTS_DIR_PATH}/{PRIVATE_KEY_NAME}")
-        logger.info("Removed private key from workload")
-
-    def _delete_certificate(self) -> None:
-        """Delete certificate from workload."""
-        if not self._certificate_is_stored():
-            return
-        self._container.remove_path(path=f"{CERTS_DIR_PATH}/{CERTIFICATE_NAME}")
-        logger.info("Removed certificate from workload")
-
-    def _private_key_is_stored(self) -> bool:
-        """Return whether private key is stored in workload."""
-        return self._container.exists(path=f"{CERTS_DIR_PATH}/{PRIVATE_KEY_NAME}")
-
-    def _get_stored_certificate(self) -> Certificate:
-        cert_string = str(self._container.pull(path=f"{CERTS_DIR_PATH}/{CERTIFICATE_NAME}").read())
-        return Certificate.from_string(cert_string)
-
-    def _get_stored_private_key(self) -> PrivateKey:
-        key_string = str(self._container.pull(path=f"{CERTS_DIR_PATH}/{PRIVATE_KEY_NAME}").read())
-        return PrivateKey.from_string(key_string)
-
-    def _certificate_is_stored(self) -> bool:
-        """Return whether certificate is stored in workload."""
-        return self._container.exists(path=f"{CERTS_DIR_PATH}/{CERTIFICATE_NAME}")
-
-    def _store_certificate(self, certificate: Certificate) -> None:
-        """Store certificate in workload."""
-        self._container.push(path=f"{CERTS_DIR_PATH}/{CERTIFICATE_NAME}", source=str(certificate))
-        logger.info("Pushed certificate to workload")
-
-    def _store_private_key(self, private_key: PrivateKey) -> None:
-        """Store private key in workload."""
-        self._container.push(
-            path=f"{CERTS_DIR_PATH}/{PRIVATE_KEY_NAME}",
-            source=str(private_key),
-        )
-        logger.info("Pushed private key to workload")
-
-    @staticmethod
-    def _get_certificate_request() -> CertificateRequestAttributes:
-        return CertificateRequestAttributes(
-            common_name=CERTIFICATE_COMMON_NAME,
-            sans_dns=frozenset([CERTIFICATE_COMMON_NAME]),
-        )
 
     @property
     def _nms_config_url(self) -> str:
