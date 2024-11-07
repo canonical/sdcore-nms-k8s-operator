@@ -72,6 +72,7 @@ async def _deploy_traefik(ops_test: OpsTest):
         channel=TRAEFIK_CHARM_CHANNEL,
         trust=True,
     )
+    await ops_test.model.integrate(relation1=f"{TRAEFIK_CHARM_NAME}:certificates", relation2=TLS_PROVIDER_CHARM_NAME)
 
 
 async def configure_traefik(ops_test: OpsTest, traefik_ip: str) -> None:
@@ -190,7 +191,7 @@ def ui_is_running(nms_endpoint: str) -> bool:
     timeout = 300  # seconds
     while time.time() - t0 < timeout:
         try:
-            response = requests.get(url=url, timeout=5)
+            response = requests.get(url=url, timeout=5, verify=False)
             response.raise_for_status()
             logger.info(response.content.decode("utf-8"))
             if "5G NMS" in response.content.decode("utf-8"):
@@ -232,8 +233,8 @@ async def deploy(ops_test: OpsTest, request):
     )
     await _deploy_database(ops_test)
     await _deploy_grafana_agent(ops_test)
-    await _deploy_traefik(ops_test)
     await _deploy_self_signed_certificates(ops_test)
+    await _deploy_traefik(ops_test)
     await _deploy_nrf(ops_test)
     await _deploy_sdcore_gnbsim(ops_test)
     await _deploy_amf(ops_test)
@@ -308,6 +309,7 @@ async def test_restore_database_and_wait_for_active_status(ops_test: OpsTest, de
     )
     await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
 
+
 @pytest.mark.abort_on_fail
 async def test_remove_tls_and_wait_for_blocked_status(ops_test: OpsTest, deploy):
     assert ops_test.model
@@ -329,7 +331,6 @@ async def test_given_related_to_traefik_when_fetch_ui_then_returns_html_content(
 ):
     # Workaround for Traefik issue: https://github.com/canonical/traefik-k8s-operator/issues/361
     traefik_ip = await get_traefik_ip_address(ops_test)
-    logger.info(traefik_ip)
     await configure_traefik(ops_test, traefik_ip)
     nms_url = await get_sdcore_nms_endpoint(ops_test)
     assert ui_is_running(nms_endpoint=nms_url)
