@@ -33,6 +33,9 @@ storage:
   config:
     type: filesystem
     minimum-size: 5M
+  certs:
+    type: filesystem
+    minimum-size: 1M
 
 requires:
   ingress:
