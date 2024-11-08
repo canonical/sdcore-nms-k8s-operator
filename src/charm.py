@@ -36,6 +36,7 @@ from ops import (
 from ops.charm import CharmBase
 from ops.framework import EventBase
 from ops.pebble import Layer
+from requests import get
 
 from nms import NMS, GnodeB, Upf
 from tls import CA_CERTIFICATE_NAME, Tls
@@ -51,12 +52,15 @@ AUTH_DATABASE_RELATION_NAME = "auth_database"
 COMMON_DATABASE_RELATION_NAME = "common_database"
 WEBUI_DATABASE_RELATION_NAME = "webui_database"
 FIVEG_N4_RELATION_NAME = "fiveg_n4"
+FIVEG_CORE_GNB_RELATION_NAME = "fiveg_core_gnb"
 GNB_IDENTITY_RELATION_NAME = "fiveg_gnb_identity"
 LOGGING_RELATION_NAME = "logging"
 SDCORE_CONFIG_RELATION_NAME = "sdcore_config"
 AUTH_DATABASE_NAME = "authentication"
 COMMON_DATABASE_NAME = "free5gc"
 WEBUI_DATABASE_NAME = "webui"
+CONFIG_API_ROUTE = "config/v1"
+NETWORK_SLICE_CONFIG_API_ENDPOINT = "network-slice"
 GRPC_PORT = 9876
 NMS_URL_PORT = 5000
 NMS_LOGIN_SECRET_LABEL = "NMS_LOGIN"
@@ -209,6 +213,10 @@ class SDCoreNMSOperatorCharm(CharmBase):
         )
         # Handling config changed event to publish the new url if the unit reboots and gets new IP
         self.framework.observe(self.on.config_changed, self._configure_sdcore_nms)
+        self.framework.observe(
+            self.on["nms"].pebble_custom_notice, self._synchronize_network_config
+        )
+
         self._nms = NMS(
             url=f"https://{socket.getfqdn()}:{NMS_URL_PORT}",
             ca_certificate_path=CA_CERTIFICATE_CHARM_PATH,
@@ -244,6 +252,18 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self._publish_sdcore_config_url()
         self._sync_gnbs()
         self._sync_upfs()
+
+    def _synchronize_network_config(self, _):
+        """Synchronize network configuration between the Core and the RAN.
+
+        Every time network configuration is updated (NetworkSlice configuration change in the NMS),
+        webconsole sends a custom Pebble notification. When it happens, this method fetches
+        the current network setup and passes the configuration to the RAN part of the network
+        through the relevant Juju integrations.
+        """
+        network_config = self._get_network_config()
+        for relation in self.model.relations.get(FIVEG_CORE_GNB_RELATION_NAME):
+
 
     def _on_collect_unit_status(self, event: CollectStatusEvent):  # noqa: C901
         """Check the unit status and set to Unit when CollectStatusEvent is fired.
@@ -495,6 +515,35 @@ class SDCoreNMSOperatorCharm(CharmBase):
                     hostname=upf.hostname, port=upf.port, token=login_details.token
                 )
 
+    def _get_network_config(self) -> dict:
+        """Get configuration of all Network Slices.
+
+        Returns:
+            dict: Dict representing configuration of gNBs
+        """
+        network_configuration = {}
+        network_slices = get(
+            f"http://{self._nms_endpoint}/{CONFIG_API_ROUTE}/{NETWORK_SLICE_CONFIG_API_ENDPOINT}"
+        ).json()
+        for network_slice in network_slices:
+            network_slice_config_json = get(
+                f"http://{self._nms_endpoint}/{CONFIG_API_ROUTE}/{NETWORK_SLICE_CONFIG_API_ENDPOINT}/{network_slice}"  # noqa: E501
+            ).json()
+            for gnb in network_slice_config_json["site-info"]["gNodeBs"]:
+                gnb_name = gnb["name"]
+                tac = gnb["tac"]
+                plmn_config = PLMNConfig(
+                    mcc=network_slice_config_json["site-info"]["plmn"]["mcc"],
+                    mnc=network_slice_config_json["site-info"]["plmn"]["mnc"],
+                    sst=network_slice_config_json["slice-id"]["sst"],
+                    sd=network_slice_config_json["slice-id"]["sd"],
+                )
+                if not network_configuration[gnb_name]:
+                    network_configuration[gnb_name] = gNodeB(tac=tac, plmns=[plmn_config])
+                else:
+                    network_configuration[gnb_name].plmns.append(plmn_config)
+        return network_configuration
+
     def _get_common_database_url(self) -> str:
         if not self._common_database_resource_is_available():
             raise RuntimeError("Database `%s` is not available", COMMON_DATABASE_NAME)
@@ -533,7 +582,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         the file is not present, an empty string is returned.
 
         Returns:
-            string: A human readable string representing the
+            string: A human-readable string representing the
             version of the workload
         """
         if self._container.exists(path=f"{WORKLOAD_VERSION_FILE_NAME}"):
