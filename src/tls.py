@@ -5,6 +5,7 @@
 """Module use to handle TLS certificates for the NMS."""
 
 import logging
+import socket
 from typing import Optional
 
 from charms.tls_certificates_interface.v4.tls_certificates import (
@@ -21,6 +22,7 @@ CERTIFICATE_COMMON_NAME = "nms.sdcore"
 TLS_RELATION_NAME = "certificates"
 PRIVATE_KEY_PATH = "/support/TLS/nms.key"
 CERTIFICATE_PATH = "/support/TLS/nms.pem"
+CA_PATH = "/support/TLS/ca.pem"
 
 class Tls:
     """Handle TLS certificates."""
@@ -60,6 +62,7 @@ class Tls:
             provider_certificate.certificate
         ):
             self._store_certificate(certificate=provider_certificate.certificate)
+            self._store_ca(ca=provider_certificate.ca)
         if private_key_was_updated := self._is_private_key_update_required(private_key):
             self._store_private_key(private_key=private_key)
         return certificate_was_update or private_key_was_updated
@@ -107,13 +110,16 @@ class Tls:
         logger.info("Pushed certificate to workload")
 
     def _store_private_key(self, private_key: PrivateKey) -> None:
-        self._container.push(path=PRIVATE_KEY_PATH, source=str(private_key),
-        )
+        self._container.push(path=PRIVATE_KEY_PATH, source=str(private_key))
         logger.info("Pushed private key to workload")
+
+    def _store_ca(self, ca: Certificate) -> None:
+        self._container.push(path=CA_PATH, source=str(ca))
+        logger.info("Pushed CA to workload")
 
     @staticmethod
     def _get_certificate_request() -> CertificateRequestAttributes:
         return CertificateRequestAttributes(
             common_name=CERTIFICATE_COMMON_NAME,
-            sans_dns=frozenset([CERTIFICATE_COMMON_NAME]),
+            sans_dns=frozenset([socket.getfqdn()]),
         )
