@@ -51,10 +51,11 @@ class CreateUPFParams:
 class NMS:
     """Handle NMS API calls."""
 
-    def __init__(self, url: str):
+    def __init__(self, url: str, ca_path: str | bool = False):
         if url.endswith("/"):
             url = url[:-1]
         self.url = url
+        self.ca_path = ca_path
 
     def _make_request(
         self,
@@ -71,7 +72,7 @@ class NMS:
                 url=url,
                 headers=headers,
                 json=data,
-                verify=False
+                verify=self.ca_path
             )
         except requests.exceptions.SSLError as e:
             logger.error("SSL error: %s", e)
@@ -118,7 +119,7 @@ class NMS:
     def delete_gnb(self, name: str) -> None:
         """Delete a gNB list from the NMS inventory."""
         self._make_request("DELETE", f"/{GNB_CONFIG_URL}/{name}")
-        logger.info("UPF %s deleted from NMS", name)
+        logger.info("gNB %s deleted from NMS", name)
 
     def list_upfs(self) -> List[Upf]:
         """List UPFs from the NMS inventory."""
