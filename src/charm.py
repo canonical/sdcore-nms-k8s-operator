@@ -5,6 +5,7 @@
 """Charmed operator for the Aether SD-Core Graphical User Interface for K8s."""
 
 import logging
+import socket
 from ipaddress import IPv4Address
 from subprocess import CalledProcessError, check_output
 from typing import List, Optional
@@ -26,10 +27,10 @@ from ops import (
     CollectStatusEvent,
     ModelError,
     WaitingStatus,
+    main,
 )
 from ops.charm import CharmBase
 from ops.framework import EventBase
-from ops.main import main
 from ops.pebble import Layer
 
 from nms import NMS, GnodeB, Upf
@@ -53,7 +54,7 @@ GRPC_PORT = 9876
 NMS_URL_PORT = 5000
 TLS_RELATION_NAME = "certificates"
 MANDATORY_RELATIONS = [COMMON_DATABASE_RELATION_NAME, AUTH_DATABASE_RELATION_NAME, TLS_RELATION_NAME]  # noqa: E501
-
+CA_PATH = "/var/lib/juju/storage/certs/0/ca.pem"
 
 def _get_pod_ip() -> Optional[str]:
     """Return the pod IP using juju client."""
@@ -98,6 +99,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             port=NMS_URL_PORT,
             relation_name="ingress",
             strip_prefix=True,
+            scheme=lambda: "https",
         )
 
         self.fiveg_n4 = N4Requires(charm=self, relation_name=FIVEG_N4_RELATION_NAME)
@@ -141,7 +143,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         )
         # Handling config changed event to publish the new url if the unit reboots and gets new IP
         self.framework.observe(self.on.config_changed, self._configure_sdcore_nms)
-        self._nms = NMS(url=f"https://{self._nms_endpoint}")
+        self._nms = NMS(url=f"https://{socket.getfqdn()}:{NMS_URL_PORT}", ca_path=CA_PATH)
 
     def _configure_sdcore_nms(self, event: EventBase) -> None:
         """Handle Juju events.
