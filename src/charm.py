@@ -46,12 +46,14 @@ NMS_CONFIG_PATH = f"{BASE_CONFIG_PATH}/{CONFIG_FILE_NAME}"
 WORKLOAD_VERSION_FILE_NAME = "/etc/workload-version"
 AUTH_DATABASE_RELATION_NAME = "auth_database"
 COMMON_DATABASE_RELATION_NAME = "common_database"
+WEBUI_DATABASE_RELATION_NAME = "webui_database"
 FIVEG_N4_RELATION_NAME = "fiveg_n4"
 GNB_IDENTITY_RELATION_NAME = "fiveg_gnb_identity"
 LOGGING_RELATION_NAME = "logging"
 SDCORE_CONFIG_RELATION_NAME = "sdcore_config"
 AUTH_DATABASE_NAME = "authentication"
 COMMON_DATABASE_NAME = "free5gc"
+WEBUI_DATABASE_NAME = "webui"
 GRPC_PORT = 9876
 NMS_URL_PORT = 5000
 NMS_LOGIN_SECRET_LABEL = "NMS_LOGIN"
@@ -88,6 +90,8 @@ def render_config_file(
     common_database_url: str,
     auth_database_name: str,
     auth_database_url: str,
+    webui_database_name: str,
+    webui_database_url: str,
 ) -> str:
     """Render nms configuration file based on Jinja template."""
     jinja2_environment = Environment(loader=FileSystemLoader("src/templates/"))
@@ -97,6 +101,8 @@ def render_config_file(
         common_database_url=common_database_url,
         auth_database_name=auth_database_name,
         auth_database_url=auth_database_url,
+        webui_database_name=webui_database_name,
+        webui_database_url=webui_database_url,
     )
 
 
@@ -125,6 +131,12 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self,
             relation_name=AUTH_DATABASE_RELATION_NAME,
             database_name=AUTH_DATABASE_NAME,
+            extra_user_roles="admin",
+        )
+        self._webui_database = DatabaseRequires(
+            self,
+            relation_name=WEBUI_DATABASE_RELATION_NAME,
+            database_name=WEBUI_DATABASE_NAME,
             extra_user_roles="admin",
         )
         self.unit.set_ports(GRPC_PORT, NMS_URL_PORT)
@@ -181,12 +193,18 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         if not self._container.exists(path=BASE_CONFIG_PATH):
             return
-        for relation in [COMMON_DATABASE_RELATION_NAME, AUTH_DATABASE_RELATION_NAME]:
+        for relation in [
+            COMMON_DATABASE_RELATION_NAME,
+            AUTH_DATABASE_RELATION_NAME,
+            WEBUI_DATABASE_RELATION_NAME,
+        ]:
             if not self._relation_created(relation):
                 return
         if not self._common_database_resource_is_available():
             return
         if not self._auth_database_resource_is_available():
+            return
+        if not self._webui_database_resource_is_available():
             return
         self._configure_charm_authorization()
         self._configure_workload()
@@ -220,6 +238,10 @@ class SDCoreNMSOperatorCharm(CharmBase):
         if not self._auth_database_resource_is_available():
             event.add_status(WaitingStatus("Waiting for the auth database to be available"))
             logger.info("Waiting for the auth database to be available")
+            return
+        if not self._webui_database_resource_is_available():
+            event.add_status(WaitingStatus("Waiting for the webui database to be available"))
+            logger.info("Waiting for the webui database to be available")
             return
         if not self._container.can_connect():
             event.add_status(WaitingStatus("Waiting for container to be ready"))
@@ -333,6 +355,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
             common_database_url=self._get_common_database_url(),
             auth_database_name=AUTH_DATABASE_NAME,
             auth_database_url=self._get_auth_database_url(),
+            webui_database_name=WEBUI_DATABASE_NAME,
+            webui_database_url=self._get_webui_database_url(),
         )
 
     def _is_nms_service_running(self) -> bool:
@@ -424,11 +448,21 @@ class SDCoreNMSOperatorCharm(CharmBase):
             "uris"
         ].split(",")[0]
 
+    def _get_webui_database_url(self) -> str:
+        if not self._common_database_resource_is_available():
+            raise RuntimeError("Database `%s` is not available", WEBUI_DATABASE_NAME)
+        return self._webui_database.fetch_relation_data()[self._webui_database.relations[0].id][
+            "uris"
+        ].split(",")[0]
+
     def _common_database_resource_is_available(self) -> bool:
         return bool(self._common_database.is_resource_created())
 
     def _auth_database_resource_is_available(self) -> bool:
         return bool(self._auth_database.is_resource_created())
+
+    def _webui_database_resource_is_available(self) -> bool:
+        return bool(self._webui_database.is_resource_created())
 
     def _get_workload_version(self) -> str:
         """Return the workload version.
@@ -473,7 +507,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
                     "nms": {
                         "override": "replace",
                         "startup": "enabled",
-                        "command": f"/bin/webconsole --webuicfg {NMS_CONFIG_PATH}",  # noqa: E501
+                        "command": f"/bin/webconsole --cfg {NMS_CONFIG_PATH}",  # noqa: E501
                         "environment": self._environment_variables,
                     },
                 },

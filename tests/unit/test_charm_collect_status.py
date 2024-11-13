@@ -122,13 +122,22 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
                 "uris": "2.3.1.1:1234",
             },
         )
+        webui_database_relation = scenario.Relation(
+            endpoint="webui_database",
+            interface="mongodb_client",
+            remote_app_data={
+                "username": "carrot",
+                "password": "hotdog",
+                "uris": "1.1.1.1:1234",
+            },
+        )
         container = scenario.Container(
             name="nms",
             can_connect=False,
         )
         state_in = scenario.State(
             leader=True,
-            relations={auth_database_relation, common_database_relation},
+            relations={auth_database_relation, common_database_relation, webui_database_relation},
             containers={container},
         )
 
@@ -157,6 +166,15 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
                 "uris": "11.11.1.1:1234",
             },
         )
+        webui_database_relation = scenario.Relation(
+            endpoint="webui_database",
+            interface="mongodb_client",
+            remote_app_data={
+                "username": "carrot",
+                "password": "hotdog",
+                "uris": "1.1.1.1:1234",
+            },
+        )
 
         container = scenario.Container(
             name="nms",
@@ -165,7 +183,7 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
         )
         state_in = scenario.State(
             leader=True,
-            relations={auth_database_relation, common_database_relation},
+            relations={auth_database_relation, common_database_relation, webui_database_relation},
             containers={container},
         )
 
@@ -195,6 +213,15 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
                     "uris": "11.11.1.1:1234",
                 },
             )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             config_mount = scenario.Mount(
                 location="/nms/config",
                 source=tempdir,
@@ -206,7 +233,11 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                relations={auth_database_relation, common_database_relation},
+                relations={
+                    auth_database_relation,
+                    common_database_relation,
+                    webui_database_relation,
+                },
                 containers={container},
             )
 
@@ -238,6 +269,15 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             config_mount = scenario.Mount(
                 location="/nms/config",
                 source=tempdir,
@@ -249,7 +289,11 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                relations={auth_database_relation, common_database_relation},
+                relations={
+                    auth_database_relation,
+                    common_database_relation,
+                    webui_database_relation,
+                },
                 containers={container},
             )
             with open(f"{tempdir}/nmscfg.conf", "w") as f:
@@ -282,6 +326,15 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
                     "uris": "1.1.1.1:1234",
                 },
             )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             config_mount = scenario.Mount(
                 location="/nms/config",
                 source=tempdir,
@@ -295,7 +348,11 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                relations={auth_database_relation, common_database_relation},
+                relations={
+                    auth_database_relation,
+                    common_database_relation,
+                    webui_database_relation,
+                },
                 containers={container},
             )
             with open(f"{tempdir}/nmscfg.conf", "w") as f:
@@ -329,6 +386,15 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
                     "uris": "1.1.1.1:1234",
                 },
             )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             config_mount = scenario.Mount(
                 location="/nms/config",
                 source=tempdir,
@@ -342,7 +408,11 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                relations={auth_database_relation, common_database_relation},
+                relations={
+                    auth_database_relation,
+                    common_database_relation,
+                    webui_database_relation,
+                },
                 containers={container},
             )
             with open(f"{tempdir}/nmscfg.conf", "w") as f:
@@ -376,6 +446,15 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
                     "uris": "1.1.1.1:1234",
                 },
             )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             config_mount = scenario.Mount(
                 location="/nms/config",
                 source=tempdir,
@@ -389,7 +468,11 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                relations={auth_database_relation, common_database_relation},
+                relations={
+                    auth_database_relation,
+                    common_database_relation,
+                    webui_database_relation,
+                },
                 containers={container},
             )
             with open(f"{tempdir}/nmscfg.conf", "w") as f:
@@ -420,6 +503,15 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
                 "uris": "1.1.1.1:1234",
             },
         )
+        webui_database_relation = scenario.Relation(
+            endpoint="webui_database",
+            interface="mongodb_client",
+            remote_app_data={
+                "username": "carrot",
+                "password": "hotdog",
+                "uris": "1.1.1.1:1234",
+            },
+        )
 
         container = scenario.Container(
             name="nms",
@@ -429,7 +521,7 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
         )
         state_in = scenario.State(
             leader=True,
-            relations={auth_database_relation, common_database_relation},
+            relations={auth_database_relation, common_database_relation, webui_database_relation},
             containers={container},
         )
 
@@ -464,6 +556,15 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
                     "uris": "1.1.1.1:1234",
                 },
             )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
@@ -471,7 +572,11 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             )
             state_in = scenario.State(
                 leader=True,
-                relations={auth_database_relation, common_database_relation},
+                relations={
+                    auth_database_relation,
+                    common_database_relation,
+                    webui_database_relation,
+                },
                 containers={container},
             )
 

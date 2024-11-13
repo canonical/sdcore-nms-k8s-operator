@@ -30,6 +30,7 @@ DATABASE_APP_NAME = "mongodb-k8s"
 DATABASE_APP_CHANNEL = "6/beta"
 COMMON_DATABASE_RELATION_NAME = "common_database"
 AUTH_DATABASE_RELATION_NAME = "auth_database"
+WEBUI_DATABASE_RELATION_NAME = "webui_database"
 LOGGING_RELATION_NAME = "logging"
 GNBSIM_CHARM_NAME = "sdcore-gnbsim-k8s"
 GNBSIM_CHARM_CHANNEL = "1.5/edge"
@@ -274,6 +275,9 @@ async def test_relate_and_wait_for_active_status(ops_test: OpsTest, deploy):
     )
     await ops_test.model.integrate(
         relation1=f"{APP_NAME}:{AUTH_DATABASE_RELATION_NAME}", relation2=DATABASE_APP_NAME
+    )
+    await ops_test.model.integrate(
+        relation1=f"{APP_NAME}:{WEBUI_DATABASE_RELATION_NAME}", relation2=DATABASE_APP_NAME
     )
     await ops_test.model.integrate(
         relation1=f"{APP_NAME}:{LOGGING_RELATION_NAME}", relation2=GRAFANA_AGENT_APP_NAME

@@ -139,6 +139,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "1.8.11.4:1234",
                 },
             )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             config_mount = scenario.Mount(
                 location="/nms/config",
                 source=tempdir,
@@ -153,7 +162,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             state_in = scenario.State(
                 leader=True,
                 containers={container},
-                relations={common_database_relation, auth_database_relation},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    webui_database_relation,
+                },
             )
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
@@ -185,6 +198,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             config_mount = scenario.Mount(
                 location="/nms/config",
                 source=tempdir,
@@ -199,7 +221,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             state_in = scenario.State(
                 leader=True,
                 containers={container},
-                relations={common_database_relation, auth_database_relation},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    webui_database_relation,
+                },
             )
 
             state_out = self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
@@ -212,7 +238,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                         "nms": {
                             "startup": "enabled",
                             "override": "replace",
-                            "command": "/bin/webconsole --webuicfg /nms/config/nmscfg.conf",
+                            "command": "/bin/webconsole --cfg /nms/config/nmscfg.conf",
                             "environment": {
                                 "GRPC_GO_LOG_VERBOSITY_LEVEL": "99",
                                 "GRPC_GO_LOG_SEVERITY_LEVEL": "info",
@@ -342,7 +368,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
-
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             sdcore_config_relation_1 = scenario.Relation(
                 endpoint="sdcore_config",
                 interface="sdcore_config",
@@ -368,6 +402,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     auth_database_relation,
                     common_database_relation,
+                    webui_database_relation,
                     sdcore_config_relation_1,
                     sdcore_config_relation_2,
                 },
@@ -504,6 +539,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             fiveg_gnb_identity_relation = scenario.Relation(
                 endpoint="fiveg_gnb_identity",
                 interface="fiveg_gnb_identity",
@@ -539,6 +583,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     fiveg_n4_relation,
                     auth_database_relation,
                     common_database_relation,
+                    webui_database_relation,
                 },
             )
 
@@ -724,6 +769,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             fiveg_gnb_identity_relation = scenario.Relation(
                 endpoint="fiveg_gnb_identity",
                 interface="fiveg_gnb_identity",
@@ -764,6 +818,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     fiveg_gnb_identity_relation,
                     fiveg_n4_relation,
                 },
@@ -797,6 +852,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             fiveg_gnb_identity_relation = scenario.Relation(
                 endpoint="fiveg_gnb_identity",
                 interface="fiveg_gnb_identity",
@@ -837,6 +901,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     fiveg_gnb_identity_relation,
                     fiveg_n4_relation,
                 },
@@ -868,6 +933,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             fiveg_n4_relation_1 = scenario.Relation(
@@ -910,6 +984,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     fiveg_n4_relation_1,
                     fiveg_n4_relation_2,
                 },
@@ -943,6 +1018,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             fiveg_gnb_identity_relation_1 = scenario.Relation(
@@ -985,6 +1069,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     fiveg_gnb_identity_relation_1,
                     fiveg_gnb_identity_relation_2,
                 },
@@ -1020,6 +1105,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             self.mock_list_upfs.return_value = [Upf(hostname="some.host.name", port=1234)]
             config_mount = scenario.Mount(
                 location="/nms/config",
@@ -1050,7 +1144,12 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 leader=True,
                 containers={container},
                 secrets={login_secret},
-                relations={common_database_relation, auth_database_relation, fiveg_n4_relation},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    webui_database_relation,
+                    fiveg_n4_relation,
+                },
             )
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
@@ -1078,6 +1177,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             existing_gnbs = [GnodeB(name="some.gnb.name", tac=1234)]
@@ -1114,6 +1222,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     fiveg_gnb_identity_relation,
                 },
             )
@@ -1177,6 +1286,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             existing_upf = Upf(hostname="some.host.name", port=1234)
             self.mock_list_upfs.return_value = [existing_upf]
             config_mount = scenario.Mount(
@@ -1219,6 +1337,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     fiveg_n4_relation_1,
                     fiveg_n4_relation_2,
                 },
@@ -1251,6 +1370,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             existing_gnbs = [GnodeB(name="some.gnb.name", tac=1234)]
@@ -1295,6 +1423,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     fiveg_gnb_identity_relation_1,
                     fiveg_gnb_identity_relation_2,
                 },
@@ -1327,6 +1456,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             existing_upfs = [
@@ -1374,6 +1512,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     fiveg_n4_relation_1,
                     fiveg_n4_relation_2,
                 },
@@ -1406,6 +1545,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             existing_gnbs = [
@@ -1453,6 +1601,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     gnb_identity_relation_1,
                     gnb_identity_relation_2,
                 },
@@ -1483,6 +1632,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             existing_upfs = [
@@ -1518,7 +1676,12 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 leader=True,
                 containers={container},
                 secrets={login_secret},
-                relations={common_database_relation, auth_database_relation, fiveg_n4_relation},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    webui_database_relation,
+                    fiveg_n4_relation,
+                },
             )
 
             self.ctx.run(self.ctx.on.relation_joined(fiveg_n4_relation), state_in)
@@ -1550,6 +1713,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             existing_gnbs = [
@@ -1588,6 +1760,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     gnb_identity_relation,
                 },
             )
@@ -1619,6 +1792,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             existing_upfs = [
@@ -1654,7 +1836,12 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 leader=True,
                 containers={container},
                 secrets={login_secret},
-                relations={common_database_relation, auth_database_relation, fiveg_n4_relation},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    webui_database_relation,
+                    fiveg_n4_relation,
+                },
             )
 
             self.ctx.run(self.ctx.on.relation_joined(fiveg_n4_relation), state_in)
@@ -1684,6 +1871,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             existing_gnbs = [
@@ -1722,6 +1918,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     gnb_identity_relation,
                 },
             )

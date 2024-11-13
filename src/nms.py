@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 GNB_CONFIG_URL = "config/v1/inventory/gnb"
 UPF_CONFIG_URL = "config/v1/inventory/upf"
-ACCOUNTS_URL = "config/v1/accounts"
+ACCOUNTS_URL = "config/v1/account"
 
 JSON_HEADER = {"Content-Type": "application/json"}
 
@@ -38,14 +38,14 @@ class Upf:
 
 @dataclass
 class StatusResponse:
-    """Response from Notary when checking the status."""
+    """Response from NMS when checking the status."""
 
     initialized: bool
 
 
 @dataclass
 class LoginParams:
-    """Parameters to login to Notary."""
+    """Parameters to login to NMS."""
 
     username: str
     password: str
@@ -53,14 +53,14 @@ class LoginParams:
 
 @dataclass
 class LoginResponse:
-    """Response from Notary when logging in."""
+    """Response from NMS when logging in."""
 
     token: str
 
 
 @dataclass
 class CreateUserParams:
-    """Parameters to create a user in Notary."""
+    """Parameters to create a user in NMS."""
 
     username: str
     password: str
@@ -68,7 +68,7 @@ class CreateUserParams:
 
 @dataclass
 class CreateUserResponse:
-    """Response from Notary when creating a user."""
+    """Response from NMS when creating a user."""
 
     id: int
 
@@ -135,42 +135,46 @@ class NMS:
         return json_response
 
     def is_initialized(self) -> bool:
-        """Return if the Notary server is initialized."""
+        """Return if NMS is initialized."""
         status = self.get_status()
         return status.initialized if status else False
 
     def is_api_available(self) -> bool:
-        """Return if the Notary server is reachable."""
+        """Return if NMS is reachable."""
         status = self.get_status()
         return status is not None
 
     def login(self, username: str, password: str) -> LoginResponse | None:
-        """Login to notary by sending the username and password and return a Token."""
+        """Login to NMS by sending the username and password and return a Token."""
         login_params = LoginParams(username=username, password=password)
         response = self._make_request("POST", "/login", data=asdict(login_params))
-        if response and response.result:
+        logger.info("Response: %s", response)
+        if response:
             return LoginResponse(
-                token=response.result.get("token"),
+                token=response.get("token"),
             )
         return None
 
     def token_is_valid(self, token: str) -> bool:
         """Return if the token is still valid by attempting to connect to an endpoint."""
         response = self._make_request("GET", f"/{ACCOUNTS_URL}/me", token=token)
+        logger.info("Response: %s", response)
         return response is not None
 
     def get_status(self) -> StatusResponse | None:
-        """Return if the Notary server is initialized."""
+        """Return if NMS is initialized."""
         response = self._make_request("GET", "/status")
-        if response and response.result:
+        logger.info("Response: %s", response)
+        if response:
             return StatusResponse(
-                initialized=response.result.get("initialized"),
+                initialized=response.get("initialized"),
             )
         return None
 
     def list_gnbs(self, token: str) -> List[GnodeB]:
         """List gNBs from the NMS inventory."""
         response = self._make_request("GET", f"/{GNB_CONFIG_URL}", token=token)
+        logger.info("Response: %s", response)
         if not response:
             return []
         gnb_list = []
@@ -197,6 +201,7 @@ class NMS:
     def list_upfs(self, token: str) -> List[Upf]:
         """List UPFs from the NMS inventory."""
         response = self._make_request("GET", f"/{UPF_CONFIG_URL}", token=token)
+        logger.info("Response: %s", response)
         if not response:
             return []
         upf_list = []
@@ -222,10 +227,12 @@ class NMS:
 
     def create_first_user(self, username: str, password: str) -> CreateUserResponse | None:
         """Create the first admin user."""
+        logger.info("Creating first user %s", username)
         create_user_params = CreateUserParams(username=username, password=password)
         response = self._make_request("POST", f"/{ACCOUNTS_URL}", data=asdict(create_user_params))
-        if response and response.result:
+        logger.info("Response: %s", response)
+        if response:
             return CreateUserResponse(
-                id=response.result.get("id"),
+                id=response.get("id"),
             )
         return None
