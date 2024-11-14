@@ -223,8 +223,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
             logger.info("Waiting for storage to be attached")
             return
         if not self._nms_config_file_exists():
-            event.add_status(WaitingStatus("Waiting for nms config file to be stored"))
-            logger.info("Waiting for nms config file to be stored")
+            event.add_status(WaitingStatus("Waiting for NMS config file to be stored"))
+            logger.info("Waiting for NMS config file to be stored")
             return
         if not self._tls.certificate_is_available():
             event.add_status(WaitingStatus("Waiting for certificates to be available"))
