@@ -30,7 +30,7 @@ class TestTls:
             relation_name="certs",
             container=self.mock_container,
             domain_name="test",
-            storage_path=STORAGE_PATH
+            workload_storage_path=STORAGE_PATH
         )
         request.addfinalizer(self.tearDown)
 
