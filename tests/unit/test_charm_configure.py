@@ -17,9 +17,7 @@ from tests.unit.fixtures import (
 
 EXPECTED_CONFIG_FILE_PATH = "tests/unit/expected_nms_cfg.yaml"
 
-
 class TestCharmConfigure(NMSUnitTestFixtures):
-
     def test_given_db_relations_do_not_exist_when_pebble_ready_then_nms_config_file_is_not_written(  # noqa: E501
         self,
     ):
@@ -305,7 +303,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                         "nms": {
                             "startup": "enabled",
                             "override": "replace",
-                            "command": "/bin/webconsole --webuicfg /nms/config/nmscfg.conf",
+                            "command": "/bin/webconsole --cfg /nms/config/nmscfg.conf",
                             "environment": {
                                 "GRPC_GO_LOG_VERBOSITY_LEVEL": "99",
                                 "GRPC_GO_LOG_SEVERITY_LEVEL": "info",
@@ -327,11 +325,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 location="/nms/config",
                 source=tempdir,
             )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             state_in = scenario.State(

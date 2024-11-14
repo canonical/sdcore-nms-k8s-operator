@@ -34,13 +34,14 @@ from ops.framework import EventBase
 from ops.pebble import Layer
 
 from nms import NMS, GnodeB, Upf
-from tls import CERTIFICATE_PATH, PRIVATE_KEY_PATH, Tls
+from tls import CA_CERTIFICATE_NAME, Tls
 
 logger = logging.getLogger(__name__)
 
 BASE_CONFIG_PATH = "/nms/config"
 CONFIG_FILE_NAME = "nmscfg.conf"
 NMS_CONFIG_PATH = f"{BASE_CONFIG_PATH}/{CONFIG_FILE_NAME}"
+CERTS_MOUNT_PATH = "/support/TLS"
 WORKLOAD_VERSION_FILE_NAME = "/etc/workload-version"
 AUTH_DATABASE_RELATION_NAME = "auth_database"
 COMMON_DATABASE_RELATION_NAME = "common_database"
@@ -54,7 +55,7 @@ GRPC_PORT = 9876
 NMS_URL_PORT = 5000
 TLS_RELATION_NAME = "certificates"
 MANDATORY_RELATIONS = [COMMON_DATABASE_RELATION_NAME, AUTH_DATABASE_RELATION_NAME, TLS_RELATION_NAME]  # noqa: E501
-CA_PATH = "/var/lib/juju/storage/certs/0/ca.pem"
+CA_PATH = f"/var/lib/juju/storage/certs/0/{CA_CERTIFICATE_NAME}"
 
 def _get_pod_ip() -> Optional[str]:
     """Return the pod IP using juju client."""
@@ -80,7 +81,13 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         self._container_name = self._service_name = "nms"
         self._container = self.unit.get_container(self._container_name)
-        self._tls = Tls(self, self._container)
+        self._tls = Tls(
+            charm=self,
+            relation_name=TLS_RELATION_NAME,
+            container=self._container,
+            domain_name=socket.getfqdn(),
+            storage_path= CERTS_MOUNT_PATH
+        )
         self._common_database = DatabaseRequires(
             self,
             relation_name=COMMON_DATABASE_RELATION_NAME,
@@ -145,6 +152,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self.framework.observe(self.on.config_changed, self._configure_sdcore_nms)
         self._nms = NMS(url=f"https://{socket.getfqdn()}:{NMS_URL_PORT}", ca_path=CA_PATH)
 
+
     def _configure_sdcore_nms(self, event: EventBase) -> None:
         """Handle Juju events.
 
@@ -155,6 +163,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
         if not self._container.can_connect():
             return
         if not self._container.exists(path=BASE_CONFIG_PATH):
+            return
+        if not self._container.exists(path=CERTS_MOUNT_PATH):
             return
         for relation in MANDATORY_RELATIONS:
             if not self._relation_created(relation):
@@ -204,7 +214,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         self.unit.set_workload_version(self._get_workload_version())
 
-        if not self._container.exists(path=BASE_CONFIG_PATH):
+        if (not self._container.exists(path=BASE_CONFIG_PATH) or
+            not self._container.exists(path=CERTS_MOUNT_PATH)):
             event.add_status(WaitingStatus("Waiting for storage to be attached"))
             logger.info("Waiting for storage to be attached")
             return
@@ -227,8 +238,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         if not self._container.can_connect():
             event.defer()
             return
-        self._tls._delete_private_key()
-        self._tls._delete_certificate()
+        self._tls.clean_up_certificates()
 
     def _publish_sdcore_config_url(self) -> None:
         if not self._relation_created(SDCORE_CONFIG_RELATION_NAME):
@@ -275,8 +285,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
             common_database_url=self._get_common_database_url(),
             auth_database_name=AUTH_DATABASE_NAME,
             auth_database_url=self._get_auth_database_url(),
-            tls_key_path=PRIVATE_KEY_PATH,
-            tls_certificate_path=CERTIFICATE_PATH,
+            tls_key_path=self._tls.private_key_workload_path,
+            tls_certificate_path=self._tls.certificate_workload_path,
         )
 
     def _is_nms_service_running(self) -> bool:
