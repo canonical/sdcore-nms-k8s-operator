@@ -1,7 +1,6 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-
 import tempfile
 
 import scenario
@@ -220,6 +219,103 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
 
         assert state_out.unit_status == WaitingStatus("Waiting for storage to be attached")
 
+    def test_given_config_storage_not_attached_when_collect_unit_status_then_status_is_waiting(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as tempdir:
+            auth_database_relation = scenario.Relation(
+                endpoint="auth_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "apple",
+                    "password": "hamburger",
+                    "uris": "1.8.11.4:1234",
+                },
+            )
+            common_database_relation = scenario.Relation(
+                endpoint="common_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "11.11.1.1:1234",
+                },
+            )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
+
+            container = scenario.Container(
+                name="nms",
+                can_connect=True,
+                mounts={"certs": certs_mount},
+            )
+            state_in = scenario.State(
+                leader=True,
+                relations={auth_database_relation,
+                           common_database_relation,
+                           certificates_relation,
+                },
+                containers={container},
+            )
+
+            state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
+
+            assert state_out.unit_status == WaitingStatus("Waiting for storage to be attached")
+
+    def test_given_certs_storage_not_attached_when_collect_unit_status_then_status_is_waiting(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as tempdir:
+            auth_database_relation = scenario.Relation(
+                endpoint="auth_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "apple",
+                    "password": "hamburger",
+                    "uris": "1.8.11.4:1234",
+                },
+            )
+            common_database_relation = scenario.Relation(
+                endpoint="common_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "11.11.1.1:1234",
+                },
+            )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
+            config_mount = scenario.Mount(
+                location="/nms/config",
+                source=tempdir,
+            )
+
+            container = scenario.Container(
+                name="nms",
+                can_connect=True,
+                mounts={"config": config_mount},
+            )
+            state_in = scenario.State(
+                leader=True,
+                relations={
+                    auth_database_relation,
+                    common_database_relation,
+                    certificates_relation,
+                },
+                containers={container},
+            )
+
+            state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
+
+            assert state_out.unit_status == WaitingStatus("Waiting for storage to be attached")
+
     def test_given_nms_config_file_does_not_exist_when_collect_unit_status_then_status_is_waiting(  # noqa: E501
         self,
     ):
@@ -249,10 +345,14 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
                 location="/nms/config",
                 source=tempdir,
             )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
-                mounts={"config": config_mount},
+                mounts={"config": config_mount, "certs": certs_mount},
             )
             state_in = scenario.State(
                 leader=True,
@@ -362,7 +462,7 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
-                mounts={"config": config_mount, "certs": certs_mount,},
+                mounts={"config": config_mount, "certs": certs_mount},
             )
             state_in = scenario.State(
                 leader=True,
