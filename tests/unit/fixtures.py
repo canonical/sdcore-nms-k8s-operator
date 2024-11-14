@@ -1,7 +1,7 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-from unittest.mock import patch
+from unittest.mock import patch, PropertyMock
 
 import pytest
 import scenario
@@ -14,9 +14,14 @@ class NMSUnitTestFixtures:
     patcher_set_webui_url_in_all_relations = patch(
         "charms.sdcore_nms_k8s.v0.sdcore_config.SdcoreConfigProvides.set_webui_url_in_all_relations"
     )
-    patcher_get_assigned_certificate = patch(
-        "charms.tls_certificates_interface.v4.tls_certificates.TLSCertificatesRequiresV4.get_assigned_certificate"
-    )
+
+    patcher_certificate_is_available = patch("tls.Tls.certificate_is_available")
+    patcher_check_and_update_certificate = patch("tls.Tls.check_and_update_certificate")
+    patcher_clean_up_certificates = patch("tls.Tls.clean_up_certificates")
+    patcher_certificate_workload_path = patch("tls.Tls.certificate_workload_path",new_callable=PropertyMock, return_value="/support/TLS/nms.pem")
+    patcher_private_key_workload_path = patch("tls.Tls.private_key_workload_path",new_callable=PropertyMock, return_value="/support/TLS/nms.key")
+    patcher_ca_certificate_workload_path = patch("tls.Tls.ca_certificate_workload_path", new_callable=PropertyMock, return_value="/support/TLS/ca.pem")
+    
     patcher_nms_list_gnbs = patch("nms.NMS.list_gnbs")
     patcher_nms_create_gnb = patch("nms.NMS.create_gnb")
     patcher_nms_delete_gnb = patch("nms.NMS.delete_gnb")
@@ -30,9 +35,25 @@ class NMSUnitTestFixtures:
         self.mock_set_webui_url_in_all_relations = (
             NMSUnitTestFixtures.patcher_set_webui_url_in_all_relations.start()
         )
-        self.mock_get_assigned_certificate = (
-            NMSUnitTestFixtures.patcher_get_assigned_certificate.start()
+        self.mock_certificate_is_available = (
+            NMSUnitTestFixtures.patcher_certificate_is_available.start()
         )
+        self.mock_check_and_update_certificate = (
+            NMSUnitTestFixtures.patcher_check_and_update_certificate.start()
+        )
+        self.mock_clean_up_certificates = (
+            NMSUnitTestFixtures.patcher_clean_up_certificates.start()
+        )
+        self.mock_certificate_workload_path = (
+            NMSUnitTestFixtures.patcher_certificate_workload_path.start()
+        )
+        self.mock_private_key_workload_path = (
+            NMSUnitTestFixtures.patcher_private_key_workload_path.start()
+        )
+        self.mock_ca_certificate_workload_path = (
+            NMSUnitTestFixtures.patcher_ca_certificate_workload_path.start()
+        )
+        
         self.mock_list_gnbs = NMSUnitTestFixtures.patcher_nms_list_gnbs.start()
         self.mock_create_gnb = NMSUnitTestFixtures.patcher_nms_create_gnb.start()
         self.mock_delete_gnb = NMSUnitTestFixtures.patcher_nms_delete_gnb.start()

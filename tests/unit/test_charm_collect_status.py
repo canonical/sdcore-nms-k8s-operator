@@ -366,7 +366,7 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
             assert state_out.unit_status == WaitingStatus(
-                "Waiting for nms config file to be stored"
+                "Waiting for NMS config file to be stored"
             )
 
     def test_given_certificates_not_stored_when_collect_unit_status_then_status_is_waiting(
@@ -416,7 +416,7 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
                 },
                 containers={container},
             )
-            self.mock_get_assigned_certificate.return_value = (None, None)
+            self.mock_certificate_is_available.return_value = False
             with open(f"{tempdir}/nmscfg.conf", "w") as f:
                 f.write("whatever config file content")
 
@@ -473,10 +473,7 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
                 },
                 containers={container},
             )
-            provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
+            self.mock_certificate_is_available.return_value = True
             with open(f"{tempdir}/nmscfg.conf", "w") as f:
                 f.write("whatever config file content")
 
@@ -520,7 +517,7 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
-                mounts={"config": config_mount, "certs": certs_mount,},
+                mounts={"config": config_mount, "certs": certs_mount},
                 layers={"nms": Layer({"services": {"nms": {}}})},
                 service_statuses={"nms": ServiceStatus.ACTIVE},
             )
@@ -533,10 +530,7 @@ class TestCharmCollectStatus(NMSUnitTestFixtures):
                 },
                 containers={container},
             )
-            provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
+            self.mock_certificate_is_available.return_value = True
 
             with open(f"{tempdir}/nmscfg.conf", "w") as f:
                 f.write("whatever config file content")

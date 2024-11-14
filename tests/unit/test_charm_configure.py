@@ -18,6 +18,7 @@ from tests.unit.fixtures import (
 EXPECTED_CONFIG_FILE_PATH = "tests/unit/expected_nms_cfg.yaml"
 
 class TestCharmConfigure(NMSUnitTestFixtures):
+
     def test_given_db_relations_do_not_exist_when_pebble_ready_then_nms_config_file_is_not_written(  # noqa: E501
         self,
     ):
@@ -66,11 +67,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 location="/nms/config",
                 source=tempdir,
             )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             state_in = scenario.State(
@@ -82,6 +88,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     certificates_relation,
                 },
             )
+            self.mock_check_and_update_certificate.return_value = True
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -111,11 +118,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 location="/nms/config",
                 source=tempdir,
             )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             state_in = scenario.State(
@@ -127,11 +139,12 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     certificates_relation,
                 },
             )
+            self.mock_check_and_update_certificate.return_value = True
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             assert not os.path.exists(f"{tempdir}/nmscfg.conf")
-
+            
     def test_given_certificates_relation_doesnt_exist_when_pebble_ready_then_nms_config_file_is_not_written(  # noqa: E501
         self,
     ):
@@ -158,11 +171,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 location="/nms/config",
                 source=tempdir,
             )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             state_in = scenario.State(
@@ -175,8 +193,71 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             assert not os.path.exists(f"{tempdir}/nmscfg.conf")
 
-    def test_given_storage_attached_and_nms_config_file_does_not_exist_when_pebble_ready_then_config_file_is_written(  # noqa: E501
+    def test_given_tls_certificate_not_available_when_pebble_ready_then_nms_config_file_is_not_written(  # noqa: E501
         self,
+    ):
+        with tempfile.TemporaryDirectory() as tempdir:
+            common_database_relation = scenario.Relation(
+                endpoint="common_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "1.2.3.4:5678",
+                },
+            )
+            auth_database_relation = scenario.Relation(
+                endpoint="auth_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "11.11.1.1:1234",
+                },
+            )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
+            config_mount = scenario.Mount(
+                location="/nms/config",
+                source=tempdir,
+            )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
+            container = scenario.Container(
+                name="nms",
+                can_connect=True,
+                mounts={
+                    "config": config_mount,
+                    "certs": certs_mount,
+                },
+            )
+            state_in = scenario.State(
+                leader=True,
+                containers={container},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    certificates_relation,
+                },
+            )
+            self.mock_certificate_is_available.return_value = False
+
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
+
+            assert not os.path.exists(f"{tempdir}/nmscfg.conf")
+
+    @pytest.mark.parametrize(
+        "certificate_was_updated",
+        [
+            True,
+            False,
+        ]
+    )
+    def test_given_storage_attached_and_nms_config_file_does_not_exist_when_pebble_ready_then_config_file_is_written(  # noqa: E501
+        self, certificate_was_updated
     ):
         with tempfile.TemporaryDirectory() as tempdir:
             common_database_relation = scenario.Relation(
@@ -225,10 +306,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     certificates_relation,
                 },
             )
-            provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
+            self.mock_check_and_update_certificate.return_value = certificate_was_updated
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -286,12 +364,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     certificates_relation,
                 },
             )
-
-            provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
-
+            self.mock_certificate_is_available.return_value = True
 
             state_out = self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -388,11 +461,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 certificates_relation,
             },
         )
-        provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-        self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
-
+        self.mock_certificate_is_available.return_value = True
 
         self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -487,11 +556,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     sdcore_config_relation_2,
                 },
             )
-            provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
-
+            self.mock_certificate_is_available.return_value = True
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             self.mock_set_webui_url_in_all_relations.assert_called_with(
@@ -553,6 +618,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     sdcore_config_relation,
                 },
             )
+            self.mock_certificate_is_available.return_value = True
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -706,7 +772,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 },
                 containers={container},
             )
-            self.mock_get_assigned_certificate.return_value = (None, None)
+            self.mock_certificate_is_available.return_value = True
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -715,7 +781,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.mock_delete_gnb.assert_not_called()
             self.mock_delete_upf.assert_not_called()
 
-    def test_given_no_mandatory_relations_when_pebble_ready_then_nms_resources_are_not_updated(
+    def test_given_no_mandatory_relations_when_pebble_ready_then_nms_inventory_is_not_updated(
         self
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -827,10 +893,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     fiveg_n4_relation,
                 },
             )
-            provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
+            self.mock_certificate_is_available.return_value = True
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -904,10 +967,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     fiveg_n4_relation,
                 },
             )
-            provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
+            self.mock_certificate_is_available.return_value = True
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -981,10 +1041,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     fiveg_n4_relation_2,
                 },
             )
-            provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
+            self.mock_certificate_is_available.return_value = True
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -1062,11 +1119,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     fiveg_gnb_identity_relation_2,
                 },
             )
-            provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
-
+            self.mock_certificate_is_available.return_value = True
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -1136,11 +1189,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     fiveg_n4_relation,
                 },
             )
-            provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
-
+            self.mock_certificate_is_available.return_value = True
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -1208,11 +1257,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     fiveg_gnb_identity_relation,
                 },
             )
-            provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
-
+            self.mock_certificate_is_available.return_value = True
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
@@ -1314,11 +1359,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     fiveg_n4_relation_2,
                 },
             )
-            provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
-
+            self.mock_certificate_is_available.return_value = True
 
             self.ctx.run(self.ctx.on.relation_joined(fiveg_n4_relation_2), state_in)
 
@@ -1395,11 +1436,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     fiveg_gnb_identity_relation_2,
                 },
             )
-            provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
-
+            self.mock_certificate_is_available.return_value = True
 
             self.ctx.run(self.ctx.on.relation_joined(fiveg_gnb_identity_relation_2), state_in)
 
@@ -1479,11 +1516,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     fiveg_n4_relation_2,
                 },
             )
-            provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
-
+            self.mock_certificate_is_available.return_value = True
 
             self.ctx.run(self.ctx.on.relation_broken(fiveg_n4_relation_1), state_in)
 
@@ -1563,10 +1596,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     gnb_identity_relation_2,
                 },
             )
-            provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
+            self.mock_certificate_is_available.return_value = True
 
             self.ctx.run(self.ctx.on.relation_broken(gnb_identity_relation_1), state_in)
 
@@ -1636,10 +1666,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     fiveg_n4_relation,
                 },
             )
-            provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
+            self.mock_certificate_is_available.return_value = True
 
             self.ctx.run(self.ctx.on.relation_joined(fiveg_n4_relation), state_in)
 
@@ -1709,10 +1736,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     gnb_identity_relation,
                 },
             )
-            provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
+            self.mock_certificate_is_available.return_value = True
 
             self.ctx.run(self.ctx.on.relation_joined(gnb_identity_relation), state_in)
 
@@ -1782,10 +1806,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     fiveg_n4_relation,
                 },
             )
-            provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
+            self.mock_certificate_is_available.return_value = True
 
             self.ctx.run(self.ctx.on.relation_joined(fiveg_n4_relation), state_in)
 
@@ -1855,13 +1876,77 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     gnb_identity_relation,
                 },
             )
-            provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.id
-            )
-            self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
-
+            self.mock_certificate_is_available.return_value = True
 
             self.ctx.run(self.ctx.on.relation_joined(gnb_identity_relation), state_in)
 
             self.mock_delete_gnb.assert_called_once_with(name="old.gnb.name")
             self.mock_create_gnb.assert_called_once_with(name="some.gnb.name", tac=6789)
+
+    def test_given_cannot_connect_to_container_when_certificates_relation_broken_then_certificates_are_not_removed(  # noqa: E501
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as tempdir:
+            common_database_relation = scenario.Relation(
+                endpoint="common_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            auth_database_relation = scenario.Relation(
+                endpoint="auth_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "2.2.2.2:1234",
+                },
+            )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
+            existing_gnbs = [
+                GnodeB(name="old.gnb.name", tac=1234),
+            ]
+            self.mock_list_gnbs.return_value = existing_gnbs
+            config_mount = scenario.Mount(
+                location="/nms/config",
+                source=tempdir,
+            )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
+            container = scenario.Container(
+                name="nms",
+                can_connect=False,
+                mounts={
+                    "config": config_mount,
+                    "certs": certs_mount,
+                },
+            )
+            gnb_identity_relation = scenario.Relation(
+                endpoint="fiveg_gnb_identity",
+                interface="fiveg_gnb_identity",
+                remote_app_data={
+                    "gnb_name": "some.gnb.name",
+                    "tac": "6789",
+                },
+            )
+            state_in = scenario.State(
+                leader=True,
+                containers={container},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    certificates_relation,
+                    gnb_identity_relation,
+                },
+            )
+            self.mock_certificate_is_available.return_value = True
+
+            self.ctx.run(self.ctx.on.relation_broken(certificates_relation), state_in)
+
