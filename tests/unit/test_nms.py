@@ -69,6 +69,7 @@ class TestNMS:
             url="some_url/config/v1/inventory/gnb",
             headers={"Content-Type": "application/json"},
             json=None,
+            verify=False,
         )
 
     def test_given_nms_returns_a_gnb_list_when_list_gnbs_then_a_gnb_list_is_returned(self):
@@ -129,6 +130,7 @@ class TestNMS:
             url="some_url/config/v1/inventory/gnb/some.gnb.name",
             headers={"Content-Type": "application/json"},
             json={"tac": "111"},
+            verify=False,
         )
 
     def test_given_a_valid_gnb_when_create_gnb_then_gnb_is_added_to_nms(self):
@@ -139,6 +141,7 @@ class TestNMS:
             url="some_url/config/v1/inventory/gnb/some.gnb.name",
             headers={"Content-Type": "application/json"},
             json={"tac": "111"},
+            verify=False,
         )
 
     @pytest.mark.parametrize(
@@ -163,6 +166,7 @@ class TestNMS:
             url="some_url/config/v1/inventory/gnb/some.gnb.name",
             headers={"Content-Type": "application/json"},
             json=None,
+            verify=False,
         )
 
     def test_given_valid_gnb_when_delete_gnb_then_gnb_is_successfully_deleted(self):
@@ -174,6 +178,7 @@ class TestNMS:
             url="some_url/config/v1/inventory/gnb/some.gnb.name",
             headers={"Content-Type": "application/json"},
             json=None,
+            verify=False,
         )
 
     @pytest.mark.parametrize(
@@ -207,6 +212,7 @@ class TestNMS:
             url="some_url/config/v1/inventory/upf",
             headers={"Content-Type": "application/json"},
             json=None,
+            verify=False,
         )
 
     def test_given_nms_returns_a_upf_list_when_list_upfs_then_a_upf_list_is_returned(self):
@@ -267,6 +273,7 @@ class TestNMS:
             url="some_url/config/v1/inventory/upf/some.upf.name",
             headers={"Content-Type": "application/json"},
             json={"port": "111"},
+            verify=False,
         )
 
     def test_given_a_valid_upf_when_create_upf_then_upf_is_added_to_nms(self):
@@ -277,6 +284,7 @@ class TestNMS:
             url="some_url/config/v1/inventory/upf/some.upf.name",
             headers={"Content-Type": "application/json"},
             json={"port": "22"},
+            verify=False,
         )
 
     @pytest.mark.parametrize(
@@ -301,6 +309,7 @@ class TestNMS:
             url="some_url/config/v1/inventory/upf/some.upf.name",
             headers={"Content-Type": "application/json"},
             json=None,
+            verify=False,
         )
 
     def test_given_valid_upf_when_delete_upf_then_upf_is_successfully_deleted(self):
@@ -313,6 +322,7 @@ class TestNMS:
             url="some_url/config/v1/inventory/upf/some.upf.name",
             headers={"Content-Type": "application/json"},
             json=None,
+            verify=False,
         )
 
     @pytest.mark.parametrize(

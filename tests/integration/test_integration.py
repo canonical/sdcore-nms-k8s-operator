@@ -71,7 +71,10 @@ async def _deploy_traefik(ops_test: OpsTest):
         channel=TRAEFIK_CHARM_CHANNEL,
         trust=True,
     )
-    await ops_test.model.integrate(relation1=f"{TRAEFIK_CHARM_NAME}:certificates", relation2=TLS_PROVIDER_CHARM_NAME)
+    await ops_test.model.integrate(
+        relation1=f"{TRAEFIK_CHARM_NAME}:certificates",
+        relation2=TLS_PROVIDER_CHARM_NAME
+    )
 
 
 async def configure_traefik(ops_test: OpsTest, traefik_ip: str) -> None:
