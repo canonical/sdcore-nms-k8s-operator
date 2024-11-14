@@ -55,7 +55,7 @@ GRPC_PORT = 9876
 NMS_URL_PORT = 5000
 TLS_RELATION_NAME = "certificates"
 MANDATORY_RELATIONS = [COMMON_DATABASE_RELATION_NAME, AUTH_DATABASE_RELATION_NAME, TLS_RELATION_NAME]  # noqa: E501
-CA_PATH = f"/var/lib/juju/storage/certs/0/{CA_CERTIFICATE_NAME}"
+CA_CERTIFICATE_CHARM_PATH = f"/var/lib/juju/storage/certs/0/{CA_CERTIFICATE_NAME}"
 
 def _get_pod_ip() -> Optional[str]:
     """Return the pod IP using juju client."""
@@ -86,7 +86,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             relation_name=TLS_RELATION_NAME,
             container=self._container,
             domain_name=socket.getfqdn(),
-            storage_path= CERTS_MOUNT_PATH
+            workload_storage_path= CERTS_MOUNT_PATH
         )
         self._common_database = DatabaseRequires(
             self,
@@ -150,7 +150,10 @@ class SDCoreNMSOperatorCharm(CharmBase):
         )
         # Handling config changed event to publish the new url if the unit reboots and gets new IP
         self.framework.observe(self.on.config_changed, self._configure_sdcore_nms)
-        self._nms = NMS(url=f"https://{socket.getfqdn()}:{NMS_URL_PORT}", ca_path=CA_PATH)
+        self._nms = NMS(
+            url=f"https://{socket.getfqdn()}:{NMS_URL_PORT}",
+            ca_certificate_path=CA_CERTIFICATE_CHARM_PATH
+        )
 
 
     def _configure_sdcore_nms(self, event: EventBase) -> None:
@@ -234,7 +237,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         event.add_status(ActiveStatus())
 
     def _on_certificates_relation_broken(self, event: EventBase) -> None:
-        """Delete TLS related artifacts and reconfigures workload."""
+        """Delete TLS related artifacts."""
         if not self._container.can_connect():
             event.defer()
             return
