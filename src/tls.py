@@ -33,9 +33,9 @@ class Tls:
             relation_name: str,
             container: Container,
             domain_name: str,
-            storage_path: str
+            workload_storage_path: str
         ):
-        self._storage_path = storage_path
+        self._storage_path = workload_storage_path
         self._domain_name = domain_name
         self._container = container
         self._certificates = TLSCertificatesRequiresV4(
@@ -45,41 +45,49 @@ class Tls:
         )
 
     def certificate_is_available(self) -> bool:
+        """Check if a valid certificate and private key are available.
+
+        Returns:
+            bool: True if both the certificate and private key are available,
+            False otherwise.
+        """
         cert, key = self._certificates.get_assigned_certificate(
             certificate_request=self._get_certificate_request()
         )
         return bool(cert and key)
 
     def check_and_update_certificate(self) -> bool:
-        """Check if the certificate or private key needs an update and perform the update.
+        """Check if the certificate, CA certificate or private key needs an update and update it.
 
-        This method retrieves the currently assigned certificate and private key associated with
-        the charm's TLS relation. It checks whether the certificate or private key has changed
-        or needs to be updated. If an update is necessary, the new certificate or private key is
-        stored.
+        This method retrieves the currently assigned certificate, CA certificate and private key
+        associated with the charm's TLS relation. It checks whether the certificate,
+        CA certificate, or private key has changed or needs updating.
+        If an update is necessary, the new certificates or private key is stored.
 
         Returns:
-            bool: True if either the certificate or the private key was updated, False otherwise.
+            bool: True if either the certificate, CA certificate or the private key was updated.
+            False otherwise.
         """
         provider_certificate, private_key = self._certificates.get_assigned_certificate(
             certificate_request=self._get_certificate_request()
         )
         if not provider_certificate or not private_key:
-            logger.debug("Certificate or private key is not available")
+            logger.debug("Certificate, CA certificate or private key is not available")
             return False
-        if certificate_was_update := self._is_certificate_update_required(
+        if certificate_was_updated := self._is_certificate_update_required(
             provider_certificate.certificate
         ):
             self._store_certificate(certificate=provider_certificate.certificate)
-        if ca_certificate_was_update := self._is_ca_certificate_update_required(
+        if ca_certificate_was_updated := self._is_ca_certificate_update_required(
             provider_certificate.ca
         ):
             self._store_ca_certificate(ca=provider_certificate.ca)
         if private_key_was_updated := self._is_private_key_update_required(private_key):
             self._store_private_key(private_key=private_key)
-        return certificate_was_update or private_key_was_updated or ca_certificate_was_update
+        return certificate_was_updated or ca_certificate_was_updated or private_key_was_updated
 
     def clean_up_certificates(self) -> None:
+        """Remove all certificate-related files from storage."""
         self._delete_private_key()
         self._delete_certificate()
         self._delete_ca_certificate()
@@ -161,12 +169,15 @@ class Tls:
 
     @property
     def certificate_workload_path(self) -> str:
+        """Path to the certificate file in the workload storage."""
         return f"{self._storage_path}/{CERTIFICATE_NAME}"
 
     @property
     def private_key_workload_path(self) -> str:
+        """Path to the private key file in the workload storage."""
         return f"{self._storage_path}/{PRIVATE_KEY_NAME}"
 
     @property
     def ca_certificate_workload_path(self) -> str:
+        """Path to the CA certificate file in the workload storage."""
         return f"{self._storage_path}/{CA_CERTIFICATE_NAME}"
