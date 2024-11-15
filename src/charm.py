@@ -5,7 +5,7 @@
 """Charmed operator for the Aether SD-Core Graphical User Interface for K8s."""
 
 import logging
-import random
+import secrets
 import string
 from dataclasses import dataclass
 from ipaddress import IPv4Address
@@ -527,21 +527,21 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
 
 def _generate_password() -> str:
-    """Generate a password for the NMS Account."""
+    """Generate a password for the NMS Account using the secrets library."""
     pw = []
-    pw.append(random.choice(string.ascii_lowercase))
-    pw.append(random.choice(string.ascii_uppercase))
-    pw.append(random.choice(string.digits))
-    pw.append(random.choice(string.punctuation))
+    pw.append(secrets.choice(string.ascii_lowercase))
+    pw.append(secrets.choice(string.ascii_uppercase))
+    pw.append(secrets.choice(string.digits))
+    pw.append(secrets.choice(string.punctuation))
     for i in range(8):
-        pw.append(random.choice(string.ascii_letters + string.digits + string.punctuation))
-    random.shuffle(pw)
+        pw.append(secrets.choice(string.ascii_letters + string.digits + string.punctuation))
+    secrets.SystemRandom().shuffle(pw)
     return "".join(pw)
 
 
 def _generate_username() -> str:
     """Generate a username for the NMS Account."""
-    suffix = [random.choice(string.ascii_uppercase) for i in range(4)]
+    suffix = [secrets.choice(string.ascii_uppercase) for _ in range(4)]
     return "charm-admin-" + "".join(suffix)
 
 
