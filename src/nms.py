@@ -51,7 +51,7 @@ class CreateUPFParams:
 class NMS:
     """Handle NMS API calls."""
 
-    def __init__(self, url: str, ca_certificate_path: str | bool = False):
+    def __init__(self, url: str, ca_certificate_path: str = ""):
         if url.endswith("/"):
             url = url[:-1]
         self.url = url
@@ -72,7 +72,7 @@ class NMS:
                 url=url,
                 headers=headers,
                 json=data,
-                verify=self._ca_certificate_path
+                verify=self._ca_certificate_path or False
             )
         except requests.exceptions.SSLError as e:
             logger.error("SSL error: %s", e)

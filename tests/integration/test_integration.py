@@ -171,12 +171,6 @@ async def get_traefik_proxied_endpoints(ops_test: OpsTest) -> dict:
 
     raise TimeoutError("Traefik did not return proxied endpoints")
 
-async def get_nms_endpoint(ops_test: OpsTest) -> str:
-    assert ops_test.model
-    status = await ops_test.model.get_status()
-    nms_ip = status.applications[APP_NAME].units[f"{APP_NAME}/0"].address
-    return f"https://{nms_ip}:5000"
-
 
 async def get_traefik_ip_address(ops_test: OpsTest) -> str:
     endpoints = await get_traefik_proxied_endpoints(ops_test)
@@ -185,7 +179,7 @@ async def get_traefik_ip_address(ops_test: OpsTest) -> str:
 
 async def get_sdcore_nms_external_endpoint(ops_test: OpsTest) -> str:
     endpoints = await get_traefik_proxied_endpoints(ops_test)
-    return endpoints[APP_NAME]["url"]
+    return endpoints[APP_NAME]["url"].rstrip("/")
 
 
 def _get_host_from_url(url: str) -> str:
@@ -195,6 +189,7 @@ def _get_host_from_url(url: str) -> str:
 
 def ui_is_running(nms_endpoint: str) -> bool:
     url = f"{nms_endpoint}/network-configuration"
+    logger.info(f"Reaching NMS UI at {url}")
     t0 = time.time()
     timeout = 300  # seconds
     while time.time() - t0 < timeout:
@@ -216,7 +211,7 @@ async def deploy(ops_test: OpsTest, request):
     """Deploy required components."""
     charm = Path(request.config.getoption("--charm_path")).resolve()
     resources = {
-        "nms-image": METADATA["resources"]["nms-image"]["upstream-source"],
+        "nms-image": METADATA["resources"]["nms-image"]["upstream-source"],,
     }
     assert ops_test.model
     await ops_test.model.deploy(
@@ -304,30 +299,14 @@ async def test_restore_database_and_wait_for_active_status(ops_test: OpsTest, de
     await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
 
 
-@pytest.mark.abort_on_fail
-async def test_remove_tls_and_wait_for_blocked_status(ops_test: OpsTest, deploy):
-    assert ops_test.model
-    await ops_test.model.remove_application(TLS_PROVIDER_CHARM_NAME, block_until_done=True)
-    await ops_test.model.wait_for_idle(apps=[APP_NAME], status="blocked", timeout=60)
-
-
-@pytest.mark.abort_on_fail
-async def test_restore_tls_and_wait_for_active_status(ops_test: OpsTest, deploy):
-    assert ops_test.model
-    await _deploy_self_signed_certificates(ops_test)
-    await ops_test.model.integrate(relation1=APP_NAME, relation2=TLS_PROVIDER_CHARM_NAME)
-    await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
-
-
 async def test_given_related_to_traefik_when_fetch_ui_then_returns_html_content(
     ops_test: OpsTest, deploy
 ):
     # Workaround for Traefik issue: https://github.com/canonical/traefik-k8s-operator/issues/361
     traefik_ip = await get_traefik_ip_address(ops_test)
     await configure_traefik(ops_test, traefik_ip)
-    # Use the unit IP to reach the NMS until traefik uses the certificate transfer interface
-    # # https://github.com/canonical/traefik-k8s-operator/issues/407
-    nms_url = await get_nms_endpoint(ops_test)
+    nms_url = await get_sdcore_nms_external_endpoint(ops_test)
+    assert nms_url.startswith("https")
     assert ui_is_running(nms_endpoint=nms_url)
 
 
@@ -337,7 +316,7 @@ async def test_given_nms_related_to_gnbsim_and_gnbsim_status_is_active_then_nms_
 ):
     assert ops_test.model
     await ops_test.model.wait_for_idle(apps=[GNBSIM_CHARM_NAME], status="active", timeout=TIMEOUT)
-    nms_url = await get_nms_endpoint(ops_test)
+    nms_url = await get_sdcore_nms_external_endpoint(ops_test)
     nms_client = NMS(url=nms_url)
 
     gnbs = nms_client.list_gnbs()
@@ -355,7 +334,7 @@ async def test_given_nms_related_to_upf_and_upf_status_is_active_then_nms_invent
 ):
     assert ops_test.model
     await ops_test.model.wait_for_idle(apps=[UPF_CHARM_NAME], status="active", timeout=TIMEOUT)
-    nms_url = await get_nms_endpoint(ops_test)
+    nms_url = await get_sdcore_nms_external_endpoint(ops_test)
     nms_client = NMS(url=nms_url)
 
     upfs = nms_client.list_upfs()
@@ -373,7 +352,7 @@ async def test_given_gnb_and_upf_are_remove_then_nms_inventory_does_not_contain_
     await ops_test.model.remove_application(UPF_CHARM_NAME, block_until_done=False)
     await ops_test.model.remove_application(GNBSIM_CHARM_NAME, block_until_done=True)
     await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
-    nms_url = await get_nms_endpoint(ops_test)
+    nms_url = await get_sdcore_nms_external_endpoint(ops_test)
 
     nms_client = NMS(url=nms_url)
 
@@ -382,6 +361,21 @@ async def test_given_gnb_and_upf_are_remove_then_nms_inventory_does_not_contain_
 
     upfs = nms_client.list_upfs()
     assert upfs == []
+
+
+@pytest.mark.abort_on_fail
+async def test_remove_tls_and_wait_for_blocked_status(ops_test: OpsTest, deploy):
+    assert ops_test.model
+    await ops_test.model.remove_application(TLS_PROVIDER_CHARM_NAME, block_until_done=True)
+    await ops_test.model.wait_for_idle(apps=[APP_NAME], status="blocked", timeout=60)
+
+
+@pytest.mark.abort_on_fail
+async def test_restore_tls_and_wait_for_active_status(ops_test: OpsTest, deploy):
+    assert ops_test.model
+    await _deploy_self_signed_certificates(ops_test)
+    await ops_test.model.integrate(relation1=APP_NAME, relation2=TLS_PROVIDER_CHARM_NAME)
+    await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
 
 
 @pytest.mark.abort_on_fail
