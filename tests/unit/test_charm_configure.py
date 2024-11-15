@@ -10,7 +10,6 @@ import scenario
 from ops.pebble import Layer
 
 from nms import GnodeB, Upf
-from tests.unit.certificates_helpers import example_cert_and_key
 from tests.unit.fixtures import (
     NMSUnitTestFixtures,
 )
@@ -144,7 +143,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             assert not os.path.exists(f"{tempdir}/nmscfg.conf")
-            
+
     def test_given_certificates_relation_doesnt_exist_when_pebble_ready_then_nms_config_file_is_not_written(  # noqa: E501
         self,
     ):

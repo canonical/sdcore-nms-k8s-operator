@@ -7,7 +7,6 @@ import scenario
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 from ops.pebble import Layer, ServiceStatus
 
-from tests.unit.certificates_helpers import example_cert_and_key
 from tests.unit.fixtures import NMSUnitTestFixtures
 
 
