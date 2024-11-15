@@ -1,22 +1,95 @@
-"""TODO: Add a proper docstring here.
+# Copyright 2024 Canonical Ltd.
+# See LICENSE file for licensing details.
 
-This is a placeholder docstring for this charm library. Docstrings are
-presented on Charmhub and updated whenever you push a new version of the
-library.
+"""Library for the `fiveg_core_gnb` relation.
 
-Complete documentation about creating and documenting libraries can be found
-in the SDK docs at https://juju.is/docs/sdk/libraries.
+This library contains the Requires and Provides classes for handling the `fiveg_core_gnb`
+interface.
 
-See `charmcraft publish-lib` and `charmcraft fetch-lib` for details of how to
-share and consume charm libraries. They serve to enhance collaboration
-between charmers. Use a charmer's libraries for classes that handle
-integration with their charm.
+The purpose of this library is to provide a way for a FiveG core to provide network information and
+configuration to CUs/gNodeBs.
 
-Bear in mind that new revisions of the different major API versions (v0, v1,
-v2 etc) are maintained independently.  You can continue to update v0 and v1
-after you have pushed v3.
+To get started using the library, you need to fetch the library using `charmcraft`.
 
-Markdown is supported, following the CommonMark specification.
+```shell
+cd some-charm
+charmcraft fetch-lib charms.sdcore_nms_k8s.v0.fiveg_core_gnb
+```
+
+Add the following libraries to the charm's `requirements.txt` file:
+- pydantic
+- pytest-interface-tester
+
+Charms providing the `fiveg_core_gnb` relation should use `FivegCoreGnbProvides`.
+Typical usage of this class would look something like:
+
+    ```python
+    ...
+    from charms.sdcore_gnbsim_k8s.v0.fiveg_core_gnb import FivegCoreGnbProvides
+    ...
+
+    class SomeProviderCharm(CharmBase):
+
+        def __init__(self, *args):
+            ...
+            self.fiveg_core_gnb_provider = FivegCoreGnbProvides(
+                charm=self,
+                relation_name="fiveg_core_gnb"
+                )
+            ...
+            self.framework.observe(
+                self.fiveg_core_gnb_provider.on.fiveg_core_gnb_request,
+                self._on_fiveg_core_gnb_request
+            )
+
+        def _on_fiveg_core_gnb_request(self, event):
+            ...
+            self.fiveg_core_gnb_provider.publish_fiveg_core_gnb_information(
+                relation_id=event.relation_id,
+                tac=tac,
+                plmns=plmns,
+            )
+    ```
+
+    And a corresponding section in charm's `charmcraft.yaml`:
+    ```
+    provides:
+        fiveg_core_gnb:  # Relation name
+            interface: fiveg_core_gnb  # Relation interface
+    ```
+
+Charms that require the `fiveg_core_gnb` relation should use `FivegCoreGnbRequires`.
+Typical usage of this class would look something like:
+
+    ```python
+    ...
+    from charms.sdcore_nms_k8s.v0.fiveg_core_gnb import FivegCoreGnbRequires
+    ...
+
+    class SomeRequirerCharm(CharmBase):
+
+        def __init__(self, *args):
+            ...
+            self.fiveg_core_gnb = FivegCoreGnbRequires(
+                charm=self,
+                relation_name="fiveg_core_gnb"
+            )
+            ...
+            self.framework.observe(self.fiveg_core_gnb.on.fiveg_core_gnb_available,
+                self._on_fiveg_core_gnb_available)
+
+        def _on_fiveg_core_gnb_available(self, event):
+            tac = event.tac,
+            plmns = event.plmns,
+            # Do something with the TAC and PLMNs.
+    ```
+
+    And a corresponding section in charm's `charmcraft.yaml`:
+    ```
+    requires:
+        fiveg_core_gnb:  # Relation name
+            interface: fiveg_core_gnb  # Relation interface
+    ```
 """
 
 import json
@@ -151,7 +224,7 @@ class FivegCoreGnbProviderCharmEvents(CharmEvents):
 class FivegCoreGnbProvides(Object):
     """Class to be instantiated by provider of the `fiveg_core_gnb`."""
 
-    on = GnbIdentityProviderCharmEvents()  # type: ignore
+    on = FivegCoreGnbProviderCharmEvents()  # type: ignore
 
     def __init__(self, charm: CharmBase, relation_name: str):
         """Observe relation joined event.

@@ -50,7 +50,8 @@ requires:
 provides:
   sdcore_config:
     interface: sdcore_config
-
+  fiveg_core_gnb:
+    interface: fiveg_core_gnb
 type: charm
 bases:
   - build-on:
