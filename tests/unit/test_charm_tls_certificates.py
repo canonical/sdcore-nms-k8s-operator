@@ -4,60 +4,14 @@
 import os
 import tempfile
 
+import scenario
 from ops import testing
 
-from unittest.mock import patch, PropertyMock
 from tests.unit.certificates_helpers import example_cert_and_key
-import pytest
-import scenario
-
-from charm import SDCoreNMSOperatorCharm
+from tests.unit.fixtures import NMSTlsCertificatesFixtures
 
 
-class NMSUnitTestCertificatesFixtures:
-    patcher_check_output = patch("charm.check_output")
-    patcher_set_webui_url_in_all_relations = patch(
-        "charms.sdcore_nms_k8s.v0.sdcore_config.SdcoreConfigProvides.set_webui_url_in_all_relations"
-    )
-    patcher_get_assigned_certificate = patch(
-        "charms.tls_certificates_interface.v4.tls_certificates.TLSCertificatesRequiresV4.get_assigned_certificate"
-    )
-    patcher_nms_list_gnbs = patch("nms.NMS.list_gnbs")
-    patcher_nms_create_gnb = patch("nms.NMS.create_gnb")
-    patcher_nms_delete_gnb = patch("nms.NMS.delete_gnb")
-    patcher_nms_list_upfs = patch("nms.NMS.list_upfs")
-    patcher_nms_create_upf = patch("nms.NMS.create_upf")
-    patcher_nms_delete_upf = patch("nms.NMS.delete_upf")
-
-    @pytest.fixture(autouse=True)
-    def setUp(self, request):
-        self.mock_check_output = NMSUnitTestCertificatesFixtures.patcher_check_output.start()
-        self.mock_set_webui_url_in_all_relations = (
-            NMSUnitTestCertificatesFixtures.patcher_set_webui_url_in_all_relations.start()
-        )
-        self.mock_get_assigned_certificate = (
-            NMSUnitTestCertificatesFixtures.patcher_get_assigned_certificate.start()
-        )
-        self.mock_list_gnbs = NMSUnitTestCertificatesFixtures.patcher_nms_list_gnbs.start()
-        self.mock_create_gnb = NMSUnitTestCertificatesFixtures.patcher_nms_create_gnb.start()
-        self.mock_delete_gnb = NMSUnitTestCertificatesFixtures.patcher_nms_delete_gnb.start()
-        self.mock_list_upfs = NMSUnitTestCertificatesFixtures.patcher_nms_list_upfs.start()
-        self.mock_create_upf = NMSUnitTestCertificatesFixtures.patcher_nms_create_upf.start()
-        self.mock_delete_upf = NMSUnitTestCertificatesFixtures.patcher_nms_delete_upf.start()
-        yield
-        request.addfinalizer(self.tearDown)
-
-    @staticmethod
-    def tearDown() -> None:
-        patch.stopall()
-
-    @pytest.fixture(autouse=True)
-    def context(self):
-        self.ctx = scenario.Context(
-            charm_type=SDCoreNMSOperatorCharm,
-        )
-        
-class TestCharmCertificatesRelationBroken(NMSUnitTestCertificatesFixtures):
+class TestCharmTlsCertificates(NMSTlsCertificatesFixtures):
     def test_given_certificates_are_stored_when_on_certificates_relation_broken_then_certificates_are_removed(  # noqa: E501
         self,
     ):
@@ -85,7 +39,7 @@ class TestCharmCertificatesRelationBroken(NMSUnitTestCertificatesFixtures):
 
             with open(f"{tempdir}/nms.key", "w") as f:
                 f.write("private key")
-            
+
             with open(f"{tempdir}/ca.pem", "w") as f:
                 f.write("CA certificate")
 
@@ -128,7 +82,7 @@ class TestCharmCertificatesRelationBroken(NMSUnitTestCertificatesFixtures):
 
             with open(f"{tempdir}/nms.key", "w") as f:
                 f.write("private key")
-            
+
             with open(f"{tempdir}/ca.pem", "w") as f:
                 f.write("CA certificate")
 
@@ -143,7 +97,7 @@ class TestCharmCertificatesRelationBroken(NMSUnitTestCertificatesFixtures):
             assert os.path.exists(f"{tempdir}/nms.pem")
             assert os.path.exists(f"{tempdir}/nms.key")
             assert os.path.exists(f"{tempdir}/ca.pem")
-        
+
     def test_given_certificate_matches_stored_one_when_pebble_ready_then_certificate_is_not_pushed(
         self,
     ):
@@ -210,7 +164,7 @@ class TestCharmCertificatesRelationBroken(NMSUnitTestCertificatesFixtures):
             assert os.stat(tempdir + "/nms.pem").st_mtime == config_modification_time_nms_pem
             assert os.stat(tempdir + "/nms.key").st_mtime == config_modification_time_nms_key
             assert os.stat(tempdir + "/ca.pem").st_mtime == config_modification_time_ca_pem
-            
+
     def test_given_storage_attached_and_certificate_available_when_pebble_ready_then_certs_are_written(  # noqa: E501
         self,
     ):
@@ -274,7 +228,7 @@ class TestCharmCertificatesRelationBroken(NMSUnitTestCertificatesFixtures):
                 assert f.read() == str(private_key)
             with open(tempdir + "/ca.pem", "r") as f:
                 assert f.read() == str(provider_certificate.ca)
-                
+
     def test_given_certificate_exist_and_are_different_when_pebble_ready_then_certs_are_overwritten(  # noqa: E501
         self,
     ):
@@ -326,7 +280,7 @@ class TestCharmCertificatesRelationBroken(NMSUnitTestCertificatesFixtures):
 
             with open(f"{tempdir}/nms.key", "w") as f:
                 f.write(str(old_private_key))
-            
+
             with open(f"{tempdir}/ca.pem", "w") as f:
                 f.write(str(old_provider_certificate.ca))
 
@@ -345,8 +299,11 @@ class TestCharmCertificatesRelationBroken(NMSUnitTestCertificatesFixtures):
             assert new_provider_certificate.certificate != old_provider_certificate.certificate
             assert new_provider_certificate.ca != old_provider_certificate.ca
             assert new_private_key != old_private_key
-                        
-            self.mock_get_assigned_certificate.return_value = (new_provider_certificate, new_private_key)
+
+            self.mock_get_assigned_certificate.return_value = (
+                new_provider_certificate,
+                new_private_key
+            )
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 

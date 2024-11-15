@@ -325,6 +325,8 @@ async def test_given_related_to_traefik_when_fetch_ui_then_returns_html_content(
     # Workaround for Traefik issue: https://github.com/canonical/traefik-k8s-operator/issues/361
     traefik_ip = await get_traefik_ip_address(ops_test)
     await configure_traefik(ops_test, traefik_ip)
+    # Use the unit IP to reach the NMS until traefik uses the certificate transfer interface
+    # # https://github.com/canonical/traefik-k8s-operator/issues/407
     nms_url = await get_nms_endpoint(ops_test)
     assert ui_is_running(nms_endpoint=nms_url)
 
