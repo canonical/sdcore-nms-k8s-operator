@@ -211,7 +211,7 @@ async def deploy(ops_test: OpsTest, request):
     """Deploy required components."""
     charm = Path(request.config.getoption("--charm_path")).resolve()
     resources = {
-        "nms-image": METADATA["resources"]["nms-image"]["upstream-source"],,
+        "nms-image": METADATA["resources"]["nms-image"]["upstream-source"],
     }
     assert ops_test.model
     await ops_test.model.deploy(
