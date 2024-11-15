@@ -71,6 +71,10 @@ async def _deploy_traefik(ops_test: OpsTest):
         channel=TRAEFIK_CHARM_CHANNEL,
         trust=True,
     )
+    # TODO: This is a workaround so Traefik has the same CA as NMS.
+    # This should be removed and V1 of the certificate transfer interface should be used instead
+    # The following PR is needed to get Traefik to implement V1 of certificate transfer interface:
+    # https://github.com/canonical/traefik-k8s-operator/issues/407
     await ops_test.model.integrate(
         relation1=f"{TRAEFIK_CHARM_NAME}:certificates",
         relation2=TLS_PROVIDER_CHARM_NAME
@@ -299,6 +303,7 @@ async def test_restore_database_and_wait_for_active_status(ops_test: OpsTest, de
     await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
 
 
+@pytest.mark.abort_on_fail
 async def test_given_related_to_traefik_when_fetch_ui_then_returns_html_content(
     ops_test: OpsTest, deploy
 ):
