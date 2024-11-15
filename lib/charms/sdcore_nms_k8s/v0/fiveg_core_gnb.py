@@ -62,7 +62,7 @@ Examples:
     RequirerSchema:
         unit: <empty>
         app: {
-            "cu_id": "gnb001",
+            "cu_name": "gnb001",
         }
 """
 
@@ -263,7 +263,7 @@ class FivegCoreGnbRequires(Object):
 
     on = FivegCoreGnbRequirerCharmEvents()  # type: ignore
 
-    def __init__(self, charm: CharmBase, relation_name: str, cu_id: str):
+    def __init__(self, charm: CharmBase, relation_name: str, cu_name: str):
         """Observes relation joined and relation changed events.
 
         Args:
@@ -271,31 +271,31 @@ class FivegCoreGnbRequires(Object):
             relation_name (str): Relation name
         """
         self.relation_name = relation_name
-        self.cu_id = cu_id
+        self.cu_name = cu_name
         self.charm = charm
         super().__init__(charm, relation_name)
         self.framework.observe(charm.on[relation_name].relation_joined, self._on_relation_changed)
         self.framework.observe(charm.on[relation_name].relation_changed, self._on_relation_changed)
 
     def publish_gnb_information(
-            self, relation_id: int, cu_id: int
+            self, relation_id: int, cu_name: int
     ) -> None:
         """Set CU/gNB identifier in the relation data.
 
         Args:
             relation_id (str): Relation ID.
-            cu_id (int): CU/gNB unique identifier.
+            cu_name (int): CU/gNB unique identifier.
         """
         if not data_matches_requirer_schema(
-                data={"cu_id": cu_id}
+                data={"cu_name": cu_name}
         ):
-            raise ValueError(f"Invalid fiveG core gNB data: {cu_id}")
+            raise ValueError(f"Invalid fiveG core gNB data: {cu_name}")
         relation = self.model.get_relation(
             relation_name=self.relation_name, relation_id=relation_id
         )
         if not relation:
             raise RuntimeError(f"Relation {self.relation_name} not created yet.")
-        relation.data[self.charm.app]["cu_id"] = str(cu_id)
+        relation.data[self.charm.app]["cu_name"] = str(cu_name)
 
     def _on_relation_changed(self, event: RelationChangedEvent) -> None:
         """Triggered every time there's a change in relation data.
