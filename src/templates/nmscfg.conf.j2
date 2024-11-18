@@ -11,9 +11,13 @@ configuration:
     webuiDbUrl: {{ webui_database_url }}
   spec-compliant-sdf: false
   enableAuthentication: true
+  tls:
+    key: {{ tls_key_path }}
+    pem: {{ tls_certificate_path }}
 info:
   description: WebUI initial local configuration
   version: 1.0.0
+  http-version: 2
 logger:
   AMF:
     ReportCaller: false

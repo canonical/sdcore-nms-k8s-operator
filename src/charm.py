@@ -8,6 +8,7 @@ import logging
 import secrets
 import string
 from dataclasses import dataclass
+import socket
 from ipaddress import IPv4Address
 from subprocess import CalledProcessError, check_output
 from typing import List, Optional
@@ -30,19 +31,21 @@ from ops import (
     ModelError,
     SecretNotFoundError,
     WaitingStatus,
+    main,
 )
 from ops.charm import CharmBase
 from ops.framework import EventBase
-from ops.main import main
 from ops.pebble import Layer
 
 from nms import NMS, GnodeB, Upf
+from tls import CA_CERTIFICATE_NAME, Tls
 
 logger = logging.getLogger(__name__)
 
 BASE_CONFIG_PATH = "/nms/config"
 CONFIG_FILE_NAME = "nmscfg.conf"
 NMS_CONFIG_PATH = f"{BASE_CONFIG_PATH}/{CONFIG_FILE_NAME}"
+CERTS_MOUNT_PATH = "/support/TLS"
 WORKLOAD_VERSION_FILE_NAME = "/etc/workload-version"
 AUTH_DATABASE_RELATION_NAME = "auth_database"
 COMMON_DATABASE_RELATION_NAME = "common_database"
@@ -75,6 +78,13 @@ class LoginSecret:
             "token": self.token if self.token else "",
         }
 
+TLS_RELATION_NAME = "certificates"
+MANDATORY_RELATIONS = [
+    COMMON_DATABASE_RELATION_NAME,
+    AUTH_DATABASE_RELATION_NAME,
+    TLS_RELATION_NAME,
+]
+CA_CERTIFICATE_CHARM_PATH = f"/var/lib/juju/storage/certs/0/{CA_CERTIFICATE_NAME}"
 
 def _get_pod_ip() -> Optional[str]:
     """Return the pod IP using juju client."""
@@ -105,7 +115,6 @@ def render_config_file(
         webui_database_url=webui_database_url,
     )
 
-
 class SDCoreNMSOperatorCharm(CharmBase):
     """Main class to describe juju event handling for the Aether SD-Core NMS operator for K8s."""
 
@@ -121,6 +130,13 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         self._container_name = self._service_name = "nms"
         self._container = self.unit.get_container(self._container_name)
+        self._tls = Tls(
+            charm=self,
+            relation_name=TLS_RELATION_NAME,
+            container=self._container,
+            domain_name=socket.getfqdn(),
+            workload_storage_path= CERTS_MOUNT_PATH
+        )
         self._common_database = DatabaseRequires(
             self,
             relation_name=COMMON_DATABASE_RELATION_NAME,
@@ -145,7 +161,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
             port=NMS_URL_PORT,
             relation_name="ingress",
             strip_prefix=True,
+            scheme=lambda: "https",
         )
+
         self.fiveg_n4 = N4Requires(charm=self, relation_name=FIVEG_N4_RELATION_NAME)
         self._gnb_identity = GnbIdentityRequires(self, GNB_IDENTITY_RELATION_NAME)
         self._logging = LogForwarder(charm=self, relation_name=LOGGING_RELATION_NAME)
@@ -178,9 +196,20 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self.on[FIVEG_N4_RELATION_NAME].relation_broken,
             self._configure_sdcore_nms,
         )
+        self.framework.observe(self.on.certificates_relation_joined, self._configure_sdcore_nms)
+        self.framework.observe(
+            self.on.certificates_relation_broken, self._on_certificates_relation_broken
+        )
+        self.framework.observe(
+            self._tls._certificates.on.certificate_available, self._configure_sdcore_nms
+        )
         # Handling config changed event to publish the new url if the unit reboots and gets new IP
         self.framework.observe(self.on.config_changed, self._configure_sdcore_nms)
-        self._nms = NMS(url=f"http://{self._nms_endpoint}")
+        self._nms = NMS(
+            url=f"https://{socket.getfqdn()}:{NMS_URL_PORT}",
+            ca_certificate_path=CA_CERTIFICATE_CHARM_PATH
+        )
+
 
     def _configure_sdcore_nms(self, event: EventBase) -> None:
         """Handle Juju events.
@@ -198,6 +227,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
             AUTH_DATABASE_RELATION_NAME,
             WEBUI_DATABASE_RELATION_NAME,
         ]:
+        if not self._container.exists(path=CERTS_MOUNT_PATH):
+            return
+        for relation in MANDATORY_RELATIONS:
             if not self._relation_created(relation):
                 return
         if not self._common_database_resource_is_available():
@@ -207,6 +239,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
         if not self._webui_database_resource_is_available():
             return
         self._configure_charm_authorization()
+        if not self._tls.certificate_is_available():
+            logger.info("The TLS certificate is not available yet.")
+            return
         self._configure_workload()
         self._publish_sdcore_config_url()
         self._sync_gnbs()
@@ -226,7 +261,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             event.add_status(BlockedStatus("Scaling is not implemented for this charm"))
             logger.info("Scaling is not implemented for this charm")
             return
-        for relation in [COMMON_DATABASE_RELATION_NAME, AUTH_DATABASE_RELATION_NAME]:
+        for relation in MANDATORY_RELATIONS:
             if not self._relation_created(relation):
                 event.add_status(BlockedStatus(f"Waiting for {relation} relation to be created"))
                 logger.info("Waiting for %s relation to be created", relation)
@@ -249,14 +284,18 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         self.unit.set_workload_version(self._get_workload_version())
 
-        if not self._container.exists(path=BASE_CONFIG_PATH):
+        if (not self._container.exists(path=BASE_CONFIG_PATH) or
+            not self._container.exists(path=CERTS_MOUNT_PATH)):
             event.add_status(WaitingStatus("Waiting for storage to be attached"))
             logger.info("Waiting for storage to be attached")
             return
         if not self._nms_config_file_exists():
-            event.add_status(WaitingStatus("Waiting for nms config file to be stored"))
-            logger.info("Waiting for nms config file to be stored")
+            event.add_status(WaitingStatus("Waiting for NMS config file to be stored"))
+            logger.info("Waiting for NMS config file to be stored")
             return
+        if not self._tls.certificate_is_available():
+            event.add_status(WaitingStatus("Waiting for certificates to be available"))
+            logger.info("Waiting for certificates to be available")
         if not self._is_nms_service_running():
             event.add_status(WaitingStatus("Waiting for NMS service to start"))
             logger.info("Waiting for NMS service to start")
@@ -297,6 +336,13 @@ class SDCoreNMSOperatorCharm(CharmBase):
                 return None
         return account
 
+    def _on_certificates_relation_broken(self, event: EventBase) -> None:
+        """Delete TLS related artifacts."""
+        if not self._container.can_connect():
+            event.defer()
+            return
+        self._tls.clean_up_certificates()
+
     def _publish_sdcore_config_url(self) -> None:
         if not self._relation_created(SDCORE_CONFIG_RELATION_NAME):
             return
@@ -305,8 +351,10 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self._sdcore_config.set_webui_url_in_all_relations(webui_url=self._nms_config_url)
 
     def _configure_workload(self):
+        certificate_update_required = self._tls.check_and_update_certificate()
         desired_config_file = self._generate_nms_config_file()
-        if not self._is_config_file_update_required(desired_config_file):
+        if (not self._is_config_file_update_required(desired_config_file)
+            and not certificate_update_required):
             self._configure_pebble()
             return
         self._write_file_in_workload(NMS_CONFIG_PATH, desired_config_file)
@@ -350,13 +398,18 @@ class SDCoreNMSOperatorCharm(CharmBase):
         return bool(self._container.exists(NMS_CONFIG_PATH))
 
     def _generate_nms_config_file(self) -> str:
-        return render_config_file(
+        """Render nms configuration file based on Jinja template."""
+        jinja2_environment = Environment(loader=FileSystemLoader("src/templates/"))
+        template = jinja2_environment.get_template("nmscfg.conf.j2")
+        return template.render(
             common_database_name=COMMON_DATABASE_NAME,
             common_database_url=self._get_common_database_url(),
             auth_database_name=AUTH_DATABASE_NAME,
             auth_database_url=self._get_auth_database_url(),
             webui_database_name=WEBUI_DATABASE_NAME,
             webui_database_url=self._get_webui_database_url(),
+            tls_key_path=self._tls.private_key_workload_path,
+            tls_certificate_path=self._tls.certificate_workload_path,
         )
 
     def _is_nms_service_running(self) -> bool:

@@ -11,6 +11,7 @@ output "requires" {
     auth_database      = "auth_database"
     common_database    = "common_database"
     webui_database     = "webui_database"
+    certificates       = "certificates"
     fiveg_gnb_identity = "fiveg_gnb_identity"
     fiveg_n4           = "fiveg_n4"
     ingress            = "ingress"
