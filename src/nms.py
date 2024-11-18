@@ -18,7 +18,6 @@ UPF_CONFIG_URL = "config/v1/inventory/upf"
 
 JSON_HEADER = {"Content-Type": "application/json"}
 
-
 @dataclass
 class GnodeB:
     """Class to represent a gNB."""
@@ -52,10 +51,11 @@ class CreateUPFParams:
 class NMS:
     """Handle NMS API calls."""
 
-    def __init__(self, url: str):
+    def __init__(self, url: str, ca_certificate_path: str = ""):
         if url.endswith("/"):
             url = url[:-1]
         self.url = url
+        self._ca_certificate_path = ca_certificate_path
 
     def _make_request(
         self,
@@ -72,7 +72,11 @@ class NMS:
                 url=url,
                 headers=headers,
                 json=data,
+                verify=self._ca_certificate_path or False
             )
+        except requests.exceptions.SSLError as e:
+            logger.error("SSL error: %s", e)
+            return None
         except requests.RequestException as e:
             logger.error("HTTP request failed: %s", e)
             return None
@@ -115,7 +119,7 @@ class NMS:
     def delete_gnb(self, name: str) -> None:
         """Delete a gNB list from the NMS inventory."""
         self._make_request("DELETE", f"/{GNB_CONFIG_URL}/{name}")
-        logger.info("UPF %s deleted from NMS", name)
+        logger.info("gNB %s deleted from NMS", name)
 
     def list_upfs(self) -> List[Upf]:
         """List UPFs from the NMS inventory."""
