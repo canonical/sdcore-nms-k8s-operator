@@ -151,6 +151,7 @@ class PLMNConfig:
 
 
 class FivegCoreGnbProviderAppData(BaseModel):
+    """Provider application data for fiveg_core_gnb."""
     tac: int = Field(
         description="Tracking Area Code",
         examples=[1],
@@ -296,6 +297,7 @@ class FivegCoreGnbAvailableEvent(EventBase):
 
 
 class FivegCoreGnbRequirerAppData(BaseModel):
+    """Requirer application data for fiveg_core_gnb."""
     cu_ci: str = Field(
         description="CU/gNB unique identifier",
         examples=["gnb001"],
@@ -342,6 +344,7 @@ class FivegCoreGnbRequires(Object):
         Args:
             charm: Juju charm
             relation_name (str): Relation name
+            cu_name (str): name of the CU/gNodeB
         """
         self.relation_name = relation_name
         self.cu_name = cu_name
