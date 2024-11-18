@@ -14,8 +14,8 @@ from tests.unit.fixtures import NMSUnitTestFixtures
 
 EXPECTED_CONFIG_FILE_PATH = "tests/unit/expected_nms_cfg.yaml"
 
-class TestCharmConfigure(NMSUnitTestFixtures):
 
+class TestCharmConfigure(NMSUnitTestFixtures):
     def test_given_db_relations_do_not_exist_when_pebble_ready_then_nms_config_file_is_not_written(  # noqa: E501
         self,
     ):
@@ -265,11 +265,12 @@ class TestCharmConfigure(NMSUnitTestFixtures):
         [
             True,
             False,
-        ]
+        ],
     )
     def test_given_storage_attached_and_nms_config_file_does_not_exist_when_pebble_ready_then_config_file_is_written(  # noqa: E501
         self, certificate_was_updated
     ):
+        self.mock_nms_login.return_value = None
         with tempfile.TemporaryDirectory() as tempdir:
             common_database_relation = scenario.Relation(
                 endpoint="common_database",
@@ -287,6 +288,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "1.8.11.4:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             certificates_relation = scenario.Relation(
@@ -314,6 +324,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                 },
             )
@@ -356,6 +367,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "password": "hotdog",
                     "uris": "1.1.1.1:1234",
                 },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -412,7 +424,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
 
     def test_given_mandatory_relations_do_not_exist_when_pebble_ready_then_pebble_plan_is_empty(
-        self
+        self,
     ):
         self.mock_nms_login.return_value = None
         with tempfile.TemporaryDirectory() as tempdir:
@@ -468,7 +480,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             },
         )
         certificates_relation = scenario.Relation(
-                endpoint="certificates", interface="tls-certificates"
+            endpoint="certificates", interface="tls-certificates"
         )
         container = scenario.Container(
             name="nms",
@@ -551,6 +563,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "password": "hotdog",
                     "uris": "1.1.1.1:1234",
                 },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -741,6 +754,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "1.1.1.1:1234",
                 },
             )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
             fiveg_gnb_identity_relation = scenario.Relation(
                 endpoint="fiveg_gnb_identity",
                 interface="fiveg_gnb_identity",
@@ -761,11 +777,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 location="/nms/config",
                 source=tempdir,
             )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             state_in = scenario.State(
@@ -777,6 +798,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     auth_database_relation,
                     common_database_relation,
                     webui_database_relation,
+                    certificates_relation,
                 },
             )
 
@@ -882,7 +904,6 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             state_in = scenario.State(
                 leader=True,
                 secrets={login_secret},
-                relations={relation, auth_database_relation, common_database_relation},
                 relations={
                     relation,
                     auth_database_relation,
@@ -901,7 +922,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.mock_delete_upf.assert_not_called()
 
     def test_given_no_mandatory_relations_when_pebble_ready_then_nms_inventory_is_not_updated(
-        self
+        self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
             fiveg_gnb_identity_relation = scenario.Relation(
@@ -982,6 +1003,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "password": "hotdog",
                     "uris": "1.1.1.1:1234",
                 },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -1074,6 +1096,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "password": "hotdog",
                     "uris": "1.1.1.1:1234",
                 },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -1166,6 +1189,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "password": "hotdog",
                     "uris": "1.1.1.1:1234",
                 },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -1225,8 +1249,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             calls = [
-                call(hostname="some.host.name", port=1234, token="test-token"),
                 call(hostname="my_host", port=77, token="test-token"),
+                call(hostname="some.host.name", port=1234, token="test-token"),
             ]
             self.mock_create_upf.assert_has_calls(calls)
 
@@ -1260,6 +1284,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "password": "hotdog",
                     "uris": "1.1.1.1:1234",
                 },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -1354,6 +1379,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "password": "hotdog",
                     "uris": "1.1.1.1:1234",
                 },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -1393,14 +1419,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 containers={container},
                 secrets={login_secret},
                 relations={
+                    fiveg_n4_relation,
                     common_database_relation,
                     auth_database_relation,
                     webui_database_relation,
-                relations={
-                    common_database_relation,
-                    auth_database_relation,
                     certificates_relation,
-                    fiveg_n4_relation,
                 },
             )
             self.mock_certificate_is_available.return_value = True
@@ -1440,6 +1463,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "password": "hotdog",
                     "uris": "1.1.1.1:1234",
                 },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -1556,6 +1580,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "password": "hotdog",
                     "uris": "1.1.1.1:1234",
                 },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -1651,6 +1676,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "password": "hotdog",
                     "uris": "1.1.1.1:1234",
                 },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -1746,6 +1772,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "password": "hotdog",
                     "uris": "1.1.1.1:1234",
                 },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -1844,6 +1871,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "password": "hotdog",
                     "uris": "1.1.1.1:1234",
                 },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -1940,6 +1968,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "password": "hotdog",
                     "uris": "1.1.1.1:1234",
                 },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -2030,6 +2059,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "password": "hotdog",
                     "uris": "1.1.1.1:1234",
                 },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -2118,6 +2148,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "password": "hotdog",
                     "uris": "1.1.1.1:1234",
                 },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -2206,6 +2237,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "password": "hotdog",
                     "uris": "1.1.1.1:1234",
                 },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -2261,7 +2293,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.mock_delete_gnb.assert_called_once_with(name="old.gnb.name", token="test-token")
             self.mock_create_gnb.assert_called_once_with(
-                name="some.gnb.name", tac=6789, token="test-token"
+                name="some.gnb.name",
+                tac=6789,
+                token="test-token",
             )
 
     def test_given_cannot_connect_to_container_when_certificates_relation_broken_then_certificates_are_not_removed(  # noqa: E501

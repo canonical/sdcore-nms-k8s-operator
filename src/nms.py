@@ -19,6 +19,7 @@ ACCOUNTS_URL = "config/v1/account"
 
 JSON_HEADER = {"Content-Type": "application/json"}
 
+
 @dataclass
 class GnodeB:
     """Class to represent a gNB."""
@@ -113,7 +114,7 @@ class NMS:
                 url=url,
                 headers=headers,
                 json=data,
-                verify=self._ca_certificate_path or False
+                verify=self._ca_certificate_path or False,
             )
         except requests.exceptions.SSLError as e:
             logger.error("SSL error: %s", e)

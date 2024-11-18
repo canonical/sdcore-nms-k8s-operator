@@ -42,8 +42,6 @@ class BaseNMSUnitTestFixtures:
         self.mock_list_upfs = NMSUnitTestFixtures.patcher_nms_list_upfs.start()
         self.mock_create_upf = NMSUnitTestFixtures.patcher_nms_create_upf.start()
         self.mock_delete_upf = NMSUnitTestFixtures.patcher_nms_delete_upf.start()
-        yield
-        request.addfinalizer(self.tearDown)
 
     @staticmethod
     def tearDown() -> None:
@@ -72,8 +70,8 @@ class NMSUnitTestFixtures(BaseNMSUnitTestFixtures):
         yield
         request.addfinalizer(self.tearDown)
 
-class NMSTlsCertificatesFixtures(BaseNMSUnitTestFixtures):
 
+class NMSTlsCertificatesFixtures(BaseNMSUnitTestFixtures):
     patcher_get_assigned_certificate = patch(
         "charms.tls_certificates_interface.v4.tls_certificates.TLSCertificatesRequiresV4.get_assigned_certificate"
     )

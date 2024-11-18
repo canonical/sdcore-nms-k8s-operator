@@ -6,9 +6,9 @@
 
 import logging
 import secrets
+import socket
 import string
 from dataclasses import dataclass
-import socket
 from ipaddress import IPv4Address
 from subprocess import CalledProcessError, check_output
 from typing import List, Optional
@@ -78,13 +78,16 @@ class LoginSecret:
             "token": self.token if self.token else "",
         }
 
+
 TLS_RELATION_NAME = "certificates"
 MANDATORY_RELATIONS = [
     COMMON_DATABASE_RELATION_NAME,
     AUTH_DATABASE_RELATION_NAME,
+    WEBUI_DATABASE_RELATION_NAME,
     TLS_RELATION_NAME,
 ]
 CA_CERTIFICATE_CHARM_PATH = f"/var/lib/juju/storage/certs/0/{CA_CERTIFICATE_NAME}"
+
 
 def _get_pod_ip() -> Optional[str]:
     """Return the pod IP using juju client."""
@@ -115,6 +118,7 @@ def render_config_file(
         webui_database_url=webui_database_url,
     )
 
+
 class SDCoreNMSOperatorCharm(CharmBase):
     """Main class to describe juju event handling for the Aether SD-Core NMS operator for K8s."""
 
@@ -135,7 +139,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             relation_name=TLS_RELATION_NAME,
             container=self._container,
             domain_name=socket.getfqdn(),
-            workload_storage_path= CERTS_MOUNT_PATH
+            workload_storage_path=CERTS_MOUNT_PATH,
         )
         self._common_database = DatabaseRequires(
             self,
@@ -207,9 +211,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self.framework.observe(self.on.config_changed, self._configure_sdcore_nms)
         self._nms = NMS(
             url=f"https://{socket.getfqdn()}:{NMS_URL_PORT}",
-            ca_certificate_path=CA_CERTIFICATE_CHARM_PATH
+            ca_certificate_path=CA_CERTIFICATE_CHARM_PATH,
         )
-
 
     def _configure_sdcore_nms(self, event: EventBase) -> None:
         """Handle Juju events.
@@ -222,11 +225,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         if not self._container.exists(path=BASE_CONFIG_PATH):
             return
-        for relation in [
-            COMMON_DATABASE_RELATION_NAME,
-            AUTH_DATABASE_RELATION_NAME,
-            WEBUI_DATABASE_RELATION_NAME,
-        ]:
         if not self._container.exists(path=CERTS_MOUNT_PATH):
             return
         for relation in MANDATORY_RELATIONS:
@@ -284,8 +282,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         self.unit.set_workload_version(self._get_workload_version())
 
-        if (not self._container.exists(path=BASE_CONFIG_PATH) or
-            not self._container.exists(path=CERTS_MOUNT_PATH)):
+        if not self._container.exists(path=BASE_CONFIG_PATH) or not self._container.exists(
+            path=CERTS_MOUNT_PATH
+        ):
             event.add_status(WaitingStatus("Waiting for storage to be attached"))
             logger.info("Waiting for storage to be attached")
             return
@@ -353,8 +352,10 @@ class SDCoreNMSOperatorCharm(CharmBase):
     def _configure_workload(self):
         certificate_update_required = self._tls.check_and_update_certificate()
         desired_config_file = self._generate_nms_config_file()
-        if (not self._is_config_file_update_required(desired_config_file)
-            and not certificate_update_required):
+        if (
+            not self._is_config_file_update_required(desired_config_file)
+            and not certificate_update_required
+        ):
             self._configure_pebble()
             return
         self._write_file_in_workload(NMS_CONFIG_PATH, desired_config_file)

@@ -8,6 +8,7 @@ import time
 from base64 import b64decode
 from collections import Counter
 from pathlib import Path
+from typing import List
 
 import pytest
 import requests
@@ -80,8 +81,7 @@ async def _deploy_traefik(ops_test: OpsTest):
     # The following PR is needed to get Traefik to implement V1 of certificate transfer interface:
     # https://github.com/canonical/traefik-k8s-operator/issues/407
     await ops_test.model.integrate(
-        relation1=f"{TRAEFIK_CHARM_NAME}:certificates",
-        relation2=TLS_PROVIDER_CHARM_NAME
+        relation1=f"{TRAEFIK_CHARM_NAME}:certificates", relation2=TLS_PROVIDER_CHARM_NAME
     )
 
 
