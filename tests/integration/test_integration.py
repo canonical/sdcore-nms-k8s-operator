@@ -332,6 +332,9 @@ async def test_restore_database_and_wait_for_active_status(ops_test: OpsTest, de
     await ops_test.model.integrate(
         relation1=f"{APP_NAME}:{AUTH_DATABASE_RELATION_NAME}", relation2=DATABASE_APP_NAME
     )
+    await ops_test.model.integrate(
+        relation1=f"{APP_NAME}:{WEBUI_DATABASE_RELATION_NAME}", relation2=DATABASE_APP_NAME
+    )
     await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
 
 

@@ -236,11 +236,11 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         if not self._webui_database_resource_is_available():
             return
-        self._configure_charm_authorization()
         if not self._tls.certificate_is_available():
             logger.info("The TLS certificate is not available yet.")
             return
         self._configure_workload()
+        self._configure_charm_authorization()
         self._publish_sdcore_config_url()
         self._sync_gnbs()
         self._sync_upfs()

@@ -153,7 +153,6 @@ class NMS:
         """Login to NMS by sending the username and password and return a Token."""
         login_params = LoginParams(username=username, password=password)
         response = self._make_request("POST", "/login", data=asdict(login_params))
-        logger.info("Response: %s", response)
         if response:
             return LoginResponse(
                 token=response.get("token"),
@@ -163,13 +162,11 @@ class NMS:
     def token_is_valid(self, token: str) -> bool:
         """Return if the token is still valid by attempting to connect to an endpoint."""
         response = self._make_request("GET", f"/{ACCOUNTS_URL}/me", token=token)
-        logger.info("Response: %s", response)
         return response is not None
 
     def get_status(self) -> StatusResponse | None:
         """Return if NMS is initialized."""
         response = self._make_request("GET", "/status")
-        logger.info("Response: %s", response)
         if response:
             return StatusResponse(
                 initialized=response.get("initialized"),
@@ -179,7 +176,6 @@ class NMS:
     def list_gnbs(self, token: str) -> List[GnodeB]:
         """List gNBs from the NMS inventory."""
         response = self._make_request("GET", f"/{GNB_CONFIG_URL}", token=token)
-        logger.info("Response: %s", response)
         if not response:
             return []
         gnb_list = []
@@ -206,7 +202,6 @@ class NMS:
     def list_upfs(self, token: str) -> List[Upf]:
         """List UPFs from the NMS inventory."""
         response = self._make_request("GET", f"/{UPF_CONFIG_URL}", token=token)
-        logger.info("Response: %s", response)
         if not response:
             return []
         upf_list = []
@@ -235,7 +230,6 @@ class NMS:
         logger.info("Creating first user %s", username)
         create_user_params = CreateUserParams(username=username, password=password)
         response = self._make_request("POST", f"/{ACCOUNTS_URL}", data=asdict(create_user_params))
-        logger.info("Response: %s", response)
         if response:
             return CreateUserResponse(
                 id=response.get("id"),
