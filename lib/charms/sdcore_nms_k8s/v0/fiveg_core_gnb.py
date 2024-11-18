@@ -144,10 +144,28 @@ Examples:
 class PLMNConfig:
     """Dataclass representing the configuration for a PLMN."""
 
-    mcc: str
-    mnc: str
-    sst: int
-    sd: int
+    mcc: str = Field(
+        description="Mobile Country Code",
+        examples=["001", "208", "302"],
+        pattern=r"[0-9][0-9][0-9]",
+    )
+    mnc: str = Field(
+        description="Mobile Network Code",
+        examples=["01", "001", "999"],
+        pattern=r"[0-9][0-9][0-9]?",
+    )
+    sst: int = Field(
+        description="Slice/Service Type",
+        examples=[1, 2, 3, 4],
+        ge=0,
+        le=255,
+    )
+    sd: int = Field(
+        description="Slice Differentiator",
+        examples=[1],
+        ge=0,
+        le=16777215,
+    )
 
 
 class FivegCoreGnbProviderAppData(BaseModel):
