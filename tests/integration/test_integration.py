@@ -7,7 +7,6 @@ import logging
 import time
 from collections import Counter
 from pathlib import Path
-from typing import List
 
 import pytest
 import requests
@@ -71,6 +70,14 @@ async def _deploy_traefik(ops_test: OpsTest):
         application_name=TRAEFIK_CHARM_NAME,
         channel=TRAEFIK_CHARM_CHANNEL,
         trust=True,
+    )
+    # TODO: This is a workaround so Traefik has the same CA as NMS.
+    # This should be removed and V1 of the certificate transfer interface should be used instead
+    # The following PR is needed to get Traefik to implement V1 of certificate transfer interface:
+    # https://github.com/canonical/traefik-k8s-operator/issues/407
+    await ops_test.model.integrate(
+        relation1=f"{TRAEFIK_CHARM_NAME}:certificates",
+        relation2=TLS_PROVIDER_CHARM_NAME
     )
 
 
@@ -174,9 +181,9 @@ async def get_traefik_ip_address(ops_test: OpsTest) -> str:
     return _get_host_from_url(endpoints[TRAEFIK_CHARM_NAME]["url"])
 
 
-async def get_sdcore_nms_endpoint(ops_test: OpsTest) -> str:
+async def get_sdcore_nms_external_endpoint(ops_test: OpsTest) -> str:
     endpoints = await get_traefik_proxied_endpoints(ops_test)
-    return endpoints[APP_NAME]["url"]
+    return endpoints[APP_NAME]["url"].rstrip("/")
 
 
 def _get_host_from_url(url: str) -> str:
@@ -185,12 +192,13 @@ def _get_host_from_url(url: str) -> str:
 
 
 def ui_is_running(nms_endpoint: str) -> bool:
-    url = f"{nms_endpoint}network-configuration"
+    url = f"{nms_endpoint}/network-configuration"
+    logger.info(f"Reaching NMS UI at {url}")
     t0 = time.time()
     timeout = 300  # seconds
     while time.time() - t0 < timeout:
         try:
-            response = requests.get(url=url, timeout=5)
+            response = requests.get(url=url, timeout=5, verify=False)
             response.raise_for_status()
             logger.info(response.content.decode("utf-8"))
             if "5G NMS" in response.content.decode("utf-8"):
@@ -199,20 +207,6 @@ def ui_is_running(nms_endpoint: str) -> bool:
             logger.error(f"UI is not running yet: {e}")
         time.sleep(2)
     return False
-
-
-def get_nms_inventory_resource(url: str) -> List:
-    t0 = time.time()
-    timeout = 100  # seconds
-    while time.time() - t0 < timeout:
-        try:
-            response = requests.get(url=url, timeout=5)
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error("Cannot connect to the nms inventory: %s", e)
-        time.sleep(2)
-    return []
 
 
 @pytest.fixture(scope="module")
@@ -232,8 +226,8 @@ async def deploy(ops_test: OpsTest, request):
     )
     await _deploy_database(ops_test)
     await _deploy_grafana_agent(ops_test)
-    await _deploy_traefik(ops_test)
     await _deploy_self_signed_certificates(ops_test)
+    await _deploy_traefik(ops_test)
     await _deploy_nrf(ops_test)
     await _deploy_sdcore_gnbsim(ops_test)
     await _deploy_amf(ops_test)
@@ -261,6 +255,7 @@ async def test_relate_and_wait_for_active_status(ops_test: OpsTest, deploy):
     await ops_test.model.integrate(
         relation1=f"{APP_NAME}:{AUTH_DATABASE_RELATION_NAME}", relation2=DATABASE_APP_NAME
     )
+    await ops_test.model.integrate(relation1=APP_NAME, relation2=TLS_PROVIDER_CHARM_NAME)
     await ops_test.model.integrate(
         relation1=f"{APP_NAME}:{LOGGING_RELATION_NAME}", relation2=GRAFANA_AGENT_APP_NAME
     )
@@ -314,9 +309,9 @@ async def test_given_related_to_traefik_when_fetch_ui_then_returns_html_content(
 ):
     # Workaround for Traefik issue: https://github.com/canonical/traefik-k8s-operator/issues/361
     traefik_ip = await get_traefik_ip_address(ops_test)
-    logger.info(traefik_ip)
     await configure_traefik(ops_test, traefik_ip)
-    nms_url = await get_sdcore_nms_endpoint(ops_test)
+    nms_url = await get_sdcore_nms_external_endpoint(ops_test)
+    assert nms_url.startswith("https")
     assert ui_is_running(nms_endpoint=nms_url)
 
 
@@ -326,13 +321,15 @@ async def test_given_nms_related_to_gnbsim_and_gnbsim_status_is_active_then_nms_
 ):
     assert ops_test.model
     await ops_test.model.wait_for_idle(apps=[GNBSIM_CHARM_NAME], status="active", timeout=TIMEOUT)
-    nms_url = await get_sdcore_nms_endpoint(ops_test)
+    nms_url = await get_sdcore_nms_external_endpoint(ops_test)
     nms_client = NMS(url=nms_url)
 
     gnbs = nms_client.list_gnbs()
 
     expected_gnb_name = f"{ops_test.model.name}-gnbsim-{GNBSIM_CHARM_NAME}"
     expected_gnb = GnodeB(name=expected_gnb_name, tac=1)
+    logger.info(expected_gnb_name)
+    logger.info(expected_gnb)
     assert gnbs == [expected_gnb]
 
 
@@ -342,7 +339,7 @@ async def test_given_nms_related_to_upf_and_upf_status_is_active_then_nms_invent
 ):
     assert ops_test.model
     await ops_test.model.wait_for_idle(apps=[UPF_CHARM_NAME], status="active", timeout=TIMEOUT)
-    nms_url = await get_sdcore_nms_endpoint(ops_test)
+    nms_url = await get_sdcore_nms_external_endpoint(ops_test)
     nms_client = NMS(url=nms_url)
 
     upfs = nms_client.list_upfs()
@@ -360,7 +357,8 @@ async def test_given_gnb_and_upf_are_remove_then_nms_inventory_does_not_contain_
     await ops_test.model.remove_application(UPF_CHARM_NAME, block_until_done=False)
     await ops_test.model.remove_application(GNBSIM_CHARM_NAME, block_until_done=True)
     await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
-    nms_url = await get_sdcore_nms_endpoint(ops_test)
+    nms_url = await get_sdcore_nms_external_endpoint(ops_test)
+
     nms_client = NMS(url=nms_url)
 
     gnbs = nms_client.list_gnbs()
@@ -368,6 +366,21 @@ async def test_given_gnb_and_upf_are_remove_then_nms_inventory_does_not_contain_
 
     upfs = nms_client.list_upfs()
     assert upfs == []
+
+
+@pytest.mark.abort_on_fail
+async def test_remove_tls_and_wait_for_blocked_status(ops_test: OpsTest, deploy):
+    assert ops_test.model
+    await ops_test.model.remove_application(TLS_PROVIDER_CHARM_NAME, block_until_done=True)
+    await ops_test.model.wait_for_idle(apps=[APP_NAME], status="blocked", timeout=60)
+
+
+@pytest.mark.abort_on_fail
+async def test_restore_tls_and_wait_for_active_status(ops_test: OpsTest, deploy):
+    assert ops_test.model
+    await _deploy_self_signed_certificates(ops_test)
+    await ops_test.model.integrate(relation1=APP_NAME, relation2=TLS_PROVIDER_CHARM_NAME)
+    await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
 
 
 @pytest.mark.abort_on_fail
