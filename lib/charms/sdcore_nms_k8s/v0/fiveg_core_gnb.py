@@ -21,11 +21,16 @@ Add the following libraries to the charm's `requirements.txt` file:
 - pytest-interface-tester
 
 Charms providing the `fiveg_core_gnb` relation should use `FivegCoreGnbProvides`.
+The class `PLMNConfig` represents the configuration of a PLMN for the CU/gNodeB. It is composed by
+the Mobile Country Code (MCC), the Mobile Network Code (MNC), the Slice Service Type (SST) and the
+Slice Differentiator (SD). Each CU can be configured with a single Tracking Area Code (TAC) and
+multiple PLMNS.
+
 Typical usage of this class would look something like:
 
     ```python
     ...
-    from charms.sdcore_gnbsim_k8s.v0.fiveg_core_gnb import FivegCoreGnbProvides
+    from charms.sdcore_gnbsim_k8s.v0.fiveg_core_gnb import FivegCoreGnbProvides, PLMNConfig
     ...
 
     class SomeProviderCharm(CharmBase):
@@ -38,12 +43,14 @@ Typical usage of this class would look something like:
                 )
             ...
             self.framework.observe(
-                self.fiveg_core_gnb_provider.on.fiveg_core_gnb_request,
-                self._on_fiveg_core_gnb_request
+                self.fiveg_core_gnb_provider.on.gnb_available,
+                self._on_gnb_available
             )
 
-        def _on_fiveg_core_gnb_request(self, event):
+        def _on_gnb_available(self, event):
             ...
+            # implement the logic to populate the list of PLMNs.
+            plmns = [PLMNConfig(mcc=..., mnc=..., sst=..., sd=...)
             self.fiveg_core_gnb_provider.publish_fiveg_core_gnb_information(
                 relation_id=event.relation_id,
                 tac=tac,
@@ -97,7 +104,7 @@ import logging
 from dataclasses import dataclass
 
 from interface_tester.schema_base import DataBagSchema
-from ops.charm import CharmBase, CharmEvents, RelationChangedEvent, RelationJoinedEvent
+from ops.charm import CharmBase, CharmEvents, RelationChangedEvent
 from ops.framework import EventBase, EventSource, Handle, Object
 from pydantic import BaseModel, Field, ValidationError
 
@@ -255,7 +262,7 @@ class FivegCoreGnbProvides(Object):
         self.relation_name = relation_name
         self.charm = charm
         super().__init__(charm, relation_name)
-        self.framework.observe(charm.on[relation_name].relation_joined, self._on_relation_joined)
+        self.framework.observe(charm.on[relation_name].relation_changed, self._on_relation_changed)
 
     def publish_fiveg_core_gnb_information(
         self, relation_id: int, tac: int, plmns: list[PLMNConfig]
@@ -278,13 +285,16 @@ class FivegCoreGnbProvides(Object):
             raise RuntimeError(f"Relation {self.relation_name} not created yet.")
         relation.data[self.charm.app].update({"tac": str(tac), "plmns": json.dumps(plmns)})
 
-    def _on_relation_joined(self, event: RelationJoinedEvent) -> None:
-        """Triggered whenever a requirer charm joins the relation.
+    def _on_relation_changed(self, event: RelationChangedEvent) -> None:
+        """Triggered every time there's a change in relation data.
 
         Args:
-            event (RelationJoinedEvent): Juju event
+            event (RelationChangedEvent): Juju event
         """
-        self.on.gnb_available.emit(relation_id=event.relation.id)
+        relation_data = event.relation.data
+        cu_name = relation_data[event.app].get("cu_name")
+        if cu_name:
+            self.on.gnb_available.emit(relation_id=event.relation.id)
 
 
 class GnbConfigAvailableEvent(EventBase):
@@ -387,7 +397,7 @@ class FivegCoreGnbRequires(Object):
         )
         if not relation:
             raise RuntimeError(f"Relation {self.relation_name} not created yet.")
-        relation.data[self.charm.app]["cu_name"] = str(cu_name)
+        relation.data[self.charm.app]["cu_name"] = cu_name
 
     def _on_relation_changed(self, event: RelationChangedEvent) -> None:
         """Triggered every time there's a change in relation data.
