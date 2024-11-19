@@ -7,6 +7,7 @@ import tempfile
 import scenario
 from ops import testing
 
+from nms import LoginResponse
 from tests.unit.certificates_helpers import example_cert_and_key
 from tests.unit.fixtures import NMSTlsCertificatesFixtures
 
@@ -139,7 +140,7 @@ class TestCharmTlsCertificates(NMSTlsCertificatesFixtures):
             state_in = testing.State(
                 leader=True,
                 relations=[
-           auth_database_relation,
+                    auth_database_relation,
                     common_database_relation,
                     certificates_relation,
                 ],
@@ -168,6 +169,7 @@ class TestCharmTlsCertificates(NMSTlsCertificatesFixtures):
     def test_given_storage_attached_and_certificate_available_when_pebble_ready_then_certs_are_written(  # noqa: E501
         self,
     ):
+        self.mock_nms_login.return_value = LoginResponse(token="test-token")
         with tempfile.TemporaryDirectory() as tempdir:
             common_database_relation = scenario.Relation(
                 endpoint="common_database",
@@ -185,6 +187,15 @@ class TestCharmTlsCertificates(NMSTlsCertificatesFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "1.8.11.4:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.2.3.4:1234",
                 },
             )
             certificates_relation = scenario.Relation(
@@ -212,6 +223,7 @@ class TestCharmTlsCertificates(NMSTlsCertificatesFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                 },
             )
@@ -232,6 +244,7 @@ class TestCharmTlsCertificates(NMSTlsCertificatesFixtures):
     def test_given_certificate_exist_and_are_different_when_pebble_ready_then_certs_are_overwritten(  # noqa: E501
         self,
     ):
+        self.mock_nms_login.return_value = LoginResponse(token="test-token")
         with tempfile.TemporaryDirectory() as tempdir:
             common_database_relation = scenario.Relation(
                 endpoint="common_database",
@@ -249,6 +262,15 @@ class TestCharmTlsCertificates(NMSTlsCertificatesFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "1.8.11.4:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.2.3.4:1234",
                 },
             )
             certificates_relation = scenario.Relation(
@@ -290,6 +312,7 @@ class TestCharmTlsCertificates(NMSTlsCertificatesFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                 },
             )
@@ -302,7 +325,7 @@ class TestCharmTlsCertificates(NMSTlsCertificatesFixtures):
 
             self.mock_get_assigned_certificate.return_value = (
                 new_provider_certificate,
-                new_private_key
+                new_private_key,
             )
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
@@ -313,5 +336,3 @@ class TestCharmTlsCertificates(NMSTlsCertificatesFixtures):
                 assert f.read() == str(new_private_key)
             with open(tempdir + "/ca.pem", "r") as f:
                 assert f.read() == str(new_provider_certificate.ca)
-
-

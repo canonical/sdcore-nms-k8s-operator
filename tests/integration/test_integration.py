@@ -5,15 +5,19 @@
 import json
 import logging
 import time
+from base64 import b64decode
 from collections import Counter
 from pathlib import Path
+from typing import List
 
 import pytest
 import requests
 import yaml
 from juju.application import Application
+from juju.client.client import SecretsFilter
 from pytest_operator.plugin import OpsTest
 
+from charm import NMS_LOGIN_SECRET_LABEL
 from nms import NMS, GnodeB, Upf
 
 logger = logging.getLogger(__name__)
@@ -26,6 +30,7 @@ DATABASE_APP_NAME = "mongodb-k8s"
 DATABASE_APP_CHANNEL = "6/beta"
 COMMON_DATABASE_RELATION_NAME = "common_database"
 AUTH_DATABASE_RELATION_NAME = "auth_database"
+WEBUI_DATABASE_RELATION_NAME = "webui_database"
 LOGGING_RELATION_NAME = "logging"
 GNBSIM_CHARM_NAME = "sdcore-gnbsim-k8s"
 GNBSIM_CHARM_CHANNEL = "1.5/edge"
@@ -76,8 +81,7 @@ async def _deploy_traefik(ops_test: OpsTest):
     # The following PR is needed to get Traefik to implement V1 of certificate transfer interface:
     # https://github.com/canonical/traefik-k8s-operator/issues/407
     await ops_test.model.integrate(
-        relation1=f"{TRAEFIK_CHARM_NAME}:certificates",
-        relation2=TLS_PROVIDER_CHARM_NAME
+        relation1=f"{TRAEFIK_CHARM_NAME}:certificates", relation2=TLS_PROVIDER_CHARM_NAME
     )
 
 
@@ -209,6 +213,31 @@ def ui_is_running(nms_endpoint: str) -> bool:
     return False
 
 
+def get_nms_inventory_resource(url: str) -> List:
+    t0 = time.time()
+    timeout = 100  # seconds
+    while time.time() - t0 < timeout:
+        try:
+            response = requests.get(url=url, timeout=5)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error("Cannot connect to the nms inventory: %s", e)
+        time.sleep(2)
+    return []
+
+
+async def get_nms_credentials(ops_test: OpsTest) -> dict[str, str]:
+    assert ops_test.model
+    secrets = await ops_test.model.list_secrets(
+        filter=SecretsFilter(label=NMS_LOGIN_SECRET_LABEL), show_secrets=True
+    )
+    return {
+        field: b64decode(secrets[0].value.data[field]).decode("utf-8")
+        for field in ["username", "password", "token"]
+    }
+
+
 @pytest.fixture(scope="module")
 @pytest.mark.abort_on_fail
 async def deploy(ops_test: OpsTest, request):
@@ -257,6 +286,9 @@ async def test_relate_and_wait_for_active_status(ops_test: OpsTest, deploy):
     )
     await ops_test.model.integrate(relation1=APP_NAME, relation2=TLS_PROVIDER_CHARM_NAME)
     await ops_test.model.integrate(
+        relation1=f"{APP_NAME}:{WEBUI_DATABASE_RELATION_NAME}", relation2=DATABASE_APP_NAME
+    )
+    await ops_test.model.integrate(
         relation1=f"{APP_NAME}:{LOGGING_RELATION_NAME}", relation2=GRAFANA_AGENT_APP_NAME
     )
     await ops_test.model.integrate(relation1=APP_NAME, relation2=NRF_CHARM_NAME)
@@ -300,6 +332,9 @@ async def test_restore_database_and_wait_for_active_status(ops_test: OpsTest, de
     await ops_test.model.integrate(
         relation1=f"{APP_NAME}:{AUTH_DATABASE_RELATION_NAME}", relation2=DATABASE_APP_NAME
     )
+    await ops_test.model.integrate(
+        relation1=f"{APP_NAME}:{WEBUI_DATABASE_RELATION_NAME}", relation2=DATABASE_APP_NAME
+    )
     await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
 
 
@@ -320,11 +355,14 @@ async def test_given_nms_related_to_gnbsim_and_gnbsim_status_is_active_then_nms_
     ops_test: OpsTest, deploy
 ):
     assert ops_test.model
+    admin_credentials = await get_nms_credentials(ops_test)
+    token = admin_credentials.get("token")
+    assert token
     await ops_test.model.wait_for_idle(apps=[GNBSIM_CHARM_NAME], status="active", timeout=TIMEOUT)
     nms_url = await get_sdcore_nms_external_endpoint(ops_test)
     nms_client = NMS(url=nms_url)
 
-    gnbs = nms_client.list_gnbs()
+    gnbs = nms_client.list_gnbs(token=token)
 
     expected_gnb_name = f"{ops_test.model.name}-gnbsim-{GNBSIM_CHARM_NAME}"
     expected_gnb = GnodeB(name=expected_gnb_name, tac=1)
@@ -338,11 +376,14 @@ async def test_given_nms_related_to_upf_and_upf_status_is_active_then_nms_invent
     ops_test: OpsTest, deploy
 ):
     assert ops_test.model
+    admin_credentials = await get_nms_credentials(ops_test)
+    token = admin_credentials.get("token")
+    assert token
     await ops_test.model.wait_for_idle(apps=[UPF_CHARM_NAME], status="active", timeout=TIMEOUT)
     nms_url = await get_sdcore_nms_external_endpoint(ops_test)
     nms_client = NMS(url=nms_url)
 
-    upfs = nms_client.list_upfs()
+    upfs = nms_client.list_upfs(token=token)
 
     expected_upf_hostname = f"{UPF_CHARM_NAME}-external.{ops_test.model.name}.svc.cluster.local"
     expected_upf = Upf(hostname=expected_upf_hostname, port=8805)
@@ -354,6 +395,9 @@ async def test_given_gnb_and_upf_are_remove_then_nms_inventory_does_not_contain_
     ops_test: OpsTest, deploy
 ):
     assert ops_test.model
+    admin_credentials = await get_nms_credentials(ops_test)
+    token = admin_credentials.get("token")
+    assert token
     await ops_test.model.remove_application(UPF_CHARM_NAME, block_until_done=False)
     await ops_test.model.remove_application(GNBSIM_CHARM_NAME, block_until_done=True)
     await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
@@ -361,10 +405,10 @@ async def test_given_gnb_and_upf_are_remove_then_nms_inventory_does_not_contain_
 
     nms_client = NMS(url=nms_url)
 
-    gnbs = nms_client.list_gnbs()
+    gnbs = nms_client.list_gnbs(token=token)
     assert gnbs == []
 
-    upfs = nms_client.list_upfs()
+    upfs = nms_client.list_upfs(token=token)
     assert upfs == []
 
 

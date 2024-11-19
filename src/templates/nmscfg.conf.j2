@@ -7,7 +7,10 @@ configuration:
     url: {{ common_database_url }}
     authKeysDbName: {{ auth_database_name }}
     authUrl: {{ auth_database_url }}
+    webuiDbName: {{ webui_database_name }}
+    webuiDbUrl: {{ webui_database_url }}
   spec-compliant-sdf: false
+  enableAuthentication: true
   tls:
     key: {{ tls_key_path }}
     pem: {{ tls_certificate_path }}

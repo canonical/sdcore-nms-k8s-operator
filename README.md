@@ -22,6 +22,7 @@ juju integrate sdcore-nms-k8s:certificates self-signed-certificates:certificates
 juju integrate traefik-k8s:certificates self-signed-certificates:certificates
 juju integrate sdcore-nms-k8s:common_database mongodb-k8s
 juju integrate sdcore-nms-k8s:auth_database mongodb-k8s
+juju integrate sdcore-nms-k8s:webui_database mongodb-k8s
 juju integrate sdcore-nms-k8s:ingress traefik-k8s:ingress
 juju integrate sdcore-nms-k8s:fiveg_n4 sdcore-upf-k8s:fiveg_n4
 juju integrate sdcore-nms-k8s:fiveg_gnb_identity sdcore-gnbsim-k8s:fiveg_gnb_identity

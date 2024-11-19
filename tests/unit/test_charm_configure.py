@@ -9,15 +9,13 @@ import pytest
 import scenario
 from ops.pebble import Layer
 
-from nms import GnodeB, Upf
-from tests.unit.fixtures import (
-    NMSUnitTestFixtures,
-)
+from nms import GnodeB, LoginResponse, Upf
+from tests.unit.fixtures import NMSUnitTestFixtures
 
 EXPECTED_CONFIG_FILE_PATH = "tests/unit/expected_nms_cfg.yaml"
 
-class TestCharmConfigure(NMSUnitTestFixtures):
 
+class TestCharmConfigure(NMSUnitTestFixtures):
     def test_given_db_relations_do_not_exist_when_pebble_ready_then_nms_config_file_is_not_written(  # noqa: E501
         self,
     ):
@@ -147,6 +145,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
     def test_given_certificates_relation_doesnt_exist_when_pebble_ready_then_nms_config_file_is_not_written(  # noqa: E501
         self,
     ):
+        self.mock_nms_login.return_value = None
         with tempfile.TemporaryDirectory() as tempdir:
             common_database_relation = scenario.Relation(
                 endpoint="common_database",
@@ -164,6 +163,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "1.8.11.4:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             config_mount = scenario.Mount(
@@ -185,7 +193,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             state_in = scenario.State(
                 leader=True,
                 containers={container},
-                relations={common_database_relation, auth_database_relation},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    webui_database_relation,
+                },
             )
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
@@ -253,11 +265,12 @@ class TestCharmConfigure(NMSUnitTestFixtures):
         [
             True,
             False,
-        ]
+        ],
     )
     def test_given_storage_attached_and_nms_config_file_does_not_exist_when_pebble_ready_then_config_file_is_written(  # noqa: E501
         self, certificate_was_updated
     ):
+        self.mock_nms_login.return_value = None
         with tempfile.TemporaryDirectory() as tempdir:
             common_database_relation = scenario.Relation(
                 endpoint="common_database",
@@ -277,6 +290,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "1.8.11.4:1234",
                 },
             )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -302,6 +324,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                 },
             )
@@ -316,6 +339,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
     def test_given_container_is_ready_db_relations_exist_and_storage_attached_when_pebble_ready_then_pebble_plan_is_applied(  # noqa: E501
         self,
     ):
+        self.mock_nms_login.return_value = None
         with tempfile.TemporaryDirectory() as tempdir:
             common_database_relation = scenario.Relation(
                 endpoint="common_database",
@@ -335,6 +359,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -360,6 +393,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                 },
             )
@@ -390,8 +424,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
 
     def test_given_mandatory_relations_do_not_exist_when_pebble_ready_then_pebble_plan_is_empty(
-        self
+        self,
     ):
+        self.mock_nms_login.return_value = None
         with tempfile.TemporaryDirectory() as tempdir:
             config_mount = scenario.Mount(
                 location="/nms/config",
@@ -421,6 +456,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
     def test_given_storage_not_attached_when_pebble_ready_then_config_url_is_not_published_for_relations(  # noqa: E501
         self,
     ):
+        self.mock_nms_login.return_value = None
         sdcore_config_relation = scenario.Relation(
             endpoint="sdcore_config",
             interface="sdcore_config",
@@ -444,7 +480,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             },
         )
         certificates_relation = scenario.Relation(
-                endpoint="certificates", interface="tls-certificates"
+            endpoint="certificates", interface="tls-certificates"
         )
         container = scenario.Container(
             name="nms",
@@ -469,6 +505,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
     def test_given_nms_service_is_running_mandatory_relations_are_not_joined_when_pebble_ready_then_config_url_is_not_published_for_relations(  # noqa: E501
         self,
     ):
+        self.mock_nms_login.return_value = None
         with tempfile.TemporaryDirectory() as tempdir:
             sdcore_config_relation = scenario.Relation(
                 endpoint="sdcore_config",
@@ -498,6 +535,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
     def test_given_nms_service_is_running_db_relations_are_joined_when_several_sdcore_config_relations_are_joined_then_config_url_is_set_in_all_relations(  # noqa: E501
         self,
     ):
+        self.mock_nms_login.return_value = None
         with tempfile.TemporaryDirectory() as tempdir:
             auth_database_relation = scenario.Relation(
                 endpoint="auth_database",
@@ -515,6 +553,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             certificates_relation = scenario.Relation(
@@ -550,6 +597,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 relations={
                     auth_database_relation,
                     common_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                     sdcore_config_relation_1,
                     sdcore_config_relation_2,
@@ -565,6 +613,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
     def test_given_nms_service_is_not_running_when_pebble_ready_then_config_url_is_not_set_in_the_relations(  # noqa: E501
         self,
     ):
+        self.mock_nms_login.return_value = None
         with tempfile.TemporaryDirectory() as tempdir:
             auth_database_relation = scenario.Relation(
                 endpoint="auth_database",
@@ -627,6 +676,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
     def test_given_storage_not_attached_when_relation_broken_then_no_exception_is_raised(
         self, relation_name
     ):
+        self.mock_nms_login.return_value = None
         relation = scenario.Relation(
             endpoint=relation_name,
             interface=relation_name,
@@ -648,6 +698,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
     def test_given_cannot_connect_to_container_when_relation_broken_then_no_exception_is_raised(
         self, relation_name
     ):
+        self.mock_nms_login.return_value = None
         with tempfile.TemporaryDirectory() as tempdir:
             relation = scenario.Relation(
                 endpoint=relation_name,
@@ -672,6 +723,89 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
 
             self.ctx.run(self.ctx.on.relation_broken(relation), state_in)
+
+    def test_given_login_secret_doesnt_exist_when_configure_then_login_secret_created(self):
+        self.mock_nms_login.return_value = LoginResponse(token="test-token")
+        with tempfile.TemporaryDirectory() as tempdir:
+            common_database_relation = scenario.Relation(
+                endpoint="common_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            auth_database_relation = scenario.Relation(
+                endpoint="auth_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
+            fiveg_gnb_identity_relation = scenario.Relation(
+                endpoint="fiveg_gnb_identity",
+                interface="fiveg_gnb_identity",
+                remote_app_data={
+                    "gnb_name": "some.gnb.name",
+                    "tac": "1234",
+                },
+            )
+            fiveg_n4_relation = scenario.Relation(
+                endpoint="fiveg_n4",
+                interface="fiveg_n4",
+                remote_app_data={
+                    "upf_hostname": "some.host.name",
+                    "upf_port": "1234",
+                },
+            )
+            config_mount = scenario.Mount(
+                location="/nms/config",
+                source=tempdir,
+            )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
+            container = scenario.Container(
+                name="nms",
+                can_connect=True,
+                mounts={
+                    "config": config_mount,
+                    "certs": certs_mount,
+                },
+            )
+            state_in = scenario.State(
+                leader=True,
+                containers={container},
+                relations={
+                    fiveg_gnb_identity_relation,
+                    fiveg_n4_relation,
+                    auth_database_relation,
+                    common_database_relation,
+                    webui_database_relation,
+                    certificates_relation,
+                },
+            )
+
+            state_out = self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
+
+        secret = state_out.get_secret(label="NMS_LOGIN")
+        assert secret.tracked_content["token"] == "test-token"
 
     @pytest.mark.parametrize(
         "relation_name,relation_data",
@@ -761,8 +895,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "config": config_mount,
                 },
             )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
             state_in = scenario.State(
                 leader=True,
+                secrets={login_secret},
                 relations={
                     relation,
                     auth_database_relation,
@@ -781,7 +922,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.mock_delete_upf.assert_not_called()
 
     def test_given_no_mandatory_relations_when_pebble_ready_then_nms_inventory_is_not_updated(
-        self
+        self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
             fiveg_gnb_identity_relation = scenario.Relation(
@@ -811,9 +952,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "config": config_mount,
                 },
             )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
             state_in = scenario.State(
                 leader=True,
                 containers={container},
+                secrets={login_secret},
                 relations={fiveg_gnb_identity_relation, fiveg_n4_relation},
             )
 
@@ -827,6 +975,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
     def test_given_mandatory_relations_when_pebble_ready_then_nms_upf_is_updated(
         self,
     ):
+        self.mock_nms_login.return_value = None
         with tempfile.TemporaryDirectory() as tempdir:
             common_database_relation = scenario.Relation(
                 endpoint="common_database",
@@ -844,6 +993,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             certificates_relation = scenario.Relation(
@@ -881,12 +1039,20 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "certs": certs_mount,
                 },
             )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
             state_in = scenario.State(
                 leader=True,
                 containers={container},
+                secrets={login_secret},
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                     fiveg_gnb_identity_relation,
                     fiveg_n4_relation,
@@ -896,7 +1062,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
-            self.mock_create_upf.assert_called_once_with(hostname="some.host.name", port=1234)
+            self.mock_create_upf.assert_called_once_with(
+                hostname="some.host.name", port=1234, token="test-token"
+            )
 
     def test_given_mandatory_relations_when_pebble_ready_then_nms_gnb_is_updated(
         self,
@@ -920,6 +1088,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -955,12 +1132,20 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "certs": certs_mount,
                 },
             )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
             state_in = scenario.State(
                 leader=True,
                 containers={container},
+                secrets={login_secret},
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                     fiveg_gnb_identity_relation,
                     fiveg_n4_relation,
@@ -970,7 +1155,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
-            self.mock_create_gnb.assert_called_once_with(name="some.gnb.name", tac=1234)
+            self.mock_create_gnb.assert_called_once_with(
+                name="some.gnb.name", tac=1234, token="test-token"
+            )
 
     def test_given_multiple_n4_relations_when_pebble_ready_then_both_upfs_are_added_to_nms(
         self,
@@ -992,6 +1179,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             certificates_relation = scenario.Relation(
@@ -1029,12 +1225,20 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "certs": certs_mount,
                 },
             )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
             state_in = scenario.State(
                 leader=True,
                 containers={container},
+                secrets={login_secret},
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                     fiveg_n4_relation_1,
                     fiveg_n4_relation_2,
@@ -1045,8 +1249,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             calls = [
-                call(hostname="some.host.name", port=1234),
-                call(hostname="my_host", port=77),
+                call(hostname="my_host", port=77, token="test-token"),
+                call(hostname="some.host.name", port=1234, token="test-token"),
             ]
             self.mock_create_upf.assert_has_calls(calls)
 
@@ -1070,6 +1274,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             certificates_relation = scenario.Relation(
@@ -1107,12 +1320,20 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "certs": certs_mount,
                 },
             )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
             state_in = scenario.State(
                 leader=True,
                 containers={container},
+                secrets={login_secret},
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                     fiveg_gnb_identity_relation_1,
                     fiveg_gnb_identity_relation_2,
@@ -1123,8 +1344,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             calls = [
-                call(name="some.gnb.name", tac=1234),
-                call(name="my_gnb", tac=77),
+                call(name="some.gnb.name", tac=1234, token="test-token"),
+                call(name="my_gnb", tac=77, token="test-token"),
             ]
             self.mock_create_gnb.assert_has_calls(calls)
 
@@ -1148,6 +1369,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             certificates_relation = scenario.Relation(
@@ -1178,14 +1408,22 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "upf_port": "1234",
                 },
             )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
             state_in = scenario.State(
                 leader=True,
                 containers={container},
+                secrets={login_secret},
                 relations={
+                    fiveg_n4_relation,
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     certificates_relation,
-                    fiveg_n4_relation,
                 },
             )
             self.mock_certificate_is_available.return_value = True
@@ -1217,6 +1455,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -1246,12 +1493,20 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "tac": "1234",
                 },
             )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
             state_in = scenario.State(
                 leader=True,
                 containers={container},
+                secrets={login_secret},
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                     fiveg_gnb_identity_relation,
                 },
@@ -1278,9 +1533,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "config": config_mount,
                 },
             )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
             state_in = scenario.State(
                 leader=True,
                 containers={container},
+                secrets={login_secret},
                 relations=frozenset(),
             )
 
@@ -1308,6 +1570,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             certificates_relation = scenario.Relation(
@@ -1347,12 +1618,20 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "upf_port": "4567",
                 },
             )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
             state_in = scenario.State(
                 leader=True,
                 containers={container},
+                secrets={login_secret},
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                     fiveg_n4_relation_1,
                     fiveg_n4_relation_2,
@@ -1362,7 +1641,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_joined(fiveg_n4_relation_2), state_in)
 
-            self.mock_create_upf.assert_called_once_with(hostname="my_host", port=4567)
+            self.mock_create_upf.assert_called_once_with(
+                hostname="my_host", port=4567, token="test-token"
+            )
             self.mock_delete_upf.assert_not_called()
 
     def test_given_gnb_exists_in_nms_and_new_gnb_relation_is_added_when_pebble_ready_then_second_gnb_is_added_to_nms(  # noqa: E501
@@ -1385,6 +1666,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             certificates_relation = scenario.Relation(
@@ -1424,12 +1714,20 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "tac": "4567",
                 },
             )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
             state_in = scenario.State(
                 leader=True,
                 containers={container},
+                secrets={login_secret},
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                     fiveg_gnb_identity_relation_1,
                     fiveg_gnb_identity_relation_2,
@@ -1439,7 +1737,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_joined(fiveg_gnb_identity_relation_2), state_in)
 
-            self.mock_create_gnb.assert_called_once_with(name="my_gnb", tac=4567)
+            self.mock_create_gnb.assert_called_once_with(
+                name="my_gnb", tac=4567, token="test-token"
+            )
             self.mock_delete_gnb.assert_not_called()
 
     def test_given_two_n4_relations_when_n4_relation_broken_then_upf_is_removed_from_nms(
@@ -1462,6 +1762,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             certificates_relation = scenario.Relation(
@@ -1504,12 +1813,20 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "upf_port": "22",
                 },
             )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
             state_in = scenario.State(
                 leader=True,
                 containers={container},
+                secrets={login_secret},
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                     fiveg_n4_relation_1,
                     fiveg_n4_relation_2,
@@ -1519,7 +1836,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_broken(fiveg_n4_relation_1), state_in)
 
-            self.mock_delete_upf.assert_called_once_with(hostname="some.host.name")
+            self.mock_delete_upf.assert_called_once_with(
+                hostname="some.host.name", token="test-token"
+            )
             self.mock_create_upf.assert_not_called()
 
     def test_given_two_gnb_identity_relations_when_relation_broken_then_gnb_is_removed_from_nms(  # noqa: E501
@@ -1542,6 +1861,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             certificates_relation = scenario.Relation(
@@ -1584,12 +1912,20 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "tac": "333",
                 },
             )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
             state_in = scenario.State(
                 leader=True,
                 containers={container},
+                secrets={login_secret},
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                     gnb_identity_relation_1,
                     gnb_identity_relation_2,
@@ -1599,7 +1935,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_broken(gnb_identity_relation_1), state_in)
 
-            self.mock_delete_gnb.assert_called_once_with(name="some.gnb.name")
+            self.mock_delete_gnb.assert_called_once_with(name="some.gnb.name", token="test-token")
             self.mock_create_gnb.assert_not_called()
 
     def test_given_one_upf_in_nms_when_upf_is_modified_in_relation_then_nms_upfs_are_updated(  # noqa: E501
@@ -1622,6 +1958,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             certificates_relation = scenario.Relation(
@@ -1655,12 +2000,20 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "upf_port": "22",
                 },
             )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
             state_in = scenario.State(
                 leader=True,
                 containers={container},
+                secrets={login_secret},
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                     fiveg_n4_relation,
                 },
@@ -1669,8 +2022,12 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_joined(fiveg_n4_relation), state_in)
 
-            self.mock_delete_upf.assert_called_once_with(hostname="some.host.name")
-            self.mock_create_upf.assert_called_once_with(hostname="some.host.name", port=22)
+            self.mock_delete_upf.assert_called_once_with(
+                hostname="some.host.name", token="test-token"
+            )
+            self.mock_create_upf.assert_called_once_with(
+                hostname="some.host.name", port=22, token="test-token"
+            )
 
     def test_given_one_gnb_in_nms_when_gnb_is_modified_in_relation_then_nms_gnbs_are_updated(  # noqa: E501
         self,
@@ -1692,6 +2049,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             certificates_relation = scenario.Relation(
@@ -1725,12 +2091,20 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "tac": "6789",
                 },
             )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
             state_in = scenario.State(
                 leader=True,
                 containers={container},
+                secrets={login_secret},
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                     gnb_identity_relation,
                 },
@@ -1739,8 +2113,10 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_joined(gnb_identity_relation), state_in)
 
-            self.mock_delete_gnb.assert_called_once_with(name="some.gnb.name")
-            self.mock_create_gnb.assert_called_once_with(name="some.gnb.name", tac=6789)
+            self.mock_delete_gnb.assert_called_once_with(name="some.gnb.name", token="test-token")
+            self.mock_create_gnb.assert_called_once_with(
+                name="some.gnb.name", tac=6789, token="test-token"
+            )
 
     def test_given_one_upf_in_nms_when_new_upf_is_added_then_old_upf_is_removed_and_new_upf_is_added(  # noqa: E501
         self,
@@ -1762,6 +2138,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             certificates_relation = scenario.Relation(
@@ -1795,12 +2180,20 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "upf_port": "22",
                 },
             )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
             state_in = scenario.State(
                 leader=True,
                 containers={container},
+                secrets={login_secret},
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                     fiveg_n4_relation,
                 },
@@ -1809,8 +2202,10 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_joined(fiveg_n4_relation), state_in)
 
-            self.mock_delete_upf.assert_called_once_with(hostname="old.name")
-            self.mock_create_upf.assert_called_once_with(hostname="some.host.name", port=22)
+            self.mock_delete_upf.assert_called_once_with(hostname="old.name", token="test-token")
+            self.mock_create_upf.assert_called_once_with(
+                hostname="some.host.name", port=22, token="test-token"
+            )
 
     def test_given_one_gnb_in_nms_when_new_gnb_is_added_then_old_gnb_is_removed_and_new_gnb_is_added(  # noqa: E501
         self,
@@ -1832,6 +2227,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "username": "banana",
                     "password": "pizza",
                     "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
                 },
             )
             certificates_relation = scenario.Relation(
@@ -1865,12 +2269,20 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "tac": "6789",
                 },
             )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
             state_in = scenario.State(
                 leader=True,
                 containers={container},
+                secrets={login_secret},
                 relations={
                     common_database_relation,
                     auth_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                     gnb_identity_relation,
                 },
@@ -1879,8 +2291,12 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_joined(gnb_identity_relation), state_in)
 
-            self.mock_delete_gnb.assert_called_once_with(name="old.gnb.name")
-            self.mock_create_gnb.assert_called_once_with(name="some.gnb.name", tac=6789)
+            self.mock_delete_gnb.assert_called_once_with(name="old.gnb.name", token="test-token")
+            self.mock_create_gnb.assert_called_once_with(
+                name="some.gnb.name",
+                tac=6789,
+                token="test-token",
+            )
 
     def test_given_cannot_connect_to_container_when_certificates_relation_broken_then_certificates_are_not_removed(  # noqa: E501
         self,
@@ -1948,4 +2364,3 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.mock_certificate_is_available.return_value = True
 
             self.ctx.run(self.ctx.on.relation_broken(certificates_relation), state_in)
-
