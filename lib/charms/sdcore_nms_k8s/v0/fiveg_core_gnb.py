@@ -75,10 +75,10 @@ Typical usage of this class would look something like:
                 relation_name="fiveg_core_gnb"
             )
             ...
-            self.framework.observe(self.fiveg_core_gnb.on.fiveg_core_gnb_available,
-                self._on_fiveg_core_gnb_available)
+            self.framework.observe(self.fiveg_core_gnb.on.gnb_config_available,
+                self._on_gnb_config_available)
 
-        def _on_fiveg_core_gnb_available(self, event):
+        def _on_gnb_config_available(self, event):
             tac = event.tac,
             plmns = event.plmns,
             # Do something with the TAC and PLMNs.
@@ -202,7 +202,7 @@ def data_matches_provider_schema(data: dict) -> bool:
         return False
 
 
-class FivegCoreGnbRequestEvent(EventBase):
+class GnbAvailableEvent(EventBase):
     """Dataclass for the `fiveg_core_gnb` request event."""
 
     def __init__(self, handle: Handle, relation_id: int):
@@ -237,7 +237,7 @@ class FivegCoreGnbRequestEvent(EventBase):
 class FivegCoreGnbProviderCharmEvents(CharmEvents):
     """Custom events for the FivegCoreGnbProvider."""
 
-    fiveg_core_gnb_request = EventSource(FivegCoreGnbRequestEvent)
+    gnb_available = EventSource(GnbAvailableEvent)
 
 
 class FivegCoreGnbProvides(Object):
@@ -258,7 +258,7 @@ class FivegCoreGnbProvides(Object):
         self.framework.observe(charm.on[relation_name].relation_joined, self._on_relation_joined)
 
     def publish_fiveg_core_gnb_information(
-            self, relation_id: int, tac: int, plmns: list[PLMNConfig]
+        self, relation_id: int, tac: int, plmns: list[PLMNConfig]
     ) -> None:
         """Set TAC and PLMNs in the relation data.
 
@@ -268,7 +268,7 @@ class FivegCoreGnbProvides(Object):
             plmns (list[PLMNConfig]): Configured PLMNs.
         """
         if not data_matches_provider_schema(
-                data={"tac": tac, "plmns": plmns}
+            data={"tac": tac, "plmns": plmns}
         ):
             raise ValueError(f"Invalid fiveG core gNB data: {tac}, {plmns}")
         relation = self.model.get_relation(
@@ -276,8 +276,7 @@ class FivegCoreGnbProvides(Object):
         )
         if not relation:
             raise RuntimeError(f"Relation {self.relation_name} not created yet.")
-        relation.data[self.charm.app]["tac"] = str(tac)
-        relation.data[self.charm.app].update({"plmns": json.dumps(plmns)})
+        relation.data[self.charm.app].update({"tac": str(tac), "plmns": json.dumps(plmns)})
 
     def _on_relation_joined(self, event: RelationJoinedEvent) -> None:
         """Triggered whenever a requirer charm joins the relation.
@@ -285,10 +284,10 @@ class FivegCoreGnbProvides(Object):
         Args:
             event (RelationJoinedEvent): Juju event
         """
-        self.on.fiveg_core_gnb_request.emit(relation_id=event.relation.id)
+        self.on.gnb_available.emit(relation_id=event.relation.id)
 
 
-class FivegCoreGnbAvailableEvent(EventBase):
+class GnbConfigAvailableEvent(EventBase):
     """Dataclass for the `fiveg_core_gnb` available event."""
 
     def __init__(self, handle: Handle, tac: str, plmns: list[PLMNConfig]):
@@ -316,7 +315,7 @@ class FivegCoreGnbAvailableEvent(EventBase):
 
 class FivegCoreGnbRequirerAppData(BaseModel):
     """Requirer application data for fiveg_core_gnb."""
-    cu_ci: str = Field(
+    cu_name: str = Field(
         description="CU/gNB unique identifier",
         examples=["gnb001"],
     )
@@ -348,7 +347,7 @@ def data_matches_requirer_schema(data: dict) -> bool:
 class FivegCoreGnbRequirerCharmEvents(CharmEvents):
     """Custom events for the FivegCoreGnbRequirer."""
 
-    fiveg_core_gnb_available = EventSource(FivegCoreGnbAvailableEvent)
+    gnb_config_available = EventSource(GnbConfigAvailableEvent)
 
 
 class FivegCoreGnbRequires(Object):
@@ -368,20 +367,19 @@ class FivegCoreGnbRequires(Object):
         self.cu_name = cu_name
         self.charm = charm
         super().__init__(charm, relation_name)
-        self.framework.observe(charm.on[relation_name].relation_joined, self._on_relation_changed)
         self.framework.observe(charm.on[relation_name].relation_changed, self._on_relation_changed)
 
     def publish_gnb_information(
-            self, relation_id: int, cu_name: int
+        self, relation_id: int, cu_name: str
     ) -> None:
         """Set CU/gNB identifier in the relation data.
 
         Args:
             relation_id (str): Relation ID.
-            cu_name (int): CU/gNB unique identifier.
+            cu_name (str): CU/gNB unique identifier.
         """
         if not data_matches_requirer_schema(
-                data={"cu_name": cu_name}
+            data={"cu_name": cu_name}
         ):
             raise ValueError(f"Invalid fiveG core gNB data: {cu_name}")
         relation = self.model.get_relation(
@@ -401,4 +399,4 @@ class FivegCoreGnbRequires(Object):
         tac = relation_data[event.app].get("tac")
         plmns = relation_data[event.app].get("plmns")
         if tac and plmns:
-            self.on.fiveg_core_gnb_available.emit(tac=tac, plmns=plmns)
+            self.on.gnb_config_available.emit(tac=tac, plmns=plmns)
