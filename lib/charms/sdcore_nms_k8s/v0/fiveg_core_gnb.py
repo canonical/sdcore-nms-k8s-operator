@@ -196,7 +196,7 @@ class FivegCoreGnbProviderAppData(BaseModel):
         ge=1,
         le=16777215,
     )
-    plmn: list[PLMNConfig]
+    plmns: list[PLMNConfig]
 
 
 class ProviderSchema(DataBagSchema):
