@@ -6,7 +6,7 @@
 This library contains the Requires and Provides classes for handling the `fiveg_core_gnb`
 interface.
 
-The purpose of this library is to provide a way for a FiveG core to provide network information and
+The purpose of this library is to provide a way for a 5G core to provide network information and
 configuration to CUs/gNodeBs.
 
 To get started using the library, you need to fetch the library using `charmcraft`.
@@ -212,15 +212,17 @@ def data_matches_provider_schema(data: dict) -> bool:
 class GnbAvailableEvent(EventBase):
     """Dataclass for the `fiveg_core_gnb` request event."""
 
-    def __init__(self, handle: Handle, relation_id: int):
+    def __init__(self, handle: Handle, relation_id: int, cu_name: str):
         """Set relation id.
 
         Args:
             handle (Handle): Juju framework handle.
-            relation_id : ID of the relation.
+            relation_id (int): ID of the relation.
+            cu_name (str): name of the CU/gNodeB.
         """
         super().__init__(handle)
         self.relation_id = relation_id
+        self.cu_name = cu_name
 
     def snapshot(self) -> dict:
         """Return event data.
@@ -230,15 +232,17 @@ class GnbAvailableEvent(EventBase):
         """
         return {
             "relation_id": self.relation_id,
+            "cu_name": self.cu_name,
         }
 
     def restore(self, snapshot: dict) -> None:
         """Restore event data.
 
         Args:
-            snapshot (dict): contains the relation ID.
+            snapshot (dict): contains information to be restored.
         """
         self.relation_id = snapshot["relation_id"]
+        self.cu_name = snapshot["cu_name"]
 
 
 class FivegCoreGnbProviderCharmEvents(CharmEvents):
@@ -294,7 +298,7 @@ class FivegCoreGnbProvides(Object):
         relation_data = event.relation.data
         cu_name = relation_data[event.app].get("cu_name")
         if cu_name:
-            self.on.gnb_available.emit(relation_id=event.relation.id)
+            self.on.gnb_available.emit(relation_id=event.relation.id, cu_name=cu_name)
 
 
 class GnbConfigAvailableEvent(EventBase):
