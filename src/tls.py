@@ -28,13 +28,13 @@ class Tls:
     """Handle TLS certificates."""
 
     def __init__(
-            self,
-            charm: CharmBase,
-            relation_name: str,
-            container: Container,
-            domain_name: str,
-            workload_storage_path: str
-        ):
+        self,
+        charm: CharmBase,
+        relation_name: str,
+        container: Container,
+        domain_name: str,
+        workload_storage_path: str,
+    ):
         self._storage_path = workload_storage_path
         self._domain_name = domain_name
         self._container = container

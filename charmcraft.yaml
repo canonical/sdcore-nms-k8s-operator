@@ -45,6 +45,8 @@ requires:
     interface: mongodb_client
   auth_database:
     interface: mongodb_client
+  webui_database:
+    interface: mongodb_client
   fiveg_gnb_identity:
     interface: fiveg_gnb_identity
   fiveg_n4:
