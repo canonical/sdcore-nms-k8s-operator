@@ -6,7 +6,7 @@
 This library contains the Requires and Provides classes for handling the `fiveg_core_gnb`
 interface.
 
-The purpose of this library is to provide a way for a 5G core to provide network information and
+The purpose of this library is to provide a way for a 5G Core to provide network information and
 configuration to CUs/gNodeBs.
 
 To get started using the library, you need to fetch the library using `charmcraft`.
@@ -75,6 +75,8 @@ Typical usage of this class would look something like:
 
     class SomeRequirerCharm(CharmBase):
 
+        CU_NAME = "gnb001"
+
         def __init__(self, *args):
             ...
             self.fiveg_core_gnb = FivegCoreGnbRequires(
@@ -82,8 +84,19 @@ Typical usage of this class would look something like:
                 relation_name="fiveg_core_gnb"
             )
             ...
+            # on relation-joined the charm shall publish the CU/gNodeB name to the databag
+            self.framework.observe(
+                self.on.fiveg_core_gnb_relation_joined, self._on_fiveg_core_gnb_relation_joined
+            )
             self.framework.observe(self.fiveg_core_gnb.on.gnb_config_available,
                 self._on_gnb_config_available)
+
+        def _on_fiveg_core_gnb_relation_joined(self, event: RelationJoinedEvent):
+            relation_id = event.relation.id
+            self.fiveg_core_gnb.publish_gnb_information(
+                relation_id=relation_id,
+                cu_name=self.CU_NAME,
+            )
 
         def _on_gnb_config_available(self, event):
             tac = event.tac,
@@ -369,16 +382,14 @@ class FivegCoreGnbRequires(Object):
 
     on = FivegCoreGnbRequirerCharmEvents()  # type: ignore
 
-    def __init__(self, charm: CharmBase, relation_name: str, cu_name: str):
-        """Observes relation joined and relation changed events.
+    def __init__(self, charm: CharmBase, relation_name: str):
+        """Observes relation changed events.
 
         Args:
             charm: Juju charm
             relation_name (str): Relation name
-            cu_name (str): name of the CU/gNodeB
         """
         self.relation_name = relation_name
-        self.cu_name = cu_name
         self.charm = charm
         super().__init__(charm, relation_name)
         self.framework.observe(charm.on[relation_name].relation_changed, self._on_relation_changed)
