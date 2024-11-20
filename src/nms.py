@@ -161,7 +161,7 @@ class NMS:
 
     def token_is_valid(self, token: str) -> bool:
         """Return if the token is still valid by attempting to connect to an endpoint."""
-        response = self._make_request("GET", f"/{ACCOUNTS_URL}/me", token=token)
+        response = self._make_request("GET", f"/{ACCOUNTS_URL}", token=token)
         return response is not None
 
     def get_status(self) -> StatusResponse | None:
