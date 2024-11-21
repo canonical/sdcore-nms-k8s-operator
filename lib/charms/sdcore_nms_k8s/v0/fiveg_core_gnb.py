@@ -429,7 +429,7 @@ class FivegCoreGnbRequires(Object):
             event (RelationChangedEvent): Juju event
         """
         relation_data = event.relation.data
-        tac = int(relation_data[event.app].get("tac"))
-        plmns = [PLMNConfig(**data) for data in json.loads(relation_data[event.app].get("plmns"))]
+        tac = relation_data[event.app].get("tac")
+        plmns = relation_data[event.app].get("plmns")
         if tac and plmns:
             self.on.gnb_config_available.emit(tac=tac, plmns=plmns)
