@@ -111,7 +111,6 @@ Typical usage of this class would look something like:
             interface: fiveg_core_gnb  # Relation interface
     ```
 """
-
 import json
 import logging
 from dataclasses import dataclass
@@ -186,6 +185,10 @@ class PLMNConfig:
         ge=0,
         le=16777215,
     )
+
+    def asdict(self):
+        """Convert the dataclass into a dictionary."""
+        return {"mcc": self.mcc, "mnc": self.mnc, "sst": self.sst, "sd": self.sd}
 
 
 class FivegCoreGnbProviderAppData(BaseModel):
@@ -300,7 +303,12 @@ class FivegCoreGnbProvides(Object):
         )
         if not relation:
             raise RuntimeError(f"Relation {self.relation_name} not created yet.")
-        relation.data[self.charm.app].update({"tac": str(tac), "plmns": json.dumps(plmns)})
+        relation.data[self.charm.app].update(
+            {
+                "tac": str(tac),
+                "plmns": json.dumps([plmn.asdict() for plmn in plmns])
+            }
+        )
 
     def _on_relation_changed(self, event: RelationChangedEvent) -> None:
         """Triggered every time there's a change in relation data.
@@ -421,7 +429,7 @@ class FivegCoreGnbRequires(Object):
             event (RelationChangedEvent): Juju event
         """
         relation_data = event.relation.data
-        tac = relation_data[event.app].get("tac")
-        plmns = relation_data[event.app].get("plmns")
+        tac = int(relation_data[event.app].get("tac"))
+        plmns = [PLMNConfig(**data) for data in json.loads(relation_data[event.app].get("plmns"))]
         if tac and plmns:
             self.on.gnb_config_available.emit(tac=tac, plmns=plmns)
