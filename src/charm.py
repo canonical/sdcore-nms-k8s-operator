@@ -311,16 +311,18 @@ class SDCoreNMSOperatorCharm(CharmBase):
         """Create the first admin and store the credentials in a secret if it does not exist."""
         if not self._nms.is_api_available():
             return
-        if not self._nms.is_initialized():
+        account = self._get_admin_account()
+        if not account:
             username = _generate_username()
             password = _generate_password()
-            self._nms.create_first_user(username, password)
             account = LoginSecret(username, password, None)
             self.app.add_secret(
                 label=NMS_LOGIN_SECRET_LABEL,
                 content=account.to_dict(),
             )
             logger.info("admin account details saved to secrets.")
+        if not self._nms.is_initialized():
+            self._nms.create_first_user(account.username, account.password)
 
     def _get_admin_account(self) -> LoginSecret | None:
         """Get the NMS admin user credentials from secrets.
