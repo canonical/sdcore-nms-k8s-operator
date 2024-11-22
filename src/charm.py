@@ -307,11 +307,26 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         event.add_status(ActiveStatus())
 
-    def _get_or_create_admin_account(self) -> LoginSecret | None:
-        """Get or create the first admin user for the charm to use from secrets.
+    def _create_admin_account_if_does_not_exist(self) -> None:
+        """Create the first admin and store the credentials in a secret if it does not exist."""
+        if not self._nms.is_api_available():
+            return
+        if not self._nms.is_initialized():
+            username = _generate_username()
+            password = _generate_password()
+            self._nms.create_first_user(username, password)
+            account = LoginSecret(username, password, None)
+            self.app.add_secret(
+                label=NMS_LOGIN_SECRET_LABEL,
+                content=account.to_dict(),
+            )
+            logger.info("admin account details saved to secrets.")
+
+    def _get_admin_account(self) -> LoginSecret | None:
+        """Get the NMS admin user credentials from secrets.
 
         Returns:
-            Login details secret if they exist. None if the related account couldn't be created.
+            Login details secret if they exist. None if the secret does not exist.
         """
         try:
             secret = self.model.get_secret(label=NMS_LOGIN_SECRET_LABEL)
@@ -319,21 +334,10 @@ class SDCoreNMSOperatorCharm(CharmBase):
             username = secret_content.get("username", "")
             password = secret_content.get("password", "")
             token = secret_content.get("token")
-            account = LoginSecret(username, password, token)
+            return LoginSecret(username, password, token)
         except SecretNotFoundError:
-            username = _generate_username()
-            password = _generate_password()
-            account = LoginSecret(username, password, None)
-            self.app.add_secret(
-                label=NMS_LOGIN_SECRET_LABEL,
-                content=account.to_dict(),
-            )
-            logger.info("admin account details saved to secrets.")
-        if self._nms.is_api_available() and not self._nms.is_initialized():
-            response = self._nms.create_first_user(username, password)
-            if not response:
-                return None
-        return account
+            logger.info("NMS_LOGIN secret not found.")
+            return None
 
     def _on_certificates_relation_broken(self, event: EventBase) -> None:
         """Delete TLS related artifacts."""
@@ -372,8 +376,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
             logger.info("New layer added: %s", self._pebble_layer)
 
     def _configure_charm_authorization(self):
-        """Create an admin user to manage NMS."""
-        login_details = self._get_or_create_admin_account()
+        """Create an admin user to manage NMS and log in."""
+        self._create_admin_account_if_does_not_exist()
+        login_details = self._get_admin_account()
         if not login_details:
             return
         if not login_details.token or not self._nms.token_is_valid(login_details.token):
@@ -454,7 +459,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
     def _sync_gnbs(self) -> None:
         """Align the gNBs from the `fiveg_gnb_identity`relations with the ones in nms."""
-        login_details = self._get_or_create_admin_account()
+        login_details = self._get_admin_account()
         if not login_details or not login_details.token:
             logger.warning("Failed to get admin account details")
             return
@@ -471,7 +476,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
     def _sync_upfs(self) -> None:
         """Align the UPFs from the `fiveg_n4` relations with the ones in nms."""
-        login_details = self._get_or_create_admin_account()
+        login_details = self._get_admin_account()
         if not login_details or not login_details.token:
             logger.warning("Failed to get admin account details")
             return
