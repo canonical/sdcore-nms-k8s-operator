@@ -68,6 +68,8 @@ platforms:
 
 parts:
   charm:
+    charm-requirements:
+      - requirements.txt
     build-packages:
       - cargo
       - libffi-dev
