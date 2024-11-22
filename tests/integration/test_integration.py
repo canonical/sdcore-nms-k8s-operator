@@ -254,13 +254,13 @@ async def deploy(ops_test: OpsTest, request):
         trust=True,
     )
     await _deploy_database(ops_test)
-    await _deploy_grafana_agent(ops_test)
     await _deploy_self_signed_certificates(ops_test)
-    await _deploy_traefik(ops_test)
     await _deploy_nrf(ops_test)
     await _deploy_sdcore_gnbsim(ops_test)
     await _deploy_amf(ops_test)
     await _deploy_sdcore_upf(ops_test)
+    await _deploy_grafana_agent(ops_test)
+    await _deploy_traefik(ops_test)
 
 
 @pytest.mark.abort_on_fail
@@ -303,7 +303,7 @@ async def test_relate_and_wait_for_active_status(ops_test: OpsTest, deploy):
         relation1=f"{APP_NAME}:ingress", relation2=f"{TRAEFIK_CHARM_NAME}:ingress"
     )
     await ops_test.model.wait_for_idle(
-        apps=[APP_NAME, TRAEFIK_CHARM_NAME],
+        apps=[APP_NAME, TRAEFIK_CHARM_NAME, GNBSIM_CHARM_NAME],
         status="active",
         timeout=TIMEOUT,
     )
