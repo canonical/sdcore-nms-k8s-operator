@@ -1,8 +1,0 @@
-jsonschema
-jinja2
-juju
-ops
-pydantic
-pytest-interface-tester
-cosl
-rpds-py==0.18.1
