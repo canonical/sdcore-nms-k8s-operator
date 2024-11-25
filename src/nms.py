@@ -122,7 +122,8 @@ class NMS:
             response.raise_for_status()
         except requests.HTTPError:
             logger.error(
-                "Request failed: code %s",
+                "%s request failed: code %s",
+                endpoint,
                 response.status_code,
             )
             return None

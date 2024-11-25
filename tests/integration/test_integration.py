@@ -384,21 +384,6 @@ async def test_given_gnb_and_upf_are_remove_then_nms_inventory_does_not_contain_
 
 
 @pytest.mark.abort_on_fail
-async def test_remove_tls_and_wait_for_blocked_status(ops_test: OpsTest, deploy):
-    assert ops_test.model
-    await ops_test.model.remove_application(TLS_PROVIDER_CHARM_NAME, block_until_done=True)
-    await ops_test.model.wait_for_idle(apps=[APP_NAME], status="blocked", timeout=60)
-
-
-@pytest.mark.abort_on_fail
-async def test_restore_tls_and_wait_for_active_status(ops_test: OpsTest, deploy):
-    assert ops_test.model
-    await _deploy_self_signed_certificates(ops_test)
-    await ops_test.model.integrate(relation1=APP_NAME, relation2=TLS_PROVIDER_CHARM_NAME)
-    await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
-
-
-@pytest.mark.abort_on_fail
 async def test_remove_database_and_wait_for_blocked_status(ops_test: OpsTest, deploy):
     assert ops_test.model
     await ops_test.model.remove_application(DATABASE_APP_NAME, block_until_done=True)
@@ -422,6 +407,36 @@ async def test_restore_database_and_wait_for_active_status(ops_test: OpsTest, de
 
 
 @pytest.mark.abort_on_fail
+async def test_given_db_restored_then_credentials_are_restored_and_valid(
+    ops_test: OpsTest, deploy
+):
+    assert ops_test.model
+    admin_credentials = await get_nms_credentials(ops_test)
+    username = admin_credentials.get("username")
+    password = admin_credentials.get("password")
+    assert username
+    assert password
+    nms_url = await get_sdcore_nms_external_endpoint(ops_test)
+    nms_client = NMS(url=nms_url)
+    token = nms_client.login(username=username, password = password)
+    assert token
+
+
+@pytest.mark.abort_on_fail
+async def test_remove_tls_and_wait_for_blocked_status(ops_test: OpsTest, deploy):
+    assert ops_test.model
+    await ops_test.model.remove_application(TLS_PROVIDER_CHARM_NAME, block_until_done=True)
+    await ops_test.model.wait_for_idle(apps=[APP_NAME], status="blocked", timeout=60)
+
+
+@pytest.mark.abort_on_fail
+async def test_restore_tls_and_wait_for_active_status(ops_test: OpsTest, deploy):
+    assert ops_test.model
+    await _deploy_self_signed_certificates(ops_test)
+    await ops_test.model.integrate(relation1=APP_NAME, relation2=TLS_PROVIDER_CHARM_NAME)
+    await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
+
+
 async def test_when_scale_app_beyond_1_then_only_one_unit_is_active(ops_test: OpsTest, deploy):
     assert ops_test.model
     assert isinstance(app := ops_test.model.applications[APP_NAME], Application)
