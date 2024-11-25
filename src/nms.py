@@ -67,13 +67,6 @@ class CreateUserParams:
 
 
 @dataclass
-class CreateUserResponse:
-    """Response from NMS when creating a user."""
-
-    id: int
-
-
-@dataclass
 class CreateGnbParams:
     """Parameters to create a gNB."""
 
@@ -225,13 +218,9 @@ class NMS:
         self._make_request("DELETE", f"/{UPF_CONFIG_URL}/{hostname}", token=token)
         logger.info("UPF %s deleted from NMS", hostname)
 
-    def create_first_user(self, username: str, password: str) -> CreateUserResponse | None:
+    def create_first_user(self, username: str, password: str) -> None:
         """Create the first admin user."""
         logger.info("Creating first user %s", username)
         create_user_params = CreateUserParams(username=username, password=password)
-        response = self._make_request("POST", f"/{ACCOUNTS_URL}", data=asdict(create_user_params))
-        if response:
-            return CreateUserResponse(
-                id=response.get("id"),
-            )
-        return None
+        self._make_request("POST", f"/{ACCOUNTS_URL}", data=asdict(create_user_params))
+

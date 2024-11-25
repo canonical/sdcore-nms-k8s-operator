@@ -27,7 +27,7 @@ AMF_CHARM_NAME = "sdcore-amf-k8s"
 AMF_CHARM_CHANNEL = "1.5/edge"
 APP_NAME = METADATA["name"]
 DATABASE_APP_NAME = "mongodb-k8s"
-DATABASE_APP_CHANNEL = "6/beta"
+DATABASE_APP_CHANNEL = "6/stable"
 COMMON_DATABASE_RELATION_NAME = "common_database"
 AUTH_DATABASE_RELATION_NAME = "auth_database"
 WEBUI_DATABASE_RELATION_NAME = "webui_database"
@@ -254,13 +254,13 @@ async def deploy(ops_test: OpsTest, request):
         trust=True,
     )
     await _deploy_database(ops_test)
-    await _deploy_grafana_agent(ops_test)
     await _deploy_self_signed_certificates(ops_test)
-    await _deploy_traefik(ops_test)
     await _deploy_nrf(ops_test)
     await _deploy_sdcore_gnbsim(ops_test)
     await _deploy_amf(ops_test)
     await _deploy_sdcore_upf(ops_test)
+    await _deploy_grafana_agent(ops_test)
+    await _deploy_traefik(ops_test)
 
 
 @pytest.mark.abort_on_fail
@@ -303,39 +303,10 @@ async def test_relate_and_wait_for_active_status(ops_test: OpsTest, deploy):
         relation1=f"{APP_NAME}:ingress", relation2=f"{TRAEFIK_CHARM_NAME}:ingress"
     )
     await ops_test.model.wait_for_idle(
-        apps=[APP_NAME, TRAEFIK_CHARM_NAME],
+        apps=[APP_NAME, TRAEFIK_CHARM_NAME, GNBSIM_CHARM_NAME],
         status="active",
         timeout=TIMEOUT,
     )
-
-
-@pytest.mark.skip(
-    reason="Bug in MongoDB: https://github.com/canonical/mongodb-k8s-operator/issues/218"
-)
-@pytest.mark.abort_on_fail
-async def test_remove_database_and_wait_for_blocked_status(ops_test: OpsTest, deploy):
-    assert ops_test.model
-    await ops_test.model.remove_application(DATABASE_APP_NAME, block_until_done=True)
-    await ops_test.model.wait_for_idle(apps=[APP_NAME], status="blocked", timeout=TIMEOUT)
-
-
-@pytest.mark.skip(
-    reason="Bug in MongoDB: https://github.com/canonical/mongodb-k8s-operator/issues/218"
-)
-@pytest.mark.abort_on_fail
-async def test_restore_database_and_wait_for_active_status(ops_test: OpsTest, deploy):
-    assert ops_test.model
-    await _deploy_database(ops_test)
-    await ops_test.model.integrate(
-        relation1=f"{APP_NAME}:{COMMON_DATABASE_RELATION_NAME}", relation2=DATABASE_APP_NAME
-    )
-    await ops_test.model.integrate(
-        relation1=f"{APP_NAME}:{AUTH_DATABASE_RELATION_NAME}", relation2=DATABASE_APP_NAME
-    )
-    await ops_test.model.integrate(
-        relation1=f"{APP_NAME}:{WEBUI_DATABASE_RELATION_NAME}", relation2=DATABASE_APP_NAME
-    )
-    await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
 
 
 @pytest.mark.abort_on_fail
@@ -424,6 +395,29 @@ async def test_restore_tls_and_wait_for_active_status(ops_test: OpsTest, deploy)
     assert ops_test.model
     await _deploy_self_signed_certificates(ops_test)
     await ops_test.model.integrate(relation1=APP_NAME, relation2=TLS_PROVIDER_CHARM_NAME)
+    await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
+
+
+@pytest.mark.abort_on_fail
+async def test_remove_database_and_wait_for_blocked_status(ops_test: OpsTest, deploy):
+    assert ops_test.model
+    await ops_test.model.remove_application(DATABASE_APP_NAME, block_until_done=True)
+    await ops_test.model.wait_for_idle(apps=[APP_NAME], status="blocked", timeout=TIMEOUT)
+
+
+@pytest.mark.abort_on_fail
+async def test_restore_database_and_wait_for_active_status(ops_test: OpsTest, deploy):
+    assert ops_test.model
+    await _deploy_database(ops_test)
+    await ops_test.model.integrate(
+        relation1=f"{APP_NAME}:{COMMON_DATABASE_RELATION_NAME}", relation2=DATABASE_APP_NAME
+    )
+    await ops_test.model.integrate(
+        relation1=f"{APP_NAME}:{AUTH_DATABASE_RELATION_NAME}", relation2=DATABASE_APP_NAME
+    )
+    await ops_test.model.integrate(
+        relation1=f"{APP_NAME}:{WEBUI_DATABASE_RELATION_NAME}", relation2=DATABASE_APP_NAME
+    )
     await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
 
 
