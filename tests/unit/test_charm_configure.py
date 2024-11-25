@@ -725,6 +725,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.ctx.run(self.ctx.on.relation_broken(relation), state_in)
 
     def test_given_login_secret_doesnt_exist_when_configure_then_login_secret_created(self):
+        self.mock_is_api_available.return_value = True
+        self.mock_is_initialized.return_value = False
         self.mock_nms_login.return_value = LoginResponse(token="test-token")
         with tempfile.TemporaryDirectory() as tempdir:
             common_database_relation = scenario.Relation(
