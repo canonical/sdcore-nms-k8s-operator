@@ -160,8 +160,11 @@ Examples:
 
 
 @dataclass
-class PLMNConfig:
+class PLMNConfig(BaseModel):
     """Dataclass representing the configuration for a PLMN."""
+
+    def __init__(self, mcc: str, mnc: str, sst: int, sd: int) -> None:
+        super().__init__(mcc=mcc, mnc=mnc, sst=sst, sd=sd)
 
     mcc: str = Field(
         description="Mobile Country Code",
@@ -175,12 +178,14 @@ class PLMNConfig:
     )
     sst: int = Field(
         description="Slice/Service Type",
+        strict=True,
         examples=[1, 2, 3, 4],
         ge=0,
         le=255,
     )
     sd: int = Field(
         description="Slice Differentiator",
+        strict=True,
         examples=[1],
         ge=0,
         le=16777215,
@@ -195,6 +200,7 @@ class FivegCoreGnbProviderAppData(BaseModel):
     """Provider application data for fiveg_core_gnb."""
     tac: int = Field(
         description="Tracking Area Code",
+        strict=True,
         examples=[1],
         ge=1,
         le=16777215,
