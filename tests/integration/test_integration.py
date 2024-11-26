@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 METADATA = yaml.safe_load(Path("./charmcraft.yaml").read_text())
 AMF_CHARM_NAME = "sdcore-amf-k8s"
-AMF_CHARM_CHANNEL = "1.5/edge"
+AMF_CHARM_CHANNEL = "1.6/edge"
 APP_NAME = METADATA["name"]
 DATABASE_APP_NAME = "mongodb-k8s"
 DATABASE_APP_CHANNEL = "6/stable"
@@ -33,7 +33,7 @@ AUTH_DATABASE_RELATION_NAME = "auth_database"
 WEBUI_DATABASE_RELATION_NAME = "webui_database"
 LOGGING_RELATION_NAME = "logging"
 GNBSIM_CHARM_NAME = "sdcore-gnbsim-k8s"
-GNBSIM_CHARM_CHANNEL = "1.5/edge"
+GNBSIM_CHARM_CHANNEL = "1.6/edge"
 GNBSIM_RELATION_NAME = "fiveg_gnb_identity"
 GRAFANA_AGENT_APP_NAME = "grafana-agent-k8s"
 GRAFANA_AGENT_APP_CHANNEL = "latest/stable"
