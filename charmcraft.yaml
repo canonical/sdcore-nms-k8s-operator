@@ -73,8 +73,13 @@ parts:
     charm-requirements:
       - requirements.txt
     build-packages:
-      - cargo
       - libffi-dev
       - libssl-dev
       - pkg-config
-      - rustc
+    build-snaps:
+      - astral-uv
+      - rustup
+    override-build: |
+      rustup default stable
+      uv export --frozen --no-dev -o requirements.txt
+      craftctl default
