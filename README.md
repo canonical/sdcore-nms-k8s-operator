@@ -6,7 +6,7 @@ Charmed Operator for the Aether SD-Core Network Management System (NMS) for K8s.
 ## Usage
 
 ```bash
-juju deploy sdcore-nms-k8s --channel=1.5/edge
+juju deploy sdcore-nms-k8s --channel=1.6/edge
 ```
 
 ## Integrate
@@ -14,9 +14,9 @@ juju deploy sdcore-nms-k8s --channel=1.5/edge
 ```bash
 juju deploy traefik-k8s --trust --config external_hostname=<your hostname> --config routing_mode=subdomain
 juju deploy self-signed-certificates
-juju deploy sdcore-upf-k8s --channel=1.5/edge --trust
+juju deploy sdcore-upf-k8s --channel=1.6/edge --trust
 juju deploy mongodb-k8s --trust --channel=6/stable
-juju deploy sdcore-gnbsim-k8s --trust --channel=1.5/edge
+juju deploy sdcore-gnbsim-k8s --trust --channel=1.6/edge
 juju deploy grafana-agent-k8s --trust --channel=latest/stable
 juju integrate sdcore-nms-k8s:certificates self-signed-certificates:certificates
 juju integrate traefik-k8s:certificates self-signed-certificates:certificates
