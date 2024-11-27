@@ -16,8 +16,7 @@ TEST_TAC_INVALID = 0
 TEST_MCC = "001"
 TEST_MNC = "01"
 TEST_SST = 1
-TEST_SD_VALID = 2
-TEST_SD_INVALID = "ssss"
+TEST_SD = 2
 
 
 class TestFivegCoreGnbProviderCharm:
@@ -37,7 +36,21 @@ class TestFivegCoreGnbProviderCharm:
                 "publish-gnb-config": {
                     "params": {
                         "relation-id": {
-                            "description": "The relation ID of the relation to get the URL from",
+                            "description": "The relation ID of the relation",
+                            "type": "string",
+                        },
+                        "tac": {
+                            "type": "string",
+                        },
+                        "plmns": {
+                            "type": "string",
+                        },
+                    },
+                },
+                "publish-gnb-config-wrong-data": {
+                    "params": {
+                        "relation-id": {
+                            "description": "The relation ID of the relation",
                             "type": "string",
                         },
                         "tac": {
@@ -59,9 +72,8 @@ class TestFivegCoreGnbProviderCharm:
     def tearDown(self) -> None:
         patch.stopall()
 
-    @pytest.mark.parametrize("tac", [TEST_TAC_VALID, TEST_TAC_INVALID])
-    def test_given_fiveg_core_gnb_relation_when_publish_gnb_config_then_data_is_in_application_databag(  # noqa: E501
-        self, tac,
+    def test_given_fiveg_core_gnb_relation_when_publish_gnb_config_valid_tac_then_data_is_in_application_databag(  # noqa: E501
+        self,
     ):
         fiveg_core_gnb_relation = scenario.Relation(
             endpoint="fiveg_core_gnb",
@@ -71,29 +83,44 @@ class TestFivegCoreGnbProviderCharm:
             relations={fiveg_core_gnb_relation},
         )
 
-        plmns = [PLMNConfig(mcc=TEST_MCC, mnc=TEST_MNC, sst=TEST_SST, sd=TEST_SD_VALID)]
+        plmns = [PLMNConfig(mcc=TEST_MCC, mnc=TEST_MNC, sst=TEST_SST, sd=TEST_SD)]
         params = {
             "relation-id": str(fiveg_core_gnb_relation.id),
-            "tac": str(tac),
+            "tac": str(TEST_TAC_VALID),
             "plmns": json.dumps([plmn.asdict() for plmn in plmns])
         }
 
-        if tac == TEST_TAC_INVALID:
-            with pytest.raises(Exception):
-                self.ctx.run(self.ctx.on.action("publish-gnb-config", params=params), state_in)
-        else:
-            state_out = self.ctx.run(self.ctx.on.action("publish-gnb-config", params=params),
-                                     state_in)
-            assert (
-                state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data["tac"]
-                == str(tac)
-            )
-            rel_plmns = state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data["plmns"]
-            assert plmns == [PLMNConfig(**data) for data in json.loads(rel_plmns)]
+        state_out = self.ctx.run(self.ctx.on.action("publish-gnb-config", params=params),
+                                 state_in)
+        assert (
+            state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data["tac"]
+            == str(TEST_TAC_VALID)
+        )
+        rel_plmns = state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data["plmns"]
+        assert plmns == [PLMNConfig(**data) for data in json.loads(rel_plmns)]
 
-    @pytest.mark.parametrize("sd", [TEST_SD_VALID, TEST_SD_INVALID])
-    def test_given_fiveg_core_gnb_relation_when_publish_gnb_config_then_data_is_in_application_databag_plmns(  # noqa: E501
-        self, sd,
+    def test_given_fiveg_core_gnb_relation_when_publish_gnb_config_invalid_tac_then_exception_is_raised(  # noqa: E501
+        self,
+    ):
+        fiveg_core_gnb_relation = scenario.Relation(
+            endpoint="fiveg_core_gnb",
+        )
+        state_in = scenario.State(
+            leader=True,
+            relations={fiveg_core_gnb_relation},
+        )
+
+        params = {
+            "relation-id": str(fiveg_core_gnb_relation.id),
+            "tac": str(TEST_TAC_INVALID),
+            "plmns": json.dumps([])
+        }
+
+        with pytest.raises(Exception):
+            self.ctx.run(self.ctx.on.action("publish-gnb-config", params=params), state_in)
+
+    def test_given_fiveg_core_gnb_relation_when_publish_gnb_config_invalid_plmn_then_exception_is_raised(  # noqa: E501
+        self,
     ):
         fiveg_core_gnb_relation = scenario.Relation(
             endpoint="fiveg_core_gnb",
@@ -106,14 +133,38 @@ class TestFivegCoreGnbProviderCharm:
         params = {
             "relation-id": str(fiveg_core_gnb_relation.id),
             "tac": str(TEST_TAC_VALID),
-            "plmns": f'[{{"mcc": "001", "mnc": "01", "sst": 1, "sd": {sd}}}]'
+            "plmns": "dummy-string"
         }
-        if sd == TEST_SD_INVALID:
-            with pytest.raises(Exception):
-                self.ctx.run(self.ctx.on.action("publish-gnb-config", params=params), state_in)
-        else:
-            plmns = [PLMNConfig(mcc=TEST_MCC, mnc=TEST_MNC, sst=TEST_SST, sd=sd)]
-            state_out = self.ctx.run(self.ctx.on.action("publish-gnb-config", params=params),
-                                     state_in)
-            rel_plmns = state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data["plmns"]
-            assert plmns == [PLMNConfig(**data) for data in json.loads(rel_plmns)]
+
+        with pytest.raises(Exception):
+            self.ctx.run(
+                self.ctx.on.action("publish-gnb-config-wrong-data", params=params),
+                state_in
+            )
+
+    def test_given_fiveg_core_gnb_relation_when_publish_gnb_config_plmn_no_sd_then_data_is_in_application_databag(  # noqa: E501
+        self,
+    ):
+        fiveg_core_gnb_relation = scenario.Relation(
+            endpoint="fiveg_core_gnb",
+        )
+        state_in = scenario.State(
+            leader=True,
+            relations={fiveg_core_gnb_relation},
+        )
+
+        plmns = [PLMNConfig(mcc=TEST_MCC, mnc=TEST_MNC, sst=TEST_SST)]
+        params = {
+            "relation-id": str(fiveg_core_gnb_relation.id),
+            "tac": str(TEST_TAC_VALID),
+            "plmns": json.dumps([plmn.asdict() for plmn in plmns])
+        }
+
+        state_out = self.ctx.run(self.ctx.on.action("publish-gnb-config", params=params),
+                                 state_in)
+        assert (
+                state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data["tac"]
+                == str(TEST_TAC_VALID)
+        )
+        rel_plmns = state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data["plmns"]
+        assert plmns == [PLMNConfig(**data) for data in json.loads(rel_plmns)]
