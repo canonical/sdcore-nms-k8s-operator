@@ -333,7 +333,7 @@ class FivegCoreGnbProvides(Object):
 class GnbConfigAvailableEvent(EventBase):
     """Dataclass for the `fiveg_core_gnb` available event."""
 
-    def __init__(self, handle: Handle, tac: str, plmns: list[PLMNConfig]):
+    def __init__(self, handle: Handle, tac: int, plmns: list[PLMNConfig]):
         """Set CU / gNodeB's TAC and PLMNs."""
         super().__init__(handle)
         self.tac = tac
