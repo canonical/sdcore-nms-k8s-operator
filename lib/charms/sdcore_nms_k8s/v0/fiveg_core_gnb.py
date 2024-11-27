@@ -114,6 +114,7 @@ Typical usage of this class would look something like:
 import json
 import logging
 from dataclasses import dataclass
+from typing import Optional
 
 from interface_tester.schema_base import DataBagSchema
 from ops.charm import CharmBase, CharmEvents, RelationChangedEvent
@@ -163,7 +164,7 @@ Examples:
 class PLMNConfig(BaseModel):
     """Dataclass representing the configuration for a PLMN."""
 
-    def __init__(self, mcc: str, mnc: str, sst: int, sd: int) -> None:
+    def __init__(self, mcc: str, mnc: str, sst: int, sd: Optional[int] = None) -> None:
         super().__init__(mcc=mcc, mnc=mnc, sst=sst, sd=sd)
 
     mcc: str = Field(
@@ -183,9 +184,10 @@ class PLMNConfig(BaseModel):
         ge=0,
         le=255,
     )
-    sd: int = Field(
+    sd: Optional[int] = Field(
         description="Slice Differentiator",
         strict=True,
+        default=None,
         examples=[1],
         ge=0,
         le=16777215,
