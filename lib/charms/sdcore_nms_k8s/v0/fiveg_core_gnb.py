@@ -43,11 +43,11 @@ Typical usage of this class would look something like:
                 )
             ...
             self.framework.observe(
-                self.fiveg_core_gnb_provider.on.gnb_available,
-                self._on_gnb_available
+                self.on.fiveg_core_gnb_provider_relation_changed,
+                self._on_relation_changed
             )
 
-        def _on_gnb_available(self, event):
+        def _on_relation_changed(self, event):
             ...
             # implement the logic to populate the list of PLMNs.
             plmns = [PLMNConfig(mcc=..., mnc=..., sst=..., sd=...)
@@ -88,8 +88,8 @@ Typical usage of this class would look something like:
             self.framework.observe(
                 self.on.fiveg_core_gnb_relation_joined, self._on_fiveg_core_gnb_relation_joined
             )
-            self.framework.observe(self.fiveg_core_gnb.on.gnb_config_available,
-                self._on_gnb_config_available)
+            self.framework.observe(self.on.fiveg_core_gnb_relation_changed,
+                self._on_fiveg_core_gnb_relation_changed)
 
         def _on_fiveg_core_gnb_relation_joined(self, event: RelationJoinedEvent):
             relation_id = event.relation.id
@@ -98,7 +98,7 @@ Typical usage of this class would look something like:
                 cu_name=self.CU_NAME,
             )
 
-        def _on_gnb_config_available(self, event):
+        def _on_fiveg_core_gnb_relation_changed(self, event: RelationChangedEvent):
             tac = event.tac,
             plmns = event.plmns,
             # Do something with the TAC and PLMNs.
