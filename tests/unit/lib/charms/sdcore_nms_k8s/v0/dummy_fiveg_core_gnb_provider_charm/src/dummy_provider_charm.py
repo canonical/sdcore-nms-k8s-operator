@@ -28,7 +28,7 @@ class DummyFivegCoreGnbProviderCharm(ops.CharmBase):
         assert relation_id
         assert tac
         assert plmns
-        self.fiveg_core_gnb_provider.publish_fiveg_core_gnb_information(
+        self.fiveg_core_gnb_provider.publish_gnb_config_information(
             relation_id=int(relation_id),
             tac=int(tac),
             plmns=[PLMNConfig(**data) for data in json.loads(plmns)],
@@ -41,7 +41,7 @@ class DummyFivegCoreGnbProviderCharm(ops.CharmBase):
         assert relation_id
         assert tac
         assert plmns
-        self.fiveg_core_gnb_provider.publish_fiveg_core_gnb_information(
+        self.fiveg_core_gnb_provider.publish_gnb_config_information(
             relation_id=int(relation_id),
             tac=int(tac),
             plmns=plmns,

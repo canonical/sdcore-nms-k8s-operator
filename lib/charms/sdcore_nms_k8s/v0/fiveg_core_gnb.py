@@ -117,8 +117,8 @@ from dataclasses import dataclass
 from typing import Optional
 
 from interface_tester.schema_base import DataBagSchema
-from ops.charm import CharmBase, CharmEvents, RelationChangedEvent
-from ops.framework import EventBase, EventSource, Handle, Object
+from ops.charm import CharmBase
+from ops.framework import Object
 from pydantic import BaseModel, Field, ValidationError
 
 # The unique Charmhub library identifier, never change it
@@ -233,52 +233,8 @@ def data_matches_provider_schema(data: dict) -> bool:
         return False
 
 
-class GnbAvailableEvent(EventBase):
-    """Dataclass for the `fiveg_core_gnb` request event."""
-
-    def __init__(self, handle: Handle, relation_id: int, cu_name: str):
-        """Set relation id.
-
-        Args:
-            handle (Handle): Juju framework handle.
-            relation_id (int): ID of the relation.
-            cu_name (str): name of the CU/gNodeB.
-        """
-        super().__init__(handle)
-        self.relation_id = relation_id
-        self.cu_name = cu_name
-
-    def snapshot(self) -> dict:
-        """Return event data.
-
-        Returns:
-            (dict): contains the relation ID.
-        """
-        return {
-            "relation_id": self.relation_id,
-            "cu_name": self.cu_name,
-        }
-
-    def restore(self, snapshot: dict) -> None:
-        """Restore event data.
-
-        Args:
-            snapshot (dict): contains information to be restored.
-        """
-        self.relation_id = snapshot["relation_id"]
-        self.cu_name = snapshot["cu_name"]
-
-
-class FivegCoreGnbProviderCharmEvents(CharmEvents):
-    """Custom events for the FivegCoreGnbProvider."""
-
-    gnb_available = EventSource(GnbAvailableEvent)
-
-
 class FivegCoreGnbProvides(Object):
     """Class to be instantiated by provider of the `fiveg_core_gnb`."""
-
-    on = FivegCoreGnbProviderCharmEvents()  # type: ignore
 
     def __init__(self, charm: CharmBase, relation_name: str):
         """Observe relation joined event.
@@ -290,9 +246,8 @@ class FivegCoreGnbProvides(Object):
         self.relation_name = relation_name
         self.charm = charm
         super().__init__(charm, relation_name)
-        self.framework.observe(charm.on[relation_name].relation_changed, self._on_relation_changed)
 
-    def publish_fiveg_core_gnb_information(
+    def publish_gnb_config_information(
         self, relation_id: int, tac: int, plmns: list[PLMNConfig]
     ) -> None:
         """Set TAC and PLMNs in the relation data.
@@ -317,43 +272,6 @@ class FivegCoreGnbProvides(Object):
                 "plmns": json.dumps([plmn.asdict() for plmn in plmns])
             }
         )
-
-    def _on_relation_changed(self, event: RelationChangedEvent) -> None:
-        """Triggered every time there's a change in relation data.
-
-        Args:
-            event (RelationChangedEvent): Juju event
-        """
-        relation_data = event.relation.data
-        cu_name = relation_data[event.app].get("cu_name")
-        if cu_name:
-            self.on.gnb_available.emit(relation_id=event.relation.id, cu_name=cu_name)
-
-
-class GnbConfigAvailableEvent(EventBase):
-    """Dataclass for the `fiveg_core_gnb` available event."""
-
-    def __init__(self, handle: Handle, tac: int, plmns: list[PLMNConfig]):
-        """Set CU / gNodeB's TAC and PLMNs."""
-        super().__init__(handle)
-        self.tac = tac
-        self.plmns = plmns
-
-    def snapshot(self) -> dict:
-        """Return event data."""
-        return {
-            "tac": self.tac,
-            "plmns": self.plmns,
-        }
-
-    def restore(self, snapshot: dict) -> None:
-        """Restore event data.
-
-        Args:
-            snapshot (dict): contains information to be restored.
-        """
-        self.tac = snapshot["tac"]
-        self.plmns = snapshot["plmns"]
 
 
 class FivegCoreGnbRequirerAppData(BaseModel):
@@ -387,16 +305,8 @@ def data_matches_requirer_schema(data: dict) -> bool:
         return False
 
 
-class FivegCoreGnbRequirerCharmEvents(CharmEvents):
-    """Custom events for the FivegCoreGnbRequirer."""
-
-    gnb_config_available = EventSource(GnbConfigAvailableEvent)
-
-
 class FivegCoreGnbRequires(Object):
     """Class to be instantiated by requirer of the `fiveg_core_gnb`."""
-
-    on = FivegCoreGnbRequirerCharmEvents()  # type: ignore
 
     def __init__(self, charm: CharmBase, relation_name: str):
         """Observes relation changed events.
@@ -408,7 +318,6 @@ class FivegCoreGnbRequires(Object):
         self.relation_name = relation_name
         self.charm = charm
         super().__init__(charm, relation_name)
-        self.framework.observe(charm.on[relation_name].relation_changed, self._on_relation_changed)
 
     def publish_gnb_information(
         self, relation_id: int, cu_name: str
@@ -419,25 +328,21 @@ class FivegCoreGnbRequires(Object):
             relation_id (str): Relation ID.
             cu_name (str): CU/gNB unique identifier.
         """
+        if not self.charm.unit.is_leader():
+            raise RuntimeError("Unit must be leader to set application relation data.")
+
         if not data_matches_requirer_schema(
             data={"cu_name": cu_name}
         ):
             raise ValueError(f"Invalid fiveG core gNB data: {cu_name}")
+
         relation = self.model.get_relation(
             relation_name=self.relation_name, relation_id=relation_id
         )
         if not relation:
             raise RuntimeError(f"Relation {self.relation_name} not created yet.")
-        relation.data[self.charm.app]["cu_name"] = cu_name
 
-    def _on_relation_changed(self, event: RelationChangedEvent) -> None:
-        """Triggered every time there's a change in relation data.
+        if relation not in self.model.relations[self.relation_name]:
+            raise RuntimeError(f"Relation {self.relation_name} not created yet.")
 
-        Args:
-            event (RelationChangedEvent): Juju event
-        """
-        relation_data = event.relation.data
-        tac = relation_data[event.app].get("tac")
-        plmns = relation_data[event.app].get("plmns")
-        if tac and plmns:
-            self.on.gnb_config_available.emit(tac=tac, plmns=plmns)
+        relation.data[self.charm.app].update({"cu_name": cu_name})
