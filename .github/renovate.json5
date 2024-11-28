@@ -26,6 +26,12 @@
       "groupName": "Python dependencies"
     },
     {
+      // Bumping "pytest-asyncio" over 0.23 breaks the integration tests
+      "matchPackageNames": ["pytest-asyncio"],
+      "matchUpdateTypes": ["minor"],
+      "enabled": false
+    },
+    {
       "matchBaseBranches": ["main", "v*"],
       "matchManagers": ["github-actions"],
       "groupName": "GitHub actions"
@@ -36,6 +42,4 @@
       "groupName": "Terraform"
     },
   ],
-  // Bumping "pytest-asyncio" over 0.23 breaks the integration tests
-  "ignoreDeps": ["pytest-asyncio"]
 }
