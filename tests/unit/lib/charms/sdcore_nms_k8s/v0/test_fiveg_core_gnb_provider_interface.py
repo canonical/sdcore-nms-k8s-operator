@@ -110,10 +110,11 @@ class TestFivegCoreGnbProviderCharm:
             relations={fiveg_core_gnb_relation},
         )
 
+        plmns = [PLMNConfig(mcc=TEST_MCC, mnc=TEST_MNC, sst=TEST_SST, sd=TEST_SD)]
         params = {
             "relation-id": str(fiveg_core_gnb_relation.id),
             "tac": str(TEST_TAC_INVALID),
-            "plmns": json.dumps([])
+            "plmns": json.dumps([plmn.asdict() for plmn in plmns])
         }
 
         with pytest.raises(Exception):

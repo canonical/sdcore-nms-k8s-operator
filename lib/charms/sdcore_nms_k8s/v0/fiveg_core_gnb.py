@@ -119,7 +119,7 @@ from typing import Optional
 from interface_tester.schema_base import DataBagSchema
 from ops.charm import CharmBase
 from ops.framework import Object
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, conlist
 
 # The unique Charmhub library identifier, never change it
 LIBID = "196ff8f539ba4f2998209fbb50e2dbbf"
@@ -207,7 +207,7 @@ class FivegCoreGnbProviderAppData(BaseModel):
         ge=1,
         le=16777215,
     )
-    plmns: list[PLMNConfig]
+    plmns: conlist(PLMNConfig, min_length=1)  # type: ignore[reportInvalidTypeForm]
 
 
 class ProviderSchema(DataBagSchema):
