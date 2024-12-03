@@ -47,8 +47,6 @@ requires:
     interface: mongodb_client
   webui_database:
     interface: mongodb_client
-  fiveg_gnb_identity:
-    interface: fiveg_gnb_identity
   fiveg_n4:
     interface: fiveg_n4
   logging:
@@ -57,6 +55,8 @@ requires:
     interface: tls-certificates
 
 provides:
+  fiveg_core_gnb:
+    interface: fiveg_core_gnb
   sdcore_config:
     interface: sdcore_config
 

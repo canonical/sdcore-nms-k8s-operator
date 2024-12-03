@@ -11,16 +11,15 @@ import string
 from dataclasses import dataclass
 from ipaddress import IPv4Address
 from subprocess import CalledProcessError, check_output
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires
 from charms.loki_k8s.v1.loki_push_api import LogForwarder
 from charms.sdcore_gnbsim_k8s.v0.fiveg_gnb_identity import (
     GnbIdentityRequires,
 )
-from charms.sdcore_nms_k8s.v0.sdcore_config import (
-    SdcoreConfigProvides,
-)
+from charms.sdcore_nms_k8s.v0.fiveg_core_gnb import FivegCoreGnbProvides, PLMNConfig
+from charms.sdcore_nms_k8s.v0.sdcore_config import SdcoreConfigProvides
 from charms.sdcore_upf_k8s.v0.fiveg_n4 import N4Requires
 from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
 from jinja2 import Environment, FileSystemLoader
@@ -37,6 +36,7 @@ from ops.charm import CharmBase
 from ops.framework import EventBase
 from ops.pebble import Layer
 from requests import get
+from requests.exceptions import RequestException
 
 from nms import NMS, GnodeB, Upf
 from tls import CA_CERTIFICATE_NAME, Tls
@@ -175,6 +175,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self.fiveg_n4 = N4Requires(charm=self, relation_name=FIVEG_N4_RELATION_NAME)
         self._gnb_identity = GnbIdentityRequires(self, GNB_IDENTITY_RELATION_NAME)
         self._logging = LogForwarder(charm=self, relation_name=LOGGING_RELATION_NAME)
+        self._fiveg_core_gnb_provider = FivegCoreGnbProvides(self, FIVEG_CORE_GNB_RELATION_NAME)
         self._sdcore_config = SdcoreConfigProvides(self, SDCORE_CONFIG_RELATION_NAME)
         self.framework.observe(self.on.update_status, self._configure_sdcore_nms)
         self.framework.observe(self.on.nms_pebble_ready, self._configure_sdcore_nms)
@@ -214,7 +215,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         # Handling config changed event to publish the new url if the unit reboots and gets new IP
         self.framework.observe(self.on.config_changed, self._configure_sdcore_nms)
         self.framework.observe(
-            self.on["nms"].pebble_custom_notice, self._synchronize_network_config
+            self.on["nms"].pebble_custom_notice, self._sync_network_config
         )
 
         self._nms = NMS(
@@ -252,17 +253,31 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self._publish_sdcore_config_url()
         self._sync_gnbs()
         self._sync_upfs()
+        self._sync_network_config(event)
 
-    def _synchronize_network_config(self, _):
+    def _sync_network_config(self, event: EventBase):
         """Synchronize network configuration between the Core and the RAN.
 
         Every time network configuration is updated (NetworkSlice configuration change in the NMS),
-        webconsole sends a custom Pebble notification. When it happens, this method fetches
+        the `webconsole` sends a custom Pebble notification. When it happens, this method fetches
         the current network setup and passes the configuration to the RAN part of the network
         through the relevant Juju integrations.
         """
-        network_config = self._get_network_config()
-        for relation in self.model.relations.get(FIVEG_CORE_GNB_RELATION_NAME):
+        gnbs_config = self._get_gnbs_config()
+        for relation in self.model.relations.get(FIVEG_CORE_GNB_RELATION_NAME, []):
+            if not relation.app:
+                logger.warning(
+                    "Application missing from the %s relation data",
+                    FIVEG_CORE_GNB_RELATION_NAME,
+                )
+                continue
+            relation_gnb_name = relation.data[relation.app].get("cu_name")
+            if relation_gnb_name in gnbs_config.keys():
+                self._fiveg_core_gnb_provider.publish_gnb_config_information(
+                    relation_id=relation.id,
+                    tac=gnbs_config[relation_gnb_name].get("tac"),
+                    plmns=gnbs_config[relation_gnb_name].get("plmns"),
+                )
 
 
     def _on_collect_unit_status(self, event: CollectStatusEvent):  # noqa: C901
@@ -515,20 +530,16 @@ class SDCoreNMSOperatorCharm(CharmBase):
                     hostname=upf.hostname, port=upf.port, token=login_details.token
                 )
 
-    def _get_network_config(self) -> dict:
-        """Get configuration of all Network Slices.
+    def _get_gnbs_config(self) -> dict:
+        """Get configuration of all gNodeBs in the network.
 
         Returns:
             dict: Dict representing configuration of gNBs
         """
-        network_configuration = {}
-        network_slices = get(
-            f"http://{self._nms_endpoint}/{CONFIG_API_ROUTE}/{NETWORK_SLICE_CONFIG_API_ENDPOINT}"
-        ).json()
+        gnbs_config = {}
+        network_slices = self._get_network_slices()
         for network_slice in network_slices:
-            network_slice_config_json = get(
-                f"http://{self._nms_endpoint}/{CONFIG_API_ROUTE}/{NETWORK_SLICE_CONFIG_API_ENDPOINT}/{network_slice}"  # noqa: E501
-            ).json()
+            network_slice_config_json = self._get_network_slice(network_slice)
             for gnb in network_slice_config_json["site-info"]["gNodeBs"]:
                 gnb_name = gnb["name"]
                 tac = gnb["tac"]
@@ -538,11 +549,11 @@ class SDCoreNMSOperatorCharm(CharmBase):
                     sst=network_slice_config_json["slice-id"]["sst"],
                     sd=network_slice_config_json["slice-id"]["sd"],
                 )
-                if not network_configuration[gnb_name]:
-                    network_configuration[gnb_name] = gNodeB(tac=tac, plmns=[plmn_config])
+                if not gnbs_config[gnb_name]:
+                    gnbs_config[gnb_name] = {"tac": tac, "plmns": [plmn_config]}
                 else:
-                    network_configuration[gnb_name].plmns.append(plmn_config)
-        return network_configuration
+                    gnbs_config[gnb_name]["plmns"].append(plmn_config)
+        return gnbs_config
 
     def _get_common_database_url(self) -> str:
         if not self._common_database_resource_is_available():
@@ -598,6 +609,26 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
     def _relation_created(self, relation_name: str) -> bool:
         return bool(self.model.relations[relation_name])
+
+    def _get_network_slices(self) -> Dict[str, Any]:
+        try:
+            response = get(
+                f"http://{self._nms_endpoint}/{CONFIG_API_ROUTE}/{NETWORK_SLICE_CONFIG_API_ENDPOINT}"  # noqa: E501
+            )
+            return response.json()
+        except RequestException as e:
+            logger.error("Failed to get NetworkSlices: %s", e)
+            return {}
+
+    def _get_network_slice(self, slice_name: str) -> Dict[str, Any]:
+        try:
+            response = get(
+                f"http://{self._nms_endpoint}/{CONFIG_API_ROUTE}/{NETWORK_SLICE_CONFIG_API_ENDPOINT}/{slice_name}"  # noqa: E501
+            )
+            return response.json()
+        except RequestException as e:
+            logger.error("Failed to get NetworkSlice %s: %s", slice_name, e)
+            return {}
 
     @property
     def _nms_config_url(self) -> str:
