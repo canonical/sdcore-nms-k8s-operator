@@ -24,7 +24,7 @@ Charms providing the `fiveg_core_gnb` relation should use `FivegCoreGnbProvides`
 The class `PLMNConfig` represents the configuration of a PLMN for the CU/gNodeB. It is composed by
 the Mobile Country Code (MCC), the Mobile Network Code (MNC), the Slice Service Type (SST) and the
 Slice Differentiator (SD). Each CU can be configured with a single Tracking Area Code (TAC) and
-multiple PLMNS.
+multiple PLMNs.
 
 Typical usage of this class would look something like:
 
@@ -43,15 +43,15 @@ Typical usage of this class would look something like:
                 )
             ...
             self.framework.observe(
-                self.on.fiveg_core_gnb_provider_relation_changed,
-                self._on_relation_changed
+                self.on.config_changed_event,
+                self._on_config_changed_event
             )
 
-        def _on_relation_changed(self, event):
+        def _on_config_changed_event(self, event):
             ...
             # implement the logic to populate the list of PLMNs.
             plmns = [PLMNConfig(mcc=..., mnc=..., sst=..., sd=...)
-            self.fiveg_core_gnb_provider.publish_fiveg_core_gnb_information(
+            self.fiveg_core_gnb_provider.publish_gnb_config_information(
                 relation_id=event.relation_id,
                 tac=tac,
                 plmns=plmns,
@@ -75,7 +75,7 @@ Typical usage of this class would look something like:
 
     class SomeRequirerCharm(CharmBase):
 
-        CU_NAME = "gnb001"
+        GNB_NAME = "gnb001"
 
         def __init__(self, *args):
             ...
@@ -95,7 +95,7 @@ Typical usage of this class would look something like:
             relation_id = event.relation.id
             self.fiveg_core_gnb.publish_gnb_information(
                 relation_id=relation_id,
-                cu_name=self.CU_NAME,
+                gnb_name=self.GNB_NAME,
             )
 
         def _on_fiveg_core_gnb_relation_changed(self, event: RelationChangedEvent):
@@ -114,11 +114,13 @@ Typical usage of this class would look something like:
 import json
 import logging
 from dataclasses import dataclass
-from typing import Optional
+from json.decoder import JSONDecodeError
+from typing import Any, Dict, Optional
 
 from interface_tester.schema_base import DataBagSchema
 from ops.charm import CharmBase
 from ops.framework import Object
+from ops.model import Relation
 from pydantic import BaseModel, Field, ValidationError, conlist
 
 # The unique Charmhub library identifier, never change it
@@ -155,7 +157,7 @@ Examples:
     RequirerSchema:
         unit: <empty>
         app: {
-            "cu_name": "gnb001",
+            "gnb-name": "gnb001",
         }
 """
 
@@ -170,12 +172,12 @@ class PLMNConfig(BaseModel):
     mcc: str = Field(
         description="Mobile Country Code",
         examples=["001", "208", "302"],
-        pattern=r"[0-9][0-9][0-9]",
+        pattern=r"^[0-9][0-9][0-9]$",
     )
     mnc: str = Field(
         description="Mobile Network Code",
         examples=["01", "001", "999"],
-        pattern=r"[0-9][0-9][0-9]?",
+        pattern=r"^[0-9][0-9][0-9]?$",
     )
     sst: int = Field(
         description="Slice/Service Type",
@@ -237,7 +239,7 @@ class FivegCoreGnbProvides(Object):
     """Class to be instantiated by provider of the `fiveg_core_gnb`."""
 
     def __init__(self, charm: CharmBase, relation_name: str):
-        """Observe relation joined event.
+        """Create a new instance of the FivegCoreGnbProvides class.
 
         Args:
             charm: Juju charm
@@ -248,12 +250,11 @@ class FivegCoreGnbProvides(Object):
         super().__init__(charm, relation_name)
 
     def publish_gnb_config_information(
-        self, relation_id: int, tac: int, plmns: list[PLMNConfig]
+        self, tac: int, plmns: list[PLMNConfig]
     ) -> None:
         """Set TAC and PLMNs in the relation data.
 
         Args:
-            relation_id (str): Relation ID.
             tac (int): Tracking Area Code.
             plmns (list[PLMNConfig]): Configured PLMNs.
         """
@@ -261,9 +262,7 @@ class FivegCoreGnbProvides(Object):
             data={"tac": tac, "plmns": plmns}
         ):
             raise ValueError(f"Invalid fiveG core gNB data: {tac}, {plmns}")
-        relation = self.model.get_relation(
-            relation_name=self.relation_name, relation_id=relation_id
-        )
+        relation = self.model.get_relation(relation_name=self.relation_name)
         if not relation:
             raise RuntimeError(f"Relation {self.relation_name} not created yet.")
         relation.data[self.charm.app].update(
@@ -276,7 +275,8 @@ class FivegCoreGnbProvides(Object):
 
 class FivegCoreGnbRequirerAppData(BaseModel):
     """Requirer application data for fiveg_core_gnb."""
-    cu_name: str = Field(
+    gnb_name: str = Field(
+        alias="gnb-name",
         description="CU/gNB unique identifier",
         examples=["gnb001"],
     )
@@ -309,7 +309,7 @@ class FivegCoreGnbRequires(Object):
     """Class to be instantiated by requirer of the `fiveg_core_gnb`."""
 
     def __init__(self, charm: CharmBase, relation_name: str):
-        """Observes relation changed events.
+        """Create a new instance of the FivegCoreGnbRequires class.
 
         Args:
             charm: Juju charm
@@ -320,29 +320,84 @@ class FivegCoreGnbRequires(Object):
         super().__init__(charm, relation_name)
 
     def publish_gnb_information(
-        self, relation_id: int, cu_name: str
+        self, gnb_name: str
     ) -> None:
         """Set CU/gNB identifier in the relation data.
 
         Args:
-            relation_id (str): Relation ID.
-            cu_name (str): CU/gNB unique identifier.
+            gnb_name (str): CU/gNB unique identifier.
         """
         if not self.charm.unit.is_leader():
             raise RuntimeError("Unit must be leader to set application relation data.")
 
         if not data_matches_requirer_schema(
-            data={"cu_name": cu_name}
+            data={"gnb-name": gnb_name}
         ):
-            raise ValueError(f"Invalid fiveG core gNB data: {cu_name}")
+            raise ValueError(f"Invalid gNB name: {gnb_name}")
 
-        relation = self.model.get_relation(
-            relation_name=self.relation_name, relation_id=relation_id
-        )
+        relation = self.model.get_relation(relation_name=self.relation_name)
         if not relation:
             raise RuntimeError(f"Relation {self.relation_name} not created yet.")
 
         if relation not in self.model.relations[self.relation_name]:
             raise RuntimeError(f"Relation {self.relation_name} not created yet.")
 
-        relation.data[self.charm.app].update({"cu_name": cu_name})
+        relation.data[self.charm.app].update({"gnb-name": gnb_name})
+
+    def _get_remote_app_relation_data(self, relation: Optional[Relation] = None) -> Optional[dict]:
+        """Get relation data for the remote application.
+
+        Args:
+            relation: Juju relation object (optional).
+
+        Returns:
+        str: Relation data for the remote application
+            or None if the relation data is invalid.
+        """
+        relation = relation or self.model.get_relation(self.relation_name)
+
+        if not relation:
+            logger.error("No relation: %s", self.relation_name)
+            return None
+
+        if not relation.app:
+            logger.warning("No remote application in relation: %s", self.relation_name)
+            return None
+
+        remote_app_relation_data: Dict[str, Any] = dict(relation.data[relation.app])
+        plmns = remote_app_relation_data.get("plmns", "")
+        try:
+            remote_app_relation_data["tac"] = int(remote_app_relation_data.get("tac", ""))
+            remote_app_relation_data["plmns"] = [
+                PLMNConfig(**data) for data in json.loads(plmns)
+            ]
+        except (JSONDecodeError, ValidationError, ValueError):
+            logger.error("Invalid relation data: %s", remote_app_relation_data)
+            return None
+        if not data_matches_provider_schema(remote_app_relation_data):
+            logger.error("Invalid relation data: %s", remote_app_relation_data)
+            return None
+
+        return remote_app_relation_data
+
+    @property
+    def tac(self) -> Optional[int]:
+        """Return the configured TAC for the CU/gNodeB.
+
+        Returns:
+            int: TAC.
+        """
+        if remote_relation_data := self._get_remote_app_relation_data():
+            return remote_relation_data["tac"]
+        return None
+
+    @property
+    def plmns(self) -> Optional[list[PLMNConfig]]:
+        """Return the configured PLMNs for the CU/gNodeB.
+
+        Returns:
+            list: PLMNs.
+        """
+        if remote_relation_data := self._get_remote_app_relation_data():
+            return remote_relation_data["plmns"]
+        return None
