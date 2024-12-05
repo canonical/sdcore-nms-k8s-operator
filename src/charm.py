@@ -11,13 +11,10 @@ import string
 from dataclasses import dataclass
 from ipaddress import IPv4Address
 from subprocess import CalledProcessError, check_output
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires
 from charms.loki_k8s.v1.loki_push_api import LogForwarder
-from charms.sdcore_gnbsim_k8s.v0.fiveg_gnb_identity import (
-    GnbIdentityRequires,
-)
 from charms.sdcore_nms_k8s.v0.fiveg_core_gnb import FivegCoreGnbProvides, PLMNConfig
 from charms.sdcore_nms_k8s.v0.sdcore_config import SdcoreConfigProvides
 from charms.sdcore_upf_k8s.v0.fiveg_n4 import N4Requires
@@ -35,8 +32,6 @@ from ops import (
 from ops.charm import CharmBase
 from ops.framework import EventBase
 from ops.pebble import Layer
-from requests import get
-from requests.exceptions import RequestException
 
 from nms import NMS, GnodeB, Upf
 from tls import CA_CERTIFICATE_NAME, Tls
@@ -53,14 +48,11 @@ COMMON_DATABASE_RELATION_NAME = "common_database"
 WEBUI_DATABASE_RELATION_NAME = "webui_database"
 FIVEG_N4_RELATION_NAME = "fiveg_n4"
 FIVEG_CORE_GNB_RELATION_NAME = "fiveg_core_gnb"
-GNB_IDENTITY_RELATION_NAME = "fiveg_gnb_identity"
 LOGGING_RELATION_NAME = "logging"
 SDCORE_CONFIG_RELATION_NAME = "sdcore_config"
 AUTH_DATABASE_NAME = "authentication"
 COMMON_DATABASE_NAME = "free5gc"
 WEBUI_DATABASE_NAME = "webui"
-CONFIG_API_ROUTE = "config/v1"
-NETWORK_SLICE_CONFIG_API_ENDPOINT = "network-slice"
 GRPC_PORT = 9876
 NMS_URL_PORT = 5000
 NMS_LOGIN_SECRET_LABEL = "NMS_LOGIN"
@@ -173,7 +165,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
         )
 
         self.fiveg_n4 = N4Requires(charm=self, relation_name=FIVEG_N4_RELATION_NAME)
-        self._gnb_identity = GnbIdentityRequires(self, GNB_IDENTITY_RELATION_NAME)
         self._logging = LogForwarder(charm=self, relation_name=LOGGING_RELATION_NAME)
         self._fiveg_core_gnb_provider = FivegCoreGnbProvides(self, FIVEG_CORE_GNB_RELATION_NAME)
         self._sdcore_config = SdcoreConfigProvides(self, SDCORE_CONFIG_RELATION_NAME)
@@ -192,15 +183,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self._auth_database.on.endpoints_changed, self._configure_sdcore_nms
         )
         self.framework.observe(self.on.sdcore_config_relation_joined, self._configure_sdcore_nms)
+        self.framework.observe(self.on.fiveg_core_gnb_relation_changed, self._configure_sdcore_nms)
+        self.framework.observe(self.on.fiveg_core_gnb_relation_broken, self._configure_sdcore_nms)
         self.framework.observe(self.fiveg_n4.on.fiveg_n4_available, self._configure_sdcore_nms)
-        self.framework.observe(
-            self._gnb_identity.on.fiveg_gnb_identity_available,
-            self._configure_sdcore_nms,
-        )
-        self.framework.observe(
-            self.on[GNB_IDENTITY_RELATION_NAME].relation_broken,
-            self._configure_sdcore_nms,
-        )
         self.framework.observe(
             self.on[FIVEG_N4_RELATION_NAME].relation_broken,
             self._configure_sdcore_nms,
@@ -271,12 +256,12 @@ class SDCoreNMSOperatorCharm(CharmBase):
                     FIVEG_CORE_GNB_RELATION_NAME,
                 )
                 continue
-            relation_gnb_name = relation.data[relation.app].get("cu_name")
-            if relation_gnb_name in gnbs_config.keys():
+            relation_gnb_name = relation.data[relation.app].get("gnb-name")
+            if gnodeb := next((gnb for gnb in gnbs_config if gnb.name == relation_gnb_name), None):
                 self._fiveg_core_gnb_provider.publish_gnb_config_information(
                     relation_id=relation.id,
-                    tac=gnbs_config[relation_gnb_name].get("tac"),
-                    plmns=gnbs_config[relation_gnb_name].get("plmns"),
+                    tac=gnodeb.tac,
+                    plmns=gnodeb.plmns,
                 )
 
 
@@ -479,37 +464,34 @@ class SDCoreNMSOperatorCharm(CharmBase):
                 upf_host_port_list.append(Upf(hostname=hostname, port=int(port)))
         return upf_host_port_list
 
-    def _get_gnb_config_from_relations(self) -> List[GnodeB]:
-        gnb_name_tac_list = []
-        for gnb_identity_relation in self.model.relations.get(GNB_IDENTITY_RELATION_NAME, []):
-            if not gnb_identity_relation.app:
-                logger.warning(
-                    "Application missing from the %s relation data",
-                    GNB_IDENTITY_RELATION_NAME,
-                )
-                continue
-            gnb_name = gnb_identity_relation.data[gnb_identity_relation.app].get("gnb_name", "")
-            gnb_tac = gnb_identity_relation.data[gnb_identity_relation.app].get("tac", "")
-            if gnb_name and gnb_tac:
-                gnb_name_tac_list.append(GnodeB(name=gnb_name, tac=int(gnb_tac)))
-        return gnb_name_tac_list
-
     def _sync_gnbs(self) -> None:
-        """Align the gNBs from the `fiveg_gnb_identity`relations with the ones in nms."""
+        """Synchronize gNBs integrated through the `fiveg_core_gnb` relations with the NMS."""
         login_details = self._get_admin_account()
         if not login_details or not login_details.token:
             logger.warning("Failed to get admin account details")
             return
-        if not self.model.relations.get(GNB_IDENTITY_RELATION_NAME):
-            logger.info("Relation %s not available", GNB_IDENTITY_RELATION_NAME)
         nms_gnbs = self._nms.list_gnbs(token=login_details.token)
-        relation_gnbs = self._get_gnb_config_from_relations()
+        integrated_gnbs = self._get_integrated_gnbs()
         for gnb in nms_gnbs:
-            if gnb not in relation_gnbs:
+            if gnb not in integrated_gnbs:
                 self._nms.delete_gnb(name=gnb.name, token=login_details.token)
-        for gnb in relation_gnbs:
+        for gnb in integrated_gnbs:
             if gnb not in nms_gnbs:
                 self._nms.create_gnb(name=gnb.name, tac=gnb.tac, token=login_details.token)
+
+    def _get_integrated_gnbs(self) -> List[GnodeB]:
+        integrated_gnbs =[]
+        for relation in self.model.relations.get(FIVEG_CORE_GNB_RELATION_NAME, []):
+            if not relation.app:
+                logger.warning(
+                    "Application missing from the %s relation data",
+                    FIVEG_CORE_GNB_RELATION_NAME,
+                )
+                continue
+            gnb_name = relation.data[relation.app].get("gnb-name")
+            if gnb_name:
+                integrated_gnbs.append(GnodeB(name=gnb_name))
+        return integrated_gnbs
 
     def _sync_upfs(self) -> None:
         """Align the UPFs from the `fiveg_n4` relations with the ones in nms."""
@@ -530,29 +512,39 @@ class SDCoreNMSOperatorCharm(CharmBase):
                     hostname=upf.hostname, port=upf.port, token=login_details.token
                 )
 
-    def _get_gnbs_config(self) -> dict:
+    def _get_gnbs_config(self) -> List[GnodeB]:
         """Get configuration of all gNodeBs in the network.
 
         Returns:
             dict: Dict representing configuration of gNBs
         """
-        gnbs_config = {}
-        network_slices = self._get_network_slices()
-        for network_slice in network_slices:
-            network_slice_config_json = self._get_network_slice(network_slice)
-            for gnb in network_slice_config_json["site-info"]["gNodeBs"]:
-                gnb_name = gnb["name"]
-                tac = gnb["tac"]
+        gnbs_config = []
+        login_details = self._get_admin_account()
+        if not login_details or not login_details.token:
+            logger.warning("Failed to get admin account details")
+            return []
+        network_slices = self._nms.list_network_slices(token=login_details.token)
+        for network_slice_name in network_slices:
+            network_slice = self._nms.get_network_slice(
+                slice_name=network_slice_name, token=login_details.token
+            )
+            if not network_slice:
+                continue
+            for gnodeb in network_slice.gnodebs:
                 plmn_config = PLMNConfig(
-                    mcc=network_slice_config_json["site-info"]["plmn"]["mcc"],
-                    mnc=network_slice_config_json["site-info"]["plmn"]["mnc"],
-                    sst=network_slice_config_json["slice-id"]["sst"],
-                    sd=network_slice_config_json["slice-id"]["sd"],
+                    network_slice.mcc,
+                    network_slice.mnc,
+                    network_slice.sst,
+                    network_slice.sd
                 )
-                if not gnbs_config[gnb_name]:
-                    gnbs_config[gnb_name] = {"tac": tac, "plmns": [plmn_config]}
+                if existing_gnb := next(
+                    (gnb for gnb in gnbs_config if gnb.name == gnodeb.name),
+                    None,
+                ):
+                    existing_gnb.plmns.append(plmn_config)
                 else:
-                    gnbs_config[gnb_name]["plmns"].append(plmn_config)
+                    gnodeb.plmns.append(plmn_config)
+                    gnbs_config.append(gnodeb)
         return gnbs_config
 
     def _get_common_database_url(self) -> str:
@@ -609,26 +601,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
     def _relation_created(self, relation_name: str) -> bool:
         return bool(self.model.relations[relation_name])
-
-    def _get_network_slices(self) -> Dict[str, Any]:
-        try:
-            response = get(
-                f"http://{self._nms_endpoint}/{CONFIG_API_ROUTE}/{NETWORK_SLICE_CONFIG_API_ENDPOINT}"  # noqa: E501
-            )
-            return response.json()
-        except RequestException as e:
-            logger.error("Failed to get NetworkSlices: %s", e)
-            return {}
-
-    def _get_network_slice(self, slice_name: str) -> Dict[str, Any]:
-        try:
-            response = get(
-                f"http://{self._nms_endpoint}/{CONFIG_API_ROUTE}/{NETWORK_SLICE_CONFIG_API_ENDPOINT}/{slice_name}"  # noqa: E501
-            )
-            return response.json()
-        except RequestException as e:
-            logger.error("Failed to get NetworkSlice %s: %s", slice_name, e)
-            return {}
 
     @property
     def _nms_config_url(self) -> str:
