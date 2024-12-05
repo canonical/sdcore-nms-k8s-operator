@@ -258,6 +258,8 @@ class FivegCoreGnbProvides(Object):
             tac (int): Tracking Area Code.
             plmns (list[PLMNConfig]): Configured PLMNs.
         """
+        if not self.charm.unit.is_leader():
+            raise RuntimeError("Unit must be leader to set application relation data.")
         if not data_matches_provider_schema(
             data={"tac": tac, "plmns": plmns}
         ):

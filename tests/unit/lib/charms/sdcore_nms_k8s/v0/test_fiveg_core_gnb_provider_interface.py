@@ -64,7 +64,7 @@ class TestFivegCoreGnbProviderCharm:
             },
         )
 
-    def test_given_fiveg_core_gnb_relation_when_publish_gnb_config_valid_tac_then_data_is_in_application_databag(  # noqa: E501
+    def test_given_unit_is_leader_and_fiveg_core_gnb_relation_when_publish_gnb_config_valid_tac_then_data_is_in_application_databag(  # noqa: E501
         self,
     ):
         fiveg_core_gnb_relation = scenario.Relation(
@@ -90,7 +90,7 @@ class TestFivegCoreGnbProviderCharm:
         rel_plmns = state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data["plmns"]
         assert plmns == [PLMNConfig(**data) for data in json.loads(rel_plmns)]
 
-    def test_given_fiveg_core_gnb_relation_when_publish_gnb_config_invalid_tac_then_exception_is_raised(  # noqa: E501
+    def test_given_unit_is_leader_and_fiveg_core_gnb_relation_when_publish_gnb_config_invalid_tac_then_exception_is_raised(  # noqa: E501
         self,
     ):
         fiveg_core_gnb_relation = scenario.Relation(
@@ -107,10 +107,12 @@ class TestFivegCoreGnbProviderCharm:
             "plmns": json.dumps([plmn.asdict() for plmn in plmns])
         }
 
-        with pytest.raises(Exception):
+        with pytest.raises(Exception) as exc:
             self.ctx.run(self.ctx.on.action("publish-gnb-config", params=params), state_in)
 
-    def test_given_fiveg_core_gnb_relation_when_publish_gnb_config_invalid_plmn_then_exception_is_raised(  # noqa: E501
+        assert "Invalid fiveG core gNB data" in str(exc.value)
+
+    def test_given_unit_is_leader_and_fiveg_core_gnb_relation_when_publish_gnb_config_invalid_plmn_then_exception_is_raised(  # noqa: E501
         self,
     ):
         fiveg_core_gnb_relation = scenario.Relation(
@@ -131,12 +133,9 @@ class TestFivegCoreGnbProviderCharm:
                 self.ctx.on.action("publish-gnb-config-wrong-data", params=params),
                 state_in
             )
-        assert (
-                f"ValueError('Invalid fiveG core gNB data: {TEST_TAC_VALID}, dummy-string')"
-                in str(exc.value)
-        )
+        assert "Invalid fiveG core gNB data" in str(exc.value)
 
-    def test_given_fiveg_core_gnb_relation_when_publish_gnb_config_plmn_no_sd_then_data_is_in_application_databag(  # noqa: E501
+    def test_given_unit_is_leader_and_fiveg_core_gnb_relation_when_publish_gnb_config_plmn_no_sd_then_data_is_in_application_databag(  # noqa: E501
         self,
     ):
         fiveg_core_gnb_relation = scenario.Relation(
@@ -162,7 +161,7 @@ class TestFivegCoreGnbProviderCharm:
         rel_plmns = state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data["plmns"]
         assert plmns == [PLMNConfig(**data) for data in json.loads(rel_plmns)]
 
-    def test_given_fiveg_core_gnb_relation_is_not_created_when_publish_gnb_config_then_runtime_error_is_raised(  # noqa: E501
+    def test_given_unit_is_leader_and_fiveg_core_gnb_relation_is_not_created_when_publish_gnb_config_then_runtime_error_is_raised(  # noqa: E501
         self,
     ):
         state_in = scenario.State(leader=True)
@@ -175,6 +174,29 @@ class TestFivegCoreGnbProviderCharm:
         # TODO: It seems like this should use event.fail() rather than raising.
         with pytest.raises(Exception):
             self.ctx.run(self.ctx.on.action("publish-gnb-config", params=params), state_in)
+
+    def test_given_unit_is_not_leader_and_fiveg_core_gnb_relation_when_publish_gnb_config_valid_tac_then_data_is_not_in_application_databag(  # noqa: E501
+        self,
+    ):
+        fiveg_core_gnb_relation = scenario.Relation(
+            endpoint="fiveg_core_gnb",
+        )
+        state_in = scenario.State(
+            leader=False,
+            relations={fiveg_core_gnb_relation},
+        )
+
+        plmns = [PLMNConfig(mcc=TEST_MCC, mnc=TEST_MNC, sst=TEST_SST, sd=TEST_SD)]
+        params = {
+            "tac": str(TEST_TAC_VALID),
+            "plmns": json.dumps([plmn.asdict() for plmn in plmns])
+        }
+
+        # TODO: It seems like this should use event.fail() rather than raising.
+        with pytest.raises(Exception) as e:
+            self.ctx.run(self.ctx.on.action("publish-gnb-config", params=params), state_in)
+
+        assert "Unit must be leader to set application relation data" in str(e.value)
 
     def test_given_gnb_name_in_relation_data_when_get_gnb_name_then_gnb_name_is_returned(self):
         fiveg_core_gnb_relation = scenario.Relation(

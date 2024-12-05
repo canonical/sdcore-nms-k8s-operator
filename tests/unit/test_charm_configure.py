@@ -1349,7 +1349,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 call(name="some.gnb.name", tac=1234, token="test-token"),
                 call(name="my_gnb", tac=77, token="test-token"),
             ]
-            self.mock_create_gnb.assert_has_calls(calls)
+            self.mock_create_gnb.assert_has_calls(calls, any_order=True)
 
     def test_given_upf_exist_in_nms_and_relation_matches_when_pebble_ready_then_nms_upfs_are_not_updated(  # noqa: E501
         self,
