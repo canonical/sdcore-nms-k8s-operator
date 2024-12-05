@@ -272,6 +272,45 @@ class FivegCoreGnbProvides(Object):
             }
         )
 
+    def _get_remote_app_relation_data(self, relation: Optional[Relation] = None) -> Optional[dict]:
+        """Get relation data for the remote application.
+
+        Args:
+            relation: Juju relation object (optional).
+
+        Returns:
+        str: Relation data for the remote application
+            or None if the relation data is invalid.
+        """
+        relation = relation or self.model.get_relation(self.relation_name)
+
+        if not relation:
+            logger.error("No relation: %s", self.relation_name)
+            return None
+
+        if not relation.app:
+            logger.warning("No remote application in relation: %s", self.relation_name)
+            return None
+
+        remote_app_relation_data = dict(relation.data[relation.app])
+
+        if not data_matches_requirer_schema(remote_app_relation_data):
+            logger.error("Invalid relation data: %s", remote_app_relation_data)
+            return None
+
+        return remote_app_relation_data
+
+    @property
+    def gnb_name(self) -> Optional[str]:
+        """Return the name of the CU/gNodeB.
+
+        Returns:
+            str: gNodeB name.
+        """
+        if remote_relation_data := self._get_remote_app_relation_data():
+            return remote_relation_data["gnb-name"]
+        return None
+
 
 class FivegCoreGnbRequirerAppData(BaseModel):
     """Requirer application data for fiveg_core_gnb."""
@@ -337,9 +376,6 @@ class FivegCoreGnbRequires(Object):
 
         relation = self.model.get_relation(relation_name=self.relation_name)
         if not relation:
-            raise RuntimeError(f"Relation {self.relation_name} not created yet.")
-
-        if relation not in self.model.relations[self.relation_name]:
             raise RuntimeError(f"Relation {self.relation_name} not created yet.")
 
         relation.data[self.charm.app].update({"gnb-name": gnb_name})

@@ -16,6 +16,7 @@ TEST_MCC = "001"
 TEST_MNC = "01"
 TEST_SST = 1
 TEST_SD = 2
+TEST_GNB_NAME = "gnb001"
 
 
 class TestFivegCoreGnbProviderCharm:
@@ -52,6 +53,14 @@ class TestFivegCoreGnbProviderCharm:
                         },
                     },
                 },
+                "get-gnb-name": {
+                    "params": {
+                        "gnb-name": {
+                            "type": "string",
+                        },
+                    }
+                },
+                "get-gnb-name-invalid": {"params": {}},
             },
         )
 
@@ -166,3 +175,23 @@ class TestFivegCoreGnbProviderCharm:
         # TODO: It seems like this should use event.fail() rather than raising.
         with pytest.raises(Exception):
             self.ctx.run(self.ctx.on.action("publish-gnb-config", params=params), state_in)
+
+    def test_given_gnb_name_in_relation_data_when_get_gnb_name_then_gnb_name_is_returned(self):
+        fiveg_core_gnb_relation = scenario.Relation(
+            endpoint="fiveg_core_gnb",
+            interface="fiveg_core_gnb",
+            remote_app_data={"gnb-name": TEST_GNB_NAME},
+        )
+        params = {
+            "gnb-name": TEST_GNB_NAME,
+        }
+        state_in = scenario.State(
+            relations={fiveg_core_gnb_relation},
+        )
+
+        self.ctx.run(self.ctx.on.action("get-gnb-name", params=params), state_in)
+
+    def test_given_fiveg_core_gnb_relation_does_not_exist_when_publish_gnb_name_then_none_is_returned(self):  # noqa E501
+        state_in = scenario.State(relations=[], leader=True)
+
+        self.ctx.run(self.ctx.on.action("get-gnb-name-invalid"), state_in)
