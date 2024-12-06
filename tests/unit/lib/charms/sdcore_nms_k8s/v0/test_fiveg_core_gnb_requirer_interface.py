@@ -23,6 +23,10 @@ class TestFivegCoreGnbRequirer:
             actions={
                 "publish-gnb-name": {
                     "params": {
+                        "relation-id": {
+                            "description": "The relation ID of the relation",
+                            "type": "string",
+                        },
                         "gnb-name": {
                             "type": "string"
                         }
@@ -56,6 +60,7 @@ class TestFivegCoreGnbRequirer:
             relations={fiveg_core_gnb_relation},
         )
         params = {
+            "relation-id": str(fiveg_core_gnb_relation.id),
             "gnb-name": GNB_NAME
         }
 

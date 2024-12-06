@@ -250,11 +250,12 @@ class FivegCoreGnbProvides(Object):
         super().__init__(charm, relation_name)
 
     def publish_gnb_config_information(
-        self, tac: int, plmns: list[PLMNConfig]
+        self, relation_id: Optional[int], tac: int, plmns: list[PLMNConfig]
     ) -> None:
         """Set TAC and PLMNs in the relation data.
 
         Args:
+            relation_id (int): Relation ID (optional).
             tac (int): Tracking Area Code.
             plmns (list[PLMNConfig]): Configured PLMNs.
         """
@@ -263,8 +264,10 @@ class FivegCoreGnbProvides(Object):
         if not data_matches_provider_schema(
             data={"tac": tac, "plmns": plmns}
         ):
-            raise ValueError(f"Invalid fiveG core gNB data: {tac}, {plmns}")
-        relation = self.model.get_relation(relation_name=self.relation_name)
+            raise ValueError(f"Invalid gNB config: {tac}, {plmns}")
+        relation = self.model.get_relation(
+            relation_name=self.relation_name, relation_id=relation_id
+        )
         if not relation:
             raise RuntimeError(f"Relation {self.relation_name} not created yet.")
         relation.data[self.charm.app].update(
@@ -360,12 +363,11 @@ class FivegCoreGnbRequires(Object):
         self.charm = charm
         super().__init__(charm, relation_name)
 
-    def publish_gnb_information(
-        self, gnb_name: str
-    ) -> None:
+    def publish_gnb_information(self, relation_id: Optional[int], gnb_name: str) -> None:
         """Set CU/gNB identifier in the relation data.
 
         Args:
+            relation_id (int): Relation ID (optional).
             gnb_name (str): CU/gNB unique identifier.
         """
         if not self.charm.unit.is_leader():
@@ -376,7 +378,9 @@ class FivegCoreGnbRequires(Object):
         ):
             raise ValueError(f"Invalid gNB name: {gnb_name}")
 
-        relation = self.model.get_relation(relation_name=self.relation_name)
+        relation = self.model.get_relation(
+            relation_name=self.relation_name, relation_id=relation_id
+        )
         if not relation:
             raise RuntimeError(f"Relation {self.relation_name} not created yet.")
 
