@@ -224,4 +224,3 @@ class NMS:
         logger.info("Creating first user %s", username)
         create_user_params = CreateUserParams(username=username, password=password)
         self._make_request("POST", f"/{ACCOUNTS_URL}", data=asdict(create_user_params))
-
