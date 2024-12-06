@@ -584,10 +584,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
     @property
     def _environment_variables(self) -> dict:
         return {
-            "GRPC_GO_LOG_VERBOSITY_LEVEL": "99",
-            "GRPC_GO_LOG_SEVERITY_LEVEL": "info",
-            "GRPC_TRACE": "all",
-            "GRPC_VERBOSITY": "debug",
             "CONFIGPOD_DEPLOYMENT": "5G",
             "WEBUI_ENDPOINT": self._nms_endpoint,
         }
