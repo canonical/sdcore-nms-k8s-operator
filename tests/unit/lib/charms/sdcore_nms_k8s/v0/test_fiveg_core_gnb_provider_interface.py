@@ -59,6 +59,10 @@ class TestFivegCoreGnbProviderCharm:
                 },
                 "get-gnb-name": {
                     "params": {
+                        "relation-id": {
+                            "description": "The relation ID of the relation",
+                            "type": "string",
+                        },
                         "gnb-name": {
                             "type": "string",
                         },
@@ -225,6 +229,7 @@ class TestFivegCoreGnbProviderCharm:
             remote_app_data={"gnb-name": TEST_GNB_NAME},
         )
         params = {
+            "relation-id": str(fiveg_core_gnb_relation.id),
             "gnb-name": TEST_GNB_NAME,
         }
         state_in = scenario.State(
@@ -237,3 +242,26 @@ class TestFivegCoreGnbProviderCharm:
         state_in = scenario.State(relations=[], leader=True)
 
         self.ctx.run(self.ctx.on.action("get-gnb-name-invalid"), state_in)
+
+    def test_given_multiple_relations_when_get_gnb_name_then_correct_gnb_name_is_returned(self):
+        test_gnb_name_rel_1 = "gnb001"
+        test_gnb_name_rel_2 = "gnb002"
+        fiveg_core_gnb_relation_1 = scenario.Relation(
+            endpoint="fiveg_core_gnb",
+            interface="fiveg_core_gnb",
+            remote_app_data={"gnb-name": test_gnb_name_rel_1},
+        )
+        fiveg_core_gnb_relation_2 = scenario.Relation(
+            endpoint="fiveg_core_gnb",
+            interface="fiveg_core_gnb",
+            remote_app_data={"gnb-name": test_gnb_name_rel_2},
+        )
+        params = {
+            "relation-id": str(fiveg_core_gnb_relation_2.id),
+            "gnb-name": test_gnb_name_rel_2,
+        }
+        state_in = scenario.State(
+            relations={fiveg_core_gnb_relation_1, fiveg_core_gnb_relation_2},
+        )
+
+        self.ctx.run(self.ctx.on.action("get-gnb-name", params=params), state_in)

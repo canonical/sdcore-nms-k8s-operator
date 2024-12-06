@@ -53,16 +53,20 @@ class DummyFivegCoreGnbProviderCharm(ops.CharmBase):
         )
 
     def _on_get_gnb_name_action(self, event: ops.ActionEvent):
+        relation_id = event.params.get("relation-id", "")
         gnb_name = event.params.get("gnb-name", "")
         validated_data = {
             "gnb-name": gnb_name,
         }
         requirer_app_data = FivegCoreGnbRequirerAppData(**validated_data)
 
-        assert requirer_app_data.gnb_name == self.fiveg_core_gnb_provider.gnb_name
+        assert (
+                requirer_app_data.gnb_name ==
+                self.fiveg_core_gnb_provider.get_gnb_name(int(relation_id))
+        )
 
     def _on_get_gnb_name_action_invalid(self, event: ops.ActionEvent):
-        assert self.fiveg_core_gnb_provider.gnb_name is None
+        assert self.fiveg_core_gnb_provider.get_gnb_name(None) is None
 
 
 if __name__ == "__main__":

@@ -277,17 +277,20 @@ class FivegCoreGnbProvides(Object):
             }
         )
 
-    def _get_remote_app_relation_data(self, relation: Optional[Relation] = None) -> Optional[dict]:
+    def _get_remote_app_relation_data(self, relation_id: Optional[int]) -> Optional[dict]:
         """Get relation data for the remote application.
 
         Args:
-            relation: Juju relation object (optional).
+            relation_id: Juju relation ID (optional).
 
         Returns:
         str: Relation data for the remote application
             or None if the relation data is invalid.
         """
-        relation = relation or self.model.get_relation(self.relation_name)
+        relation = self.model.get_relation(
+            relation_name=self.relation_name,
+            relation_id=relation_id
+        )
 
         if not relation:
             logger.error("No relation: %s", self.relation_name)
@@ -305,14 +308,13 @@ class FivegCoreGnbProvides(Object):
 
         return remote_app_relation_data
 
-    @property
-    def gnb_name(self) -> Optional[str]:
-        """Return the name of the CU/gNodeB.
+    def get_gnb_name(self, relation_id: Optional[int]) -> Optional[str]:
+        """Return the name of the CU/gNodeB for the given relation.
 
         Returns:
             str: gNodeB name.
         """
-        if remote_relation_data := self._get_remote_app_relation_data():
+        if remote_relation_data := self._get_remote_app_relation_data(relation_id):
             return remote_relation_data["gnb-name"]
         return None
 
