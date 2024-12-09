@@ -34,7 +34,7 @@ class DummyFivegCoreGnbProviderCharm(ops.CharmBase):
         tac = event.params.get("tac", "")
         plmns = event.params.get("plmns", "")
         self.fiveg_core_gnb_provider.publish_gnb_config_information(
-            relation_id=int(relation_id) if relation_id else None,
+            relation_id=int(relation_id) if relation_id else None,  # type: ignore[arg-type]
             tac=int(tac),
             plmns=[PLMNConfig(**data) for data in json.loads(plmns)],
         )
@@ -66,7 +66,7 @@ class DummyFivegCoreGnbProviderCharm(ops.CharmBase):
         )
 
     def _on_get_gnb_name_action_invalid(self, event: ops.ActionEvent):
-        assert self.fiveg_core_gnb_provider.get_gnb_name(None) is None
+        assert self.fiveg_core_gnb_provider.get_gnb_name(0) is None
 
 
 if __name__ == "__main__":

@@ -26,10 +26,8 @@ class DummyFivegCoreGnbRequirerCharm(ops.CharmBase):
         )
 
     def _on_publish_gnb_name(self, event: ops.ActionEvent):
-        relation_id = event.params.get("relation-id")
         gnb_name = event.params.get("gnb-name", "")
         self.fiveg_core_gnb_requirer.publish_gnb_information(
-            relation_id=int(relation_id) if relation_id else None,
             gnb_name=gnb_name,
         )
 

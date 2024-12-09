@@ -92,9 +92,7 @@ Typical usage of this class would look something like:
                 self._on_fiveg_core_gnb_relation_changed)
 
         def _on_fiveg_core_gnb_relation_joined(self, event: RelationJoinedEvent):
-            relation_id = event.relation.id
             self.fiveg_core_gnb.publish_gnb_information(
-                relation_id=relation_id,
                 gnb_name=self.GNB_NAME,
             )
 
@@ -250,12 +248,12 @@ class FivegCoreGnbProvides(Object):
         super().__init__(charm, relation_name)
 
     def publish_gnb_config_information(
-        self, relation_id: Optional[int], tac: int, plmns: list[PLMNConfig]
+        self, relation_id: int, tac: int, plmns: list[PLMNConfig]
     ) -> None:
         """Set TAC and PLMNs in the relation data.
 
         Args:
-            relation_id (int): Relation ID (optional).
+            relation_id (int): Relation ID.
             tac (int): Tracking Area Code.
             plmns (list[PLMNConfig]): Configured PLMNs.
         """
@@ -277,11 +275,11 @@ class FivegCoreGnbProvides(Object):
             }
         )
 
-    def _get_remote_app_relation_data(self, relation_id: Optional[int]) -> Optional[dict]:
+    def _get_remote_app_relation_data(self, relation_id: int) -> Optional[dict]:
         """Get relation data for the remote application.
 
         Args:
-            relation_id: Juju relation ID (optional).
+            relation_id (int): Relation ID.
 
         Returns:
         str: Relation data for the remote application
@@ -308,8 +306,11 @@ class FivegCoreGnbProvides(Object):
 
         return remote_app_relation_data
 
-    def get_gnb_name(self, relation_id: Optional[int]) -> Optional[str]:
+    def get_gnb_name(self, relation_id: int) -> Optional[str]:
         """Return the name of the CU/gNodeB for the given relation.
+
+        Args:
+            relation_id (int): Relation ID.
 
         Returns:
             str: gNodeB name.
@@ -365,11 +366,10 @@ class FivegCoreGnbRequires(Object):
         self.charm = charm
         super().__init__(charm, relation_name)
 
-    def publish_gnb_information(self, relation_id: Optional[int], gnb_name: str) -> None:
+    def publish_gnb_information(self, gnb_name: str) -> None:
         """Set CU/gNB identifier in the relation data.
 
         Args:
-            relation_id (int): Relation ID (optional).
             gnb_name (str): CU/gNB unique identifier.
         """
         if not self.charm.unit.is_leader():
@@ -380,9 +380,7 @@ class FivegCoreGnbRequires(Object):
         ):
             raise ValueError(f"Invalid gNB name: {gnb_name}")
 
-        relation = self.model.get_relation(
-            relation_name=self.relation_name, relation_id=relation_id
-        )
+        relation = self.model.get_relation(relation_name=self.relation_name)
         if not relation:
             raise RuntimeError(f"Relation {self.relation_name} not created yet.")
 
