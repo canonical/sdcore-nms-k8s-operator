@@ -411,10 +411,6 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                             "override": "replace",
                             "command": "/bin/webconsole --cfg /nms/config/nmscfg.conf",
                             "environment": {
-                                "GRPC_GO_LOG_VERBOSITY_LEVEL": "99",
-                                "GRPC_GO_LOG_SEVERITY_LEVEL": "info",
-                                "GRPC_TRACE": "all",
-                                "GRPC_VERBOSITY": "debug",
                                 "CONFIGPOD_DEPLOYMENT": "5G",
                                 "WEBUI_ENDPOINT": "None:5000",
                             },
