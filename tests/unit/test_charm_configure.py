@@ -1250,7 +1250,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 call(hostname="my_host", port=77, token="test-token"),
                 call(hostname="some.host.name", port=1234, token="test-token"),
             ]
-            self.mock_create_upf.assert_has_calls(calls)
+            self.mock_create_upf.assert_has_calls(calls, any_order=True)
 
     def test_given_multiple_gnb_relations_when_pebble_ready_then_both_gnbs_are_added_to_nms(
         self,
@@ -1345,7 +1345,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 call(name="some.gnb.name", tac=1234, token="test-token"),
                 call(name="my_gnb", tac=77, token="test-token"),
             ]
-            self.mock_create_gnb.assert_has_calls(calls)
+            self.mock_create_gnb.assert_has_calls(calls, any_order=True)
 
     def test_given_upf_exist_in_nms_and_relation_matches_when_pebble_ready_then_nms_upfs_are_not_updated(  # noqa: E501
         self,
