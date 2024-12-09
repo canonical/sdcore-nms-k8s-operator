@@ -97,8 +97,8 @@ Typical usage of this class would look something like:
             )
 
         def _on_fiveg_core_gnb_relation_changed(self, event: RelationChangedEvent):
-            tac = event.tac,
-            plmns = event.plmns,
+            tac = self.fiveg_core_gnb.tac,
+            plmns = self.fiveg_core_gnb.plmns,
             # Do something with the TAC and PLMNs.
     ```
 
@@ -118,7 +118,6 @@ from typing import Any, Dict, Optional
 from interface_tester.schema_base import DataBagSchema
 from ops.charm import CharmBase
 from ops.framework import Object
-from ops.model import Relation
 from pydantic import BaseModel, Field, ValidationError, conlist
 
 # The unique Charmhub library identifier, never change it
@@ -386,17 +385,14 @@ class FivegCoreGnbRequires(Object):
 
         relation.data[self.charm.app].update({"gnb-name": gnb_name})
 
-    def _get_remote_app_relation_data(self, relation: Optional[Relation] = None) -> Optional[dict]:
+    def _get_remote_app_relation_data(self) -> Optional[dict]:
         """Get relation data for the remote application.
-
-        Args:
-            relation: Juju relation object (optional).
 
         Returns:
         str: Relation data for the remote application
             or None if the relation data is invalid.
         """
-        relation = relation or self.model.get_relation(self.relation_name)
+        relation = self.model.get_relation(self.relation_name)
 
         if not relation:
             logger.error("No relation: %s", self.relation_name)
