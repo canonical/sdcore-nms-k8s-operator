@@ -8,13 +8,13 @@ output "app_name" {
 
 output "requires" {
   value = {
-    auth_database      = "auth_database"
-    common_database    = "common_database"
-    webui_database     = "webui_database"
-    certificates       = "certificates"
-    fiveg_n4           = "fiveg_n4"
-    ingress            = "ingress"
-    logging            = "logging"
+    auth_database   = "auth_database"
+    common_database = "common_database"
+    webui_database  = "webui_database"
+    certificates    = "certificates"
+    fiveg_n4        = "fiveg_n4"
+    ingress         = "ingress"
+    logging         = "logging"
   }
 }
 
