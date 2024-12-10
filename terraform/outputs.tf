@@ -12,7 +12,6 @@ output "requires" {
     common_database    = "common_database"
     webui_database     = "webui_database"
     certificates       = "certificates"
-    fiveg_gnb_identity = "fiveg_gnb_identity"
     fiveg_n4           = "fiveg_n4"
     ingress            = "ingress"
     logging            = "logging"
@@ -21,6 +20,7 @@ output "requires" {
 
 output "provides" {
   value = {
-    sdcore_config = "sdcore_config"
+    sdcore_config  = "sdcore_config"
+    fiveg_core_gnb = "fiveg_core_gnb"
   }
 }
