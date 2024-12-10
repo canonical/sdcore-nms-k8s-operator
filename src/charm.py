@@ -256,7 +256,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
                     FIVEG_CORE_GNB_RELATION_NAME,
                 )
                 continue
-            relation_gnb_name = relation.data[relation.app].get("gnb-name")
+            relation_gnb_name = self._fiveg_core_gnb_provider.get_gnb_name(relation.id)
             if gnodeb := next((gnb for gnb in gnbs_config if gnb.name == relation_gnb_name), None):
                 self._fiveg_core_gnb_provider.publish_gnb_config_information(
                     relation_id=relation.id,
