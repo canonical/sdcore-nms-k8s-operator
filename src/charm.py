@@ -11,7 +11,7 @@ import string
 from dataclasses import dataclass
 from ipaddress import IPv4Address
 from subprocess import CalledProcessError, check_output
-from typing import List, Optional
+from typing import List, Optional, cast
 
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires
 from charms.loki_k8s.v1.loki_push_api import LogForwarder
@@ -92,27 +92,6 @@ def _get_pod_ip() -> Optional[str]:
         return str(IPv4Address(ip_address.decode().strip())) if ip_address else None
     except (CalledProcessError, ValueError):
         return None
-
-
-def render_config_file(
-    common_database_name: str,
-    common_database_url: str,
-    auth_database_name: str,
-    auth_database_url: str,
-    webui_database_name: str,
-    webui_database_url: str,
-) -> str:
-    """Render nms configuration file based on Jinja template."""
-    jinja2_environment = Environment(loader=FileSystemLoader("src/templates/"))
-    template = jinja2_environment.get_template("nmscfg.conf.j2")
-    return template.render(
-        common_database_name=common_database_name,
-        common_database_url=common_database_url,
-        auth_database_name=auth_database_name,
-        auth_database_url=auth_database_url,
-        webui_database_name=webui_database_name,
-        webui_database_url=webui_database_url,
-    )
 
 
 class SDCoreNMSOperatorCharm(CharmBase):
@@ -208,7 +187,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             ca_certificate_path=CA_CERTIFICATE_CHARM_PATH,
         )
 
-    def _configure_sdcore_nms(self, event: EventBase) -> None:
+    def _configure_sdcore_nms(self, event: EventBase) -> None:  # noqa: C901
         """Handle Juju events.
 
         Whenever a Juju event is emitted, this method performs a couple of checks to make sure that
@@ -216,6 +195,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
         runs the Pebble services and expose the service information through charm's interface.
         """
         if not self._container.can_connect():
+            return
+        if self._get_invalid_configs():
             return
         if not self._container.exists(path=BASE_CONFIG_PATH):
             return
@@ -278,6 +259,12 @@ class SDCoreNMSOperatorCharm(CharmBase):
             # charm.
             event.add_status(BlockedStatus("Scaling is not implemented for this charm"))
             logger.info("Scaling is not implemented for this charm")
+            return
+        if invalid_configs := self._get_invalid_configs():
+            event.add_status(
+                BlockedStatus(f"The following configurations are not valid: {invalid_configs}")
+            )
+            logger.info("The following configurations are not valid: %s", invalid_configs)
             return
         for relation in MANDATORY_RELATIONS:
             if not self._relation_created(relation):
@@ -438,6 +425,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             webui_database_url=self._get_webui_database_url(),
             tls_key_path=self._tls.private_key_workload_path,
             tls_certificate_path=self._tls.certificate_workload_path,
+            log_level=self._get_log_level_config(),
         )
 
     def _is_nms_service_running(self) -> bool:
@@ -595,6 +583,24 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return version_file_content
         return ""
 
+    def _get_invalid_configs(self) -> list[str]:
+        """Return list of invalid configurations.
+
+        Returns:
+            list: List of strings matching config keys.
+        """
+        invalid_configs = []
+        if not self._is_log_level_valid():
+            invalid_configs.append("log-level")
+        return invalid_configs
+
+    def _get_log_level_config(self) -> Optional[str]:
+        return cast(Optional[str], self.model.config.get("log-level"))
+
+    def _is_log_level_valid(self) -> bool:
+        log_level = self._get_log_level_config()
+        return log_level in ["debug", "info", "warn", "error", "fatal", "panic"]
+
     def _write_file_in_workload(self, path: str, content: str) -> None:
         self._container.push(path=path, source=content)
         logger.info("Pushed %s config file", path)
@@ -630,10 +636,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
     @property
     def _environment_variables(self) -> dict:
         return {
-            "GRPC_GO_LOG_VERBOSITY_LEVEL": "99",
-            "GRPC_GO_LOG_SEVERITY_LEVEL": "info",
-            "GRPC_TRACE": "all",
-            "GRPC_VERBOSITY": "debug",
             "CONFIGPOD_DEPLOYMENT": "5G",
             "WEBUI_ENDPOINT": self._nms_endpoint,
         }
