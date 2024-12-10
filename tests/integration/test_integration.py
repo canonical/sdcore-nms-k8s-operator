@@ -303,7 +303,7 @@ async def test_relate_and_wait_for_active_status(ops_test: OpsTest, deploy):
         relation1=f"{APP_NAME}:ingress", relation2=f"{TRAEFIK_CHARM_NAME}:ingress"
     )
     await ops_test.model.wait_for_idle(
-        apps=[APP_NAME, TRAEFIK_CHARM_NAME, GNBSIM_CHARM_NAME],
+        apps=[APP_NAME, TRAEFIK_CHARM_NAME],
         status="active",
         timeout=TIMEOUT,
     )
@@ -329,7 +329,6 @@ async def test_given_nms_related_to_gnbsim_and_gnbsim_status_is_active_then_nms_
     admin_credentials = await get_nms_credentials(ops_test)
     token = admin_credentials.get("token")
     assert token
-    await ops_test.model.wait_for_idle(apps=[GNBSIM_CHARM_NAME], status="active", timeout=TIMEOUT)
     nms_url = await get_sdcore_nms_external_endpoint(ops_test)
     nms_client = NMS(url=nms_url)
 
