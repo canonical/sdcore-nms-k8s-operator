@@ -25,7 +25,7 @@ juju integrate sdcore-nms-k8s:auth_database mongodb-k8s
 juju integrate sdcore-nms-k8s:webui_database mongodb-k8s
 juju integrate sdcore-nms-k8s:ingress traefik-k8s:ingress
 juju integrate sdcore-nms-k8s:fiveg_n4 sdcore-upf-k8s:fiveg_n4
-juju integrate sdcore-nms-k8s:fiveg_gnb_identity sdcore-gnbsim-k8s:fiveg_gnb_identity
+juju integrate sdcore-nms-k8s:fiveg_core_gnb sdcore-gnbsim-k8s:fiveg_core_gnb
 juju integrate sdcore-nms-k8s:logging grafana-agent-k8s
 ```
 
