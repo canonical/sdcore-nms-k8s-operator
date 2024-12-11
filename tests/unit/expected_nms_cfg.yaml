@@ -14,6 +14,7 @@ configuration:
   tls:
     key: /support/TLS/nms.key
     pem: /support/TLS/nms.pem
+  send_pebble_notifications: true
 info:
   description: WebUI initial local configuration
   version: 1.0.0
