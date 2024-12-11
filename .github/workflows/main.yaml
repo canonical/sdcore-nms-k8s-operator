@@ -71,3 +71,51 @@ jobs:
       track-name: 1.6
     secrets:
       CHARMCRAFT_AUTH: ${{ secrets.CHARMCRAFT_AUTH }}
+
+  sdcore-config-lib-needs-publishing:
+    runs-on: ubuntu-24.04
+    outputs:
+      needs-publishing: ${{ steps.changes.outputs.sdcore_config }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            sdcore_config:
+              - 'lib/charms/sdcore_nms_k8s/v0/sdcore_config.py'
+
+  publish-sdcore-config-lib:
+    name: Publish SDCore Config Lib
+    needs:
+      - publish-charm
+      - sdcore-config-lib-needs-publishing
+    if: ${{ github.ref_name == 'main' }}
+    uses: canonical/sdcore-github-workflows/.github/workflows/publish-lib.yaml@v2.3.0
+    with:
+      lib-name: "lib/charms/sdcore_nms_k8s/v0/sdcore_config"
+    secrets: inherit
+
+  fiveg-core-gnb-lib-needs-publishing:
+    runs-on: ubuntu-24.04
+    outputs:
+      needs-publishing: ${{ steps.changes.outputs.fiveg_core_gnb }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            fiveg_core_gnb:
+              - 'lib/charms/sdcore_nms_k8s/v0/fiveg_core_gnb.py'
+
+  publish-fiveg-core-gnb-lib:
+    name: Publish FiveG Core gNB Lib
+    needs:
+      - publish-charm
+      - fiveg-core-gnb-lib-needs-publishing
+    if: ${{ github.ref_name == 'main' }}
+    uses: canonical/sdcore-github-workflows/.github/workflows/publish-lib.yaml@v2.3.0
+    with:
+      lib-name: "lib/charms/sdcore_nms_k8s/v0/fiveg_core_gnb"
+    secrets: inherit
