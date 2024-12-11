@@ -39,12 +39,12 @@ resource "juju_integration" "nms-gnb" {
 
   application {
     name     = module.nms.app_name
-    endpoint = module.nms.requires.fiveg_gnb_identity
+    endpoint = module.nms.provides.fiveg_core_gnb
   }
 
   application {
     name     = module.gnbsim.app_name
-    endpoint = module.gnbsim.provides.fiveg_gnb_identity
+    endpoint = module.gnbsim.requires.fiveg_core_gnb
   }
 }
 ```

@@ -1,15 +1,16 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
-
+import json
 import os
 import tempfile
 from unittest.mock import call
 
 import pytest
 import scenario
+from charms.sdcore_nms_k8s.v0.fiveg_core_gnb import PLMNConfig
 from ops.pebble import Layer
 
-from nms import GnodeB, LoginResponse, Upf
+from nms import GnodeB, LoginResponse, NetworkSlice, Upf
 from tests.unit.fixtures import NMSUnitTestFixtures
 
 EXPECTED_CONFIG_FILE_PATH = "tests/unit/expected_nms_cfg.yaml"
@@ -668,7 +669,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.mock_set_webui_url_in_all_relations.assert_not_called()
 
-    @pytest.mark.parametrize("relation_name", [("fiveg_n4"), ("fiveg_gnb_identity")])
+    @pytest.mark.parametrize("relation_name", [("fiveg_n4"), ("fiveg_core_gnb")])
     def test_given_storage_not_attached_when_relation_broken_then_no_exception_is_raised(
         self, relation_name
     ):
@@ -690,7 +691,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
         self.ctx.run(self.ctx.on.relation_broken(relation), state_in)
 
-    @pytest.mark.parametrize("relation_name", [("fiveg_n4"), ("fiveg_gnb_identity")])
+    @pytest.mark.parametrize("relation_name", [("fiveg_n4"), ("fiveg_core_gnb")])
     def test_given_cannot_connect_to_container_when_relation_broken_then_no_exception_is_raised(
         self, relation_name
     ):
@@ -755,12 +756,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
-            fiveg_gnb_identity_relation = scenario.Relation(
-                endpoint="fiveg_gnb_identity",
-                interface="fiveg_gnb_identity",
+            fiveg_core_gnb_relation = scenario.Relation(
+                endpoint="fiveg_core_gnb",
+                interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb_name": "some.gnb.name",
-                    "tac": "1234",
+                    "gnb-name": "some.gnb.name",
                 },
             )
             fiveg_n4_relation = scenario.Relation(
@@ -791,7 +791,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 leader=True,
                 containers={container},
                 relations={
-                    fiveg_gnb_identity_relation,
+                    fiveg_core_gnb_relation,
                     fiveg_n4_relation,
                     auth_database_relation,
                     common_database_relation,
@@ -809,24 +809,14 @@ class TestCharmConfigure(NMSUnitTestFixtures):
         "relation_name,relation_data",
         [
             pytest.param(
-                "fiveg_gnb_identity",
-                {"tac": "1234"},
+                "fiveg_core_gnb",
+                {},
                 id="missing_gnb_name_in_gNB_config",
             ),
             pytest.param(
-                "fiveg_gnb_identity",
-                {"gnb_name": "some.gnb"},
-                id="missing_tac_in_gNB_config",
-            ),
-            pytest.param(
-                "fiveg_gnb_identity",
-                {"tac": "", "gnb_name": ""},
-                id="gnb_name_and_tac_are_empty_strings_in_gNB_config",
-            ),
-            pytest.param(
-                "fiveg_gnb_identity",
-                {"gnb_name": "something", "some": "key"},
-                id="invalid_key_in_gNB_config",
+                "fiveg_core_gnb",
+                {"gnb-name": ""},
+                id="gnb_name_is_empty_strings_in_gNB_config",
             ),
             pytest.param(
                 "fiveg_n4",
@@ -874,6 +864,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -886,11 +885,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 location="/nms/config",
                 source=tempdir,
             )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             login_secret = scenario.Secret(
@@ -906,6 +910,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     relation,
                     auth_database_relation,
                     common_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                 },
                 containers={container},
@@ -923,12 +928,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
-            fiveg_gnb_identity_relation = scenario.Relation(
-                endpoint="fiveg_gnb_identity",
-                interface="fiveg_gnb_identity",
+            fiveg_core_gnb_relation = scenario.Relation(
+                endpoint="fiveg_core_gnb",
+                interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb_name": "some.gnb.name",
-                    "tac": "1234",
+                    "gnb-name": "some.gnb.name",
                 },
             )
             fiveg_n4_relation = scenario.Relation(
@@ -960,7 +964,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 leader=True,
                 containers={container},
                 secrets={login_secret},
-                relations={fiveg_gnb_identity_relation, fiveg_n4_relation},
+                relations={fiveg_core_gnb_relation, fiveg_n4_relation},
             )
 
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
@@ -1005,12 +1009,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
-            fiveg_gnb_identity_relation = scenario.Relation(
-                endpoint="fiveg_gnb_identity",
-                interface="fiveg_gnb_identity",
+            fiveg_core_gnb_relation = scenario.Relation(
+                endpoint="fiveg_core_gnb",
+                interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb_name": "some.gnb.name",
-                    "tac": "1234",
+                    "gnb-name": "some.gnb.name",
                 },
             )
             fiveg_n4_relation = scenario.Relation(
@@ -1052,7 +1055,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     auth_database_relation,
                     webui_database_relation,
                     certificates_relation,
-                    fiveg_gnb_identity_relation,
+                    fiveg_core_gnb_relation,
                     fiveg_n4_relation,
                 },
             )
@@ -1098,12 +1101,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
-            fiveg_gnb_identity_relation = scenario.Relation(
-                endpoint="fiveg_gnb_identity",
-                interface="fiveg_gnb_identity",
+            fiveg_core_gnb_relation = scenario.Relation(
+                endpoint="fiveg_core_gnb",
+                interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb_name": "some.gnb.name",
-                    "tac": "1234",
+                    "gnb-name": "some.gnb.name",
                 },
             )
             fiveg_n4_relation = scenario.Relation(
@@ -1145,7 +1147,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     auth_database_relation,
                     webui_database_relation,
                     certificates_relation,
-                    fiveg_gnb_identity_relation,
+                    fiveg_core_gnb_relation,
                     fiveg_n4_relation,
                 },
             )
@@ -1154,7 +1156,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             self.mock_create_gnb.assert_called_once_with(
-                name="some.gnb.name", tac=1234, token="test-token"
+                name="some.gnb.name", tac=1, token="test-token"
             )
 
     def test_given_multiple_n4_relations_when_pebble_ready_then_both_upfs_are_added_to_nms(
@@ -1286,20 +1288,18 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
-            fiveg_gnb_identity_relation_1 = scenario.Relation(
-                endpoint="fiveg_gnb_identity",
-                interface="fiveg_gnb_identity",
+            fiveg_core_gnb_relation_1 = scenario.Relation(
+                endpoint="fiveg_core_gnb",
+                interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb_name": "some.gnb.name",
-                    "tac": "1234",
+                    "gnb-name": "some.gnb.name",
                 },
             )
-            fiveg_gnb_identity_relation_2 = scenario.Relation(
-                endpoint="fiveg_gnb_identity",
-                interface="fiveg_gnb_identity",
+            fiveg_core_gnb_relation_2 = scenario.Relation(
+                endpoint="fiveg_core_gnb",
+                interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb_name": "my_gnb",
-                    "tac": "77",
+                    "gnb-name": "my_gnb",
                 },
             )
             config_mount = scenario.Mount(
@@ -1333,8 +1333,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     auth_database_relation,
                     webui_database_relation,
                     certificates_relation,
-                    fiveg_gnb_identity_relation_1,
-                    fiveg_gnb_identity_relation_2,
+                    fiveg_core_gnb_relation_1,
+                    fiveg_core_gnb_relation_2,
                 },
             )
             self.mock_certificate_is_available.return_value = True
@@ -1342,8 +1342,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             calls = [
-                call(name="some.gnb.name", tac=1234, token="test-token"),
-                call(name="my_gnb", tac=77, token="test-token"),
+                call(name="some.gnb.name", tac=1, token="test-token"),
+                call(name="my_gnb", tac=1, token="test-token"),
             ]
             self.mock_create_gnb.assert_has_calls(calls, any_order=True)
 
@@ -1465,7 +1465,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
-            existing_gnbs = [GnodeB(name="some.gnb.name", tac=1234)]
+            existing_gnbs = [GnodeB(name="some.gnb.name")]
             self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
                 location="/nms/config",
@@ -1483,12 +1483,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "certs": certs_mount,
                 },
             )
-            fiveg_gnb_identity_relation = scenario.Relation(
-                endpoint="fiveg_gnb_identity",
-                interface="fiveg_gnb_identity",
+            fiveg_core_gnb_relation = scenario.Relation(
+                endpoint="fiveg_core_gnb",
+                interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb_name": "some.gnb.name",
-                    "tac": "1234",
+                    "gnb-name": "some.gnb.name",
                 },
             )
             login_secret = scenario.Secret(
@@ -1506,7 +1505,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     auth_database_relation,
                     webui_database_relation,
                     certificates_relation,
-                    fiveg_gnb_identity_relation,
+                    fiveg_core_gnb_relation,
                 },
             )
             self.mock_certificate_is_available.return_value = True
@@ -1644,7 +1643,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             self.mock_delete_upf.assert_not_called()
 
-    def test_given_gnb_exists_in_nms_and_new_gnb_relation_is_added_when_pebble_ready_then_second_gnb_is_added_to_nms(  # noqa: E501
+    def test_given_gnb_exists_in_nms_and_new_fiveg_core_gnb_relation_is_added_when_pebble_ready_then_second_gnb_is_added_to_nms(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -1678,7 +1677,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
-            existing_gnbs = [GnodeB(name="some.gnb.name", tac=1234)]
+            existing_gnbs = [GnodeB(name="some.gnb.name", tac=1)]
             self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
                 location="/nms/config",
@@ -1696,21 +1695,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "certs": certs_mount,
                 },
             )
-            fiveg_gnb_identity_relation_1 = scenario.Relation(
-                endpoint="fiveg_gnb_identity",
-                interface="fiveg_gnb_identity",
-                remote_app_data={
-                    "gnb_name": "some.gnb.name",
-                    "tac": "1234",
-                },
+            fiveg_core_gnb_relation_1 = scenario.Relation(
+                endpoint="fiveg_core_gnb",
+                interface="fiveg_core_gnb",
+                remote_app_data={"gnb-name": "some.gnb.name"},
             )
-            fiveg_gnb_identity_relation_2 = scenario.Relation(
-                endpoint="fiveg_gnb_identity",
-                interface="fiveg_gnb_identity",
-                remote_app_data={
-                    "gnb_name": "my_gnb",
-                    "tac": "4567",
-                },
+            fiveg_core_gnb_relation_2 = scenario.Relation(
+                endpoint="fiveg_core_gnb",
+                interface="fiveg_core_gnb",
+                remote_app_data={"gnb-name": "my_gnb"},
             )
             login_secret = scenario.Secret(
                 {"username": "hello", "password": "world", "token": "test-token"},
@@ -1727,16 +1720,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     auth_database_relation,
                     webui_database_relation,
                     certificates_relation,
-                    fiveg_gnb_identity_relation_1,
-                    fiveg_gnb_identity_relation_2,
+                    fiveg_core_gnb_relation_1,
+                    fiveg_core_gnb_relation_2,
                 },
             )
             self.mock_certificate_is_available.return_value = True
 
-            self.ctx.run(self.ctx.on.relation_joined(fiveg_gnb_identity_relation_2), state_in)
+            self.ctx.run(self.ctx.on.relation_changed(fiveg_core_gnb_relation_2), state_in)
 
             self.mock_create_gnb.assert_called_once_with(
-                name="my_gnb", tac=4567, token="test-token"
+                name="my_gnb", tac=1, token="test-token"
             )
             self.mock_delete_gnb.assert_not_called()
 
@@ -1839,7 +1832,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             )
             self.mock_create_upf.assert_not_called()
 
-    def test_given_two_gnb_identity_relations_when_relation_broken_then_gnb_is_removed_from_nms(  # noqa: E501
+    def test_given_two_fiveg_core_gnb_relations_when_relation_broken_then_gnb_is_removed_from_nms(
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -1874,8 +1867,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="certificates", interface="tls-certificates"
             )
             existing_gnbs = [
-                GnodeB(name="some.gnb.name", tac=1234),
-                GnodeB(name="gnb.name", tac=333),
+                GnodeB(name="some.gnb.name"),
+                GnodeB(name="gnb.name"),
             ]
             self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
@@ -1894,20 +1887,18 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "certs": certs_mount,
                 },
             )
-            gnb_identity_relation_1 = scenario.Relation(
-                endpoint="fiveg_gnb_identity",
-                interface="fiveg_gnb_identity",
+            fiveg_core_gnb_relation_1 = scenario.Relation(
+                endpoint="fiveg_core_gnb",
+                interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb_name": "some.gnb.name",
-                    "tac": "1234",
+                    "gnb-name": "some.gnb.name",
                 },
             )
-            gnb_identity_relation_2 = scenario.Relation(
-                endpoint="fiveg_gnb_identity",
-                interface="fiveg_gnb_identity",
+            fiveg_core_gnb_relation_2 = scenario.Relation(
+                endpoint="fiveg_core_gnb",
+                interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb_name": "gnb.name",
-                    "tac": "333",
+                    "gnb-name": "gnb.name",
                 },
             )
             login_secret = scenario.Secret(
@@ -1925,13 +1916,13 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     auth_database_relation,
                     webui_database_relation,
                     certificates_relation,
-                    gnb_identity_relation_1,
-                    gnb_identity_relation_2,
+                    fiveg_core_gnb_relation_1,
+                    fiveg_core_gnb_relation_2,
                 },
             )
             self.mock_certificate_is_available.return_value = True
 
-            self.ctx.run(self.ctx.on.relation_broken(gnb_identity_relation_1), state_in)
+            self.ctx.run(self.ctx.on.relation_broken(fiveg_core_gnb_relation_1), state_in)
 
             self.mock_delete_gnb.assert_called_once_with(name="some.gnb.name", token="test-token")
             self.mock_create_gnb.assert_not_called()
@@ -2062,7 +2053,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="certificates", interface="tls-certificates"
             )
             existing_gnbs = [
-                GnodeB(name="some.gnb.name", tac=1234),
+                GnodeB(name="some.gnb.name"),
             ]
             self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
@@ -2081,12 +2072,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "certs": certs_mount,
                 },
             )
-            gnb_identity_relation = scenario.Relation(
-                endpoint="fiveg_gnb_identity",
-                interface="fiveg_gnb_identity",
+            fiveg_core_gnb_relation = scenario.Relation(
+                endpoint="fiveg_core_gnb",
+                interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb_name": "some.gnb.name",
-                    "tac": "6789",
+                    "gnb-name": "some.new.gnb.name",
                 },
             )
             login_secret = scenario.Secret(
@@ -2104,16 +2094,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     auth_database_relation,
                     webui_database_relation,
                     certificates_relation,
-                    gnb_identity_relation,
+                    fiveg_core_gnb_relation,
                 },
             )
             self.mock_certificate_is_available.return_value = True
 
-            self.ctx.run(self.ctx.on.relation_joined(gnb_identity_relation), state_in)
+            self.ctx.run(self.ctx.on.relation_changed(fiveg_core_gnb_relation), state_in)
 
             self.mock_delete_gnb.assert_called_once_with(name="some.gnb.name", token="test-token")
             self.mock_create_gnb.assert_called_once_with(
-                name="some.gnb.name", tac=6789, token="test-token"
+                name="some.new.gnb.name", tac=1, token="test-token"
             )
 
     def test_given_one_upf_in_nms_when_new_upf_is_added_then_old_upf_is_removed_and_new_upf_is_added(  # noqa: E501
@@ -2205,97 +2195,6 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 hostname="some.host.name", port=22, token="test-token"
             )
 
-    def test_given_one_gnb_in_nms_when_new_gnb_is_added_then_old_gnb_is_removed_and_new_gnb_is_added(  # noqa: E501
-        self,
-    ):
-        with tempfile.TemporaryDirectory() as tempdir:
-            common_database_relation = scenario.Relation(
-                endpoint="common_database",
-                interface="mongodb_client",
-                remote_app_data={
-                    "username": "banana",
-                    "password": "pizza",
-                    "uris": "1.1.1.1:1234",
-                },
-            )
-            auth_database_relation = scenario.Relation(
-                endpoint="auth_database",
-                interface="mongodb_client",
-                remote_app_data={
-                    "username": "banana",
-                    "password": "pizza",
-                    "uris": "2.2.2.2:1234",
-                },
-            )
-            webui_database_relation = scenario.Relation(
-                endpoint="webui_database",
-                interface="mongodb_client",
-                remote_app_data={
-                    "username": "carrot",
-                    "password": "hotdog",
-                    "uris": "1.1.1.1:1234",
-                },
-            )
-            certificates_relation = scenario.Relation(
-                endpoint="certificates", interface="tls-certificates"
-            )
-            existing_gnbs = [
-                GnodeB(name="old.gnb.name", tac=1234),
-            ]
-            self.mock_list_gnbs.return_value = existing_gnbs
-            config_mount = scenario.Mount(
-                location="/nms/config",
-                source=tempdir,
-            )
-            certs_mount = scenario.Mount(
-                location="/support/TLS",
-                source=tempdir,
-            )
-            container = scenario.Container(
-                name="nms",
-                can_connect=True,
-                mounts={
-                    "config": config_mount,
-                    "certs": certs_mount,
-                },
-            )
-            gnb_identity_relation = scenario.Relation(
-                endpoint="fiveg_gnb_identity",
-                interface="fiveg_gnb_identity",
-                remote_app_data={
-                    "gnb_name": "some.gnb.name",
-                    "tac": "6789",
-                },
-            )
-            login_secret = scenario.Secret(
-                {"username": "hello", "password": "world", "token": "test-token"},
-                id="1",
-                label="NMS_LOGIN",
-                owner="app",
-            )
-            state_in = scenario.State(
-                leader=True,
-                containers={container},
-                secrets={login_secret},
-                relations={
-                    common_database_relation,
-                    auth_database_relation,
-                    webui_database_relation,
-                    certificates_relation,
-                    gnb_identity_relation,
-                },
-            )
-            self.mock_certificate_is_available.return_value = True
-
-            self.ctx.run(self.ctx.on.relation_joined(gnb_identity_relation), state_in)
-
-            self.mock_delete_gnb.assert_called_once_with(name="old.gnb.name", token="test-token")
-            self.mock_create_gnb.assert_called_once_with(
-                name="some.gnb.name",
-                tac=6789,
-                token="test-token",
-            )
-
     def test_given_cannot_connect_to_container_when_certificates_relation_broken_then_certificates_are_not_removed(  # noqa: E501
         self,
     ):
@@ -2341,12 +2240,11 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "certs": certs_mount,
                 },
             )
-            gnb_identity_relation = scenario.Relation(
-                endpoint="fiveg_gnb_identity",
-                interface="fiveg_gnb_identity",
+            fiveg_core_gnb_relation = scenario.Relation(
+                endpoint="fiveg_core_gnb",
+                interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb_name": "some.gnb.name",
-                    "tac": "6789",
+                    "gnb-name": "some.gnb.name",
                 },
             )
             state_in = scenario.State(
@@ -2356,9 +2254,336 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     common_database_relation,
                     auth_database_relation,
                     certificates_relation,
-                    gnb_identity_relation,
+                    fiveg_core_gnb_relation,
                 },
             )
             self.mock_certificate_is_available.return_value = True
 
             self.ctx.run(self.ctx.on.relation_broken(certificates_relation), state_in)
+
+    def test_given_gnb_in_nms_when_network_slice_config_for_gnb_changes_then_gnb_config_updated_in_fiveg_core_gnb_relation_data(  # noqa: E501
+        self,
+    ):
+        test_pebble_notice = scenario.Notice("aetherproject.org/webconsole/networkslice/create")
+        test_gnb_name = "some.gnb.name"
+        test_mcc = "123"
+        test_mnc = "98"
+        test_sst = 1
+        test_sd = 102030
+        test_plmn_config = PLMNConfig(test_mcc, test_mnc, test_sst, test_sd)
+        expected_local_app_data = {"tac": '1', "plmns": json.dumps([test_plmn_config.asdict()])}
+        with (tempfile.TemporaryDirectory() as tempdir):
+            common_database_relation = scenario.Relation(
+                endpoint="common_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            auth_database_relation = scenario.Relation(
+                endpoint="auth_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
+            self.mock_list_gnbs.return_value = [GnodeB(name=test_gnb_name)]
+            self.mock_list_network_slices.return_value = ["default"]
+            self.mock_get_network_slice.return_value = NetworkSlice(
+                mcc=test_mcc,
+                mnc=test_mnc,
+                sst=test_sst,
+                sd=test_sd,
+                gnodebs=[GnodeB(name=test_gnb_name)],
+            )
+            config_mount = scenario.Mount(
+                location="/nms/config",
+                source=tempdir,
+            )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
+            container = scenario.Container(
+                name="nms",
+                can_connect=True,
+                mounts={
+                    "config": config_mount,
+                    "certs": certs_mount,
+                },
+                notices=[test_pebble_notice]
+            )
+            fiveg_core_gnb_relation = scenario.Relation(
+                endpoint="fiveg_core_gnb",
+                interface="fiveg_core_gnb",
+                remote_app_data={
+                    "gnb-name": "some.gnb.name",
+                },
+            )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
+            state_in = scenario.State(
+                leader=True,
+                containers={container},
+                secrets={login_secret},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    webui_database_relation,
+                    certificates_relation,
+                    fiveg_core_gnb_relation,
+                },
+            )
+            self.mock_certificate_is_available.return_value = True
+
+            state_out = self.ctx.run(
+                self.ctx.on.pebble_custom_notice(container, test_pebble_notice),
+                state_in,
+            )
+
+            assert state_out.get_relation(
+                fiveg_core_gnb_relation.id
+            ).local_app_data == expected_local_app_data
+
+    def test_given_two_gnbs_in_nms_when_network_slice_config_for_gnb_1_changes_then_gnb_2_config_is_not_updated_in_fiveg_core_gnb_relation_data(  # noqa: E501
+        self,
+    ):
+        test_pebble_notice = scenario.Notice("aetherproject.org/webconsole/networkslice/create")
+        test_gnb_name = "some.gnb.name"
+        test_gnb_2_name = "some.other.gnb.name"
+        test_mcc = "123"
+        test_mnc = "98"
+        test_sst = 1
+        test_sd = 102030
+        with tempfile.TemporaryDirectory() as tempdir:
+            common_database_relation = scenario.Relation(
+                endpoint="common_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            auth_database_relation = scenario.Relation(
+                endpoint="auth_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
+            self.mock_list_gnbs.return_value = [
+                GnodeB(name=test_gnb_name),
+                GnodeB(name=test_gnb_2_name),
+            ]
+            self.mock_list_network_slices.return_value = ["default"]
+            self.mock_get_network_slice.return_value = NetworkSlice(
+                mcc=test_mcc,
+                mnc=test_mnc,
+                sst=test_sst,
+                sd=test_sd,
+                gnodebs=[GnodeB(name=test_gnb_name)],
+            )
+            config_mount = scenario.Mount(
+                location="/nms/config",
+                source=tempdir,
+            )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
+            container = scenario.Container(
+                name="nms",
+                can_connect=True,
+                mounts={
+                    "config": config_mount,
+                    "certs": certs_mount,
+                },
+                notices=[test_pebble_notice]
+            )
+            fiveg_core_gnb_relation = scenario.Relation(
+                endpoint="fiveg_core_gnb",
+                interface="fiveg_core_gnb",
+                remote_app_data={
+                    "gnb-name": test_gnb_name,
+                },
+            )
+            fiveg_core_gnb_relation_2 = scenario.Relation(
+                endpoint="fiveg_core_gnb",
+                interface="fiveg_core_gnb",
+                remote_app_data={
+                    "gnb-name": test_gnb_2_name,
+                },
+            )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
+            state_in = scenario.State(
+                leader=True,
+                containers={container},
+                secrets={login_secret},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    webui_database_relation,
+                    certificates_relation,
+                    fiveg_core_gnb_relation,
+                    fiveg_core_gnb_relation_2,
+                },
+            )
+            self.mock_certificate_is_available.return_value = True
+
+            state_out = self.ctx.run(
+                self.ctx.on.pebble_custom_notice(container, test_pebble_notice),
+                state_in,
+            )
+
+            assert state_out.get_relation(fiveg_core_gnb_relation_2.id).local_app_data == {}
+
+    def test_given_gnb_belongs_to_two_network_slices_when_network_slice_config_changes_then_fiveg_core_gnb_relation_data_contains_two_plmns(  # noqa: E501
+        self,
+    ):
+        test_pebble_notice = scenario.Notice("aetherproject.org/webconsole/networkslice/create")
+        test_gnb_name = "some.gnb.name"
+        test_mcc = "123"
+        test_mcc_2 = "321"
+        test_mnc = "98"
+        test_mnc_2 = "89"
+        test_sst = 1
+        test_sst_2 = 2
+        test_sd = 102030
+        test_sd_2 = 301020
+        test_plmn_config = PLMNConfig(test_mcc, test_mnc, test_sst, test_sd)
+        test_plmn_2_config = PLMNConfig(test_mcc_2, test_mnc_2, test_sst_2, test_sd_2)
+        expected_local_app_data = {
+            "tac": '1',
+            "plmns": json.dumps([test_plmn_config.asdict(), test_plmn_2_config.asdict()]),
+        }
+        with (tempfile.TemporaryDirectory() as tempdir):
+            common_database_relation = scenario.Relation(
+                endpoint="common_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            auth_database_relation = scenario.Relation(
+                endpoint="auth_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
+            self.mock_list_gnbs.return_value = [GnodeB(name=test_gnb_name)]
+            self.mock_list_network_slices.return_value = ["slice_one", "slice_two"]
+            self.mock_get_network_slice.side_effect = [
+                NetworkSlice(test_mcc, test_mnc, test_sst, test_sd, [GnodeB(name=test_gnb_name)]),
+                NetworkSlice(
+                    test_mcc_2, test_mnc_2, test_sst_2, test_sd_2, [GnodeB(name=test_gnb_name)]
+                ),
+            ]
+            config_mount = scenario.Mount(
+                location="/nms/config",
+                source=tempdir,
+            )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
+            container = scenario.Container(
+                name="nms",
+                can_connect=True,
+                mounts={
+                    "config": config_mount,
+                    "certs": certs_mount,
+                },
+                notices=[test_pebble_notice]
+            )
+            fiveg_core_gnb_relation = scenario.Relation(
+                endpoint="fiveg_core_gnb",
+                interface="fiveg_core_gnb",
+                remote_app_data={
+                    "gnb-name": "some.gnb.name",
+                },
+            )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
+            state_in = scenario.State(
+                leader=True,
+                containers={container},
+                secrets={login_secret},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    webui_database_relation,
+                    certificates_relation,
+                    fiveg_core_gnb_relation,
+                },
+            )
+            self.mock_certificate_is_available.return_value = True
+
+            state_out = self.ctx.run(
+                self.ctx.on.pebble_custom_notice(container, test_pebble_notice),
+                state_in,
+            )
+
+            assert state_out.get_relation(
+                fiveg_core_gnb_relation.id
+            ).local_app_data == expected_local_app_data
