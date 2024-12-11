@@ -245,7 +245,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
                     plmns=gnodeb.plmns,
                 )
 
-
     def _on_collect_unit_status(self, event: CollectStatusEvent):  # noqa: C901
         """Check the unit status and set to Unit when CollectStatusEvent is fired.
 
@@ -468,15 +467,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
                 self._nms.create_gnb(name=gnb.name, tac=gnb.tac, token=login_details.token)
 
     def _get_integrated_gnbs(self) -> List[GnodeB]:
-        integrated_gnbs =[]
+        integrated_gnbs = []
         for relation in self.model.relations.get(FIVEG_CORE_GNB_RELATION_NAME, []):
-            if not relation.app:
-                logger.warning(
-                    "Application missing from the %s relation data",
-                    FIVEG_CORE_GNB_RELATION_NAME,
-                )
-                continue
-            gnb_name = relation.data[relation.app].get("gnb-name")
+            gnb_name = self._fiveg_core_gnb_provider.get_gnb_name(relation.id)
             if gnb_name:
                 integrated_gnbs.append(GnodeB(name=gnb_name))
         return integrated_gnbs
@@ -504,7 +497,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         """Get configuration of all gNodeBs in the network.
 
         Returns:
-            dict: Dict representing configuration of gNBs
+            List: List of GnodeBs in the network
         """
         gnbs_config = []
         login_details = self._get_admin_account()
@@ -518,13 +511,13 @@ class SDCoreNMSOperatorCharm(CharmBase):
             )
             if not network_slice:
                 continue
+            plmn_config = PLMNConfig(
+                network_slice.mcc,
+                network_slice.mnc,
+                network_slice.sst,
+                network_slice.sd
+            )
             for gnodeb in network_slice.gnodebs:
-                plmn_config = PLMNConfig(
-                    network_slice.mcc,
-                    network_slice.mnc,
-                    network_slice.sst,
-                    network_slice.sd
-                )
                 if existing_gnb := next(
                     (gnb for gnb in gnbs_config if gnb.name == gnodeb.name),
                     None,

@@ -819,11 +819,6 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 id="gnb_name_is_empty_strings_in_gNB_config",
             ),
             pytest.param(
-                "fiveg_core_gnb",
-                {"gnb-name": "something", "some": "key"},
-                id="invalid_key_in_gNB_config",
-            ),
-            pytest.param(
                 "fiveg_n4",
                 {"upf_hostname": "some.host.name"},
                 id="missing_upf_port_in_UPF_config",
@@ -869,6 +864,15 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "uris": "2.2.2.2:1234",
                 },
             )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
@@ -881,11 +885,16 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 location="/nms/config",
                 source=tempdir,
             )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
             container = scenario.Container(
                 name="nms",
                 can_connect=True,
                 mounts={
                     "config": config_mount,
+                    "certs": certs_mount,
                 },
             )
             login_secret = scenario.Secret(
@@ -901,6 +910,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     relation,
                     auth_database_relation,
                     common_database_relation,
+                    webui_database_relation,
                     certificates_relation,
                 },
                 containers={container},
