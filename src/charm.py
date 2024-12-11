@@ -230,6 +230,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
         through the relevant Juju integrations.
         """
         gnbs_config = self._get_gnbs_config()
+        logger.error("========================================================================")
+        logger.error(gnbs_config)
+        logger.error("========================================================================")
         for relation in self.model.relations.get(FIVEG_CORE_GNB_RELATION_NAME, []):
             if not relation.app:
                 logger.warning(
@@ -238,6 +241,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
                 )
                 continue
             relation_gnb_name = self._fiveg_core_gnb_provider.get_gnb_name(relation.id)
+            logger.debug("Synchronizing config for %s", relation_gnb_name)
             if gnodeb := next((gnb for gnb in gnbs_config if gnb.name == relation_gnb_name), None):
                 self._fiveg_core_gnb_provider.publish_gnb_config_information(
                     relation_id=relation.id,
@@ -511,11 +515,17 @@ class SDCoreNMSOperatorCharm(CharmBase):
             )
             if not network_slice:
                 continue
+            logger.debug("Fetched configuration for NetworkSlice: %s", network_slice_name)
             plmn_config = PLMNConfig(
                 network_slice.mcc,
                 network_slice.mnc,
                 network_slice.sst,
                 network_slice.sd
+            )
+            logger.debug(
+                "PLMN configuration for %s NetworkSlice is: %s",
+                network_slice_name,
+                plmn_config.asdict(),
             )
             for gnodeb in network_slice.gnodebs:
                 if existing_gnb := next(
