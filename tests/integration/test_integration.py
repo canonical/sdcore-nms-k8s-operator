@@ -4,6 +4,7 @@
 
 import json
 import logging
+import textwrap
 import time
 from base64 import b64decode
 from collections import Counter
@@ -23,8 +24,7 @@ from nms import NMS, GnodeB, Upf
 logger = logging.getLogger(__name__)
 
 METADATA = yaml.safe_load(Path("./charmcraft.yaml").read_text())
-AMF_CHARM_NAME = "sdcore-amf-k8s"
-AMF_CHARM_CHANNEL = "1.6/edge"
+AMF_MOCK = "amf-mock"
 APP_NAME = METADATA["name"]
 DATABASE_APP_NAME = "mongodb-k8s"
 DATABASE_APP_CHANNEL = "6/stable"
@@ -37,8 +37,6 @@ GNBSIM_CHARM_CHANNEL = "1.6/edge"
 GNBSIM_RELATION_NAME = "fiveg_core_gnb"
 GRAFANA_AGENT_APP_NAME = "grafana-agent-k8s"
 GRAFANA_AGENT_APP_CHANNEL = "latest/stable"
-NRF_CHARM_NAME = "sdcore-nrf-k8s"
-NRF_CHARM_CHANNEL = "1.6/edge"
 UPF_CHARM_NAME = "sdcore-upf-k8s"
 UPF_CHARM_CHANNEL = "1.6/edge"
 UPF_RELATION_NAME = "fiveg_n4"
@@ -109,19 +107,6 @@ async def _deploy_sdcore_upf(ops_test: OpsTest):
     )
 
 
-async def _deploy_nrf(ops_test: OpsTest):
-    assert ops_test.model
-    await ops_test.model.deploy(
-        NRF_CHARM_NAME,
-        application_name=NRF_CHARM_NAME,
-        channel=NRF_CHARM_CHANNEL,
-    )
-    await ops_test.model.integrate(
-        relation1=f"{NRF_CHARM_NAME}:database", relation2=f"{DATABASE_APP_NAME}"
-    )
-    await ops_test.model.integrate(relation1=NRF_CHARM_NAME, relation2=TLS_PROVIDER_CHARM_NAME)
-
-
 async def _deploy_sdcore_gnbsim(ops_test: OpsTest):
     assert ops_test.model
     await ops_test.model.deploy(
@@ -130,6 +115,7 @@ async def _deploy_sdcore_gnbsim(ops_test: OpsTest):
         channel=GNBSIM_CHARM_CHANNEL,
         trust=True,
     )
+    await ops_test.model.integrate(relation1=f"{GNBSIM_CHARM_NAME}:fiveg-n2", relation2=AMF_MOCK)
 
 
 async def _deploy_self_signed_certificates(ops_test: OpsTest):
@@ -140,18 +126,50 @@ async def _deploy_self_signed_certificates(ops_test: OpsTest):
         channel=TLS_PROVIDER_CHARM_CHANNEL,
     )
 
+async def _deploy_amf_mock(ops_test: OpsTest):
+    fiveg_n2_lib_url = "https://github.com/canonical/sdcore-amf-k8s-operator/raw/main/lib/charms/sdcore_amf_k8s/v0/fiveg_n2.py"
+    fiveg_n2_lib = requests.get(fiveg_n2_lib_url, timeout=10).text
+    any_charm_src_overwrite = {
+        "fiveg_n2.py": fiveg_n2_lib,
+        "any_charm.py": textwrap.dedent(
+            """\
+        from fiveg_n2 import N2Provides
+        from any_charm_base import AnyCharmBase
+        from ops.framework import EventBase
+        N2_RELATION_NAME = "provide-fiveg-n2"
 
-async def _deploy_amf(ops_test: OpsTest):
+        class AnyCharm(AnyCharmBase):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.n2_provider = N2Provides(self, N2_RELATION_NAME)
+                self.framework.observe(
+                    self.on[N2_RELATION_NAME].relation_changed,
+                    self.fiveg_n2_relation_changed,
+                )
+
+            def fiveg_n2_relation_changed(self, event: EventBase) -> None:
+                fiveg_n2_relations = self.model.relations.get(N2_RELATION_NAME)
+                if not fiveg_n2_relations:
+                    logger.info("No %s relations found.", N2_RELATION_NAME)
+                    return
+                self.n2_provider.set_n2_information(
+                    amf_ip_address="1.2.3.4",
+                    amf_hostname="amf-external.sdcore.svc.cluster.local",
+                    amf_port=38412,
+                )
+        """
+        ),
+    }
     assert ops_test.model
     await ops_test.model.deploy(
-        AMF_CHARM_NAME,
-        application_name=AMF_CHARM_NAME,
-        channel=AMF_CHARM_CHANNEL,
-        trust=True,
+        "any-charm",
+        application_name=AMF_MOCK,
+        channel="beta",
+        config={
+            "src-overwrite": json.dumps(any_charm_src_overwrite),
+            "python-packages": "pytest-interface-tester"
+        },
     )
-    await ops_test.model.integrate(relation1=AMF_CHARM_NAME, relation2=NRF_CHARM_NAME)
-    await ops_test.model.integrate(relation1=AMF_CHARM_NAME, relation2=GNBSIM_CHARM_NAME)
-    await ops_test.model.integrate(relation1=AMF_CHARM_NAME, relation2=TLS_PROVIDER_CHARM_NAME)
 
 
 async def get_traefik_proxied_endpoints(ops_test: OpsTest) -> dict:
@@ -255,9 +273,8 @@ async def deploy(ops_test: OpsTest, request):
     )
     await _deploy_database(ops_test)
     await _deploy_self_signed_certificates(ops_test)
-    await _deploy_nrf(ops_test)
+    await _deploy_amf_mock(ops_test)
     await _deploy_sdcore_gnbsim(ops_test)
-    await _deploy_amf(ops_test)
     await _deploy_sdcore_upf(ops_test)
     await _deploy_grafana_agent(ops_test)
     await _deploy_traefik(ops_test)
@@ -291,14 +308,12 @@ async def test_relate_and_wait_for_active_status(ops_test: OpsTest, deploy):
     await ops_test.model.integrate(
         relation1=f"{APP_NAME}:{LOGGING_RELATION_NAME}", relation2=GRAFANA_AGENT_APP_NAME
     )
-    await ops_test.model.integrate(relation1=APP_NAME, relation2=NRF_CHARM_NAME)
     await ops_test.model.integrate(
         relation1=f"{APP_NAME}:{GNBSIM_RELATION_NAME}", relation2=GNBSIM_CHARM_NAME
     )
     await ops_test.model.integrate(
         relation1=f"{APP_NAME}:{UPF_RELATION_NAME}", relation2=UPF_CHARM_NAME
     )
-    await ops_test.model.integrate(relation1=APP_NAME, relation2=AMF_CHARM_NAME)
     await ops_test.model.integrate(
         relation1=f"{APP_NAME}:ingress", relation2=f"{TRAEFIK_CHARM_NAME}:ingress"
     )
