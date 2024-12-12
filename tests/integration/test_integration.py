@@ -4,7 +4,6 @@
 
 import json
 import logging
-import textwrap
 import time
 from base64 import b64decode
 from collections import Counter
@@ -24,6 +23,7 @@ from nms import NMS, GnodeB, Upf
 logger = logging.getLogger(__name__)
 
 METADATA = yaml.safe_load(Path("./charmcraft.yaml").read_text())
+ANY_CHARM_PATH = "./tests/integration/any_charm.py"
 AMF_MOCK = "amf-mock"
 APP_NAME = METADATA["name"]
 DATABASE_APP_NAME = "mongodb-k8s"
@@ -131,34 +131,7 @@ async def _deploy_amf_mock(ops_test: OpsTest):
     fiveg_n2_lib = requests.get(fiveg_n2_lib_url, timeout=10).text
     any_charm_src_overwrite = {
         "fiveg_n2.py": fiveg_n2_lib,
-        "any_charm.py": textwrap.dedent(
-            """\
-        from fiveg_n2 import N2Provides
-        from any_charm_base import AnyCharmBase
-        from ops.framework import EventBase
-        N2_RELATION_NAME = "provide-fiveg-n2"
-
-        class AnyCharm(AnyCharmBase):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.n2_provider = N2Provides(self, N2_RELATION_NAME)
-                self.framework.observe(
-                    self.on[N2_RELATION_NAME].relation_changed,
-                    self.fiveg_n2_relation_changed,
-                )
-
-            def fiveg_n2_relation_changed(self, event: EventBase) -> None:
-                fiveg_n2_relations = self.model.relations.get(N2_RELATION_NAME)
-                if not fiveg_n2_relations:
-                    logger.info("No %s relations found.", N2_RELATION_NAME)
-                    return
-                self.n2_provider.set_n2_information(
-                    amf_ip_address="1.2.3.4",
-                    amf_hostname="amf-external.sdcore.svc.cluster.local",
-                    amf_port=38412,
-                )
-        """
-        ),
+        "any_charm.py": Path(ANY_CHARM_PATH).read_text(),
     }
     assert ops_test.model
     await ops_test.model.deploy(
