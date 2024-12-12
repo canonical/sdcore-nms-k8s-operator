@@ -584,6 +584,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             "GRPC_VERBOSITY": "debug",
             "CONFIGPOD_DEPLOYMENT": "5G",
             "WEBUI_ENDPOINT": self._nms_endpoint,
+            "GIN_MODE": "release",
         }
 
 
