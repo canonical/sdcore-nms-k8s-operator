@@ -417,6 +417,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                                 "GRPC_VERBOSITY": "debug",
                                 "CONFIGPOD_DEPLOYMENT": "5G",
                                 "WEBUI_ENDPOINT": "None:5000",
+                                "GIN_MODE": "release",
                             },
                         }
                     },
