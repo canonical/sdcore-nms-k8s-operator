@@ -232,7 +232,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         gnbs_config = self._get_gnbs_config()
         logger.error("========================================================================")
         logger.error(gnbs_config)
-        logger.error("Relations: %s", self.model.relations)
+        logger.error("Relations: %s", list(self.model.relations))
         logger.error("========================================================================")
         for relation in self.model.relations.get(FIVEG_CORE_GNB_RELATION_NAME, []):
             if not relation.app:
