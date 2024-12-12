@@ -109,7 +109,7 @@ from typing import Optional
 from interface_tester.schema_base import DataBagSchema
 from ops.charm import CharmBase, CharmEvents, RelationBrokenEvent, RelationChangedEvent
 from ops.framework import EventBase, EventSource, Handle, Object
-from ops.model import Relation
+from ops.model import ModelError, Relation
 from pydantic import BaseModel, Field, ValidationError
 
 # The unique Charmhub library identifier, never change it
@@ -336,4 +336,7 @@ class SdcoreConfigProvides(Object):
             raise RuntimeError(f"Relation {self.relation_name} not created yet.")
 
         for relation in relations:
-            relation.data[self.charm.app].update({"webui_url": webui_url})
+            try:
+                relation.data[self.charm.app].update({"webui_url": webui_url})
+            except ModelError as exc:
+                logger.error("Error updating the relation data: %s", str(exc))
