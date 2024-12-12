@@ -235,6 +235,13 @@ class SDCoreNMSOperatorCharm(CharmBase):
         logger.error("Relations: %s", list(self.model.relations))
         logger.error("========================================================================")
         for relation in self.model.relations.get(FIVEG_CORE_GNB_RELATION_NAME, []):
+            logger.error("-----------------------------------------------------------")
+            logger.error(relation)
+            logger.error(relation.name)
+            logger.error(relation.id)
+            logger.error(relation.app)
+            logger.error(relation.data)
+            logger.error("-----------------------------------------------------------")
             if not relation.app:
                 logger.warning(
                     "Application missing from the %s relation data",
