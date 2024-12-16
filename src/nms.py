@@ -247,14 +247,18 @@ class NMS:
         return response
 
     def get_network_slice(self, slice_name: str, token: str) -> Optional[NetworkSlice]:
-        """Get NetworkSlice."""
+        """Get NetworkSlice.
+
+        The SD value received in the Network Slice configuration is a hex. In this function
+        we cast it to a human-readable integer.
+        """
         response = self._make_request("GET", f"/{NETWORK_SLICE_CONFIG_URL}/{slice_name}", token=token)  # noqa: E501
         if not response:
             return None
         mcc = response["site-info"]["plmn"]["mcc"]
         mnc = response["site-info"]["plmn"]["mnc"]
         sst = int(response["slice-id"]["sst"])
-        sd = int(response["slice-id"]["sd"])
+        sd = int(response["slice-id"]["sd"], 16)
         gnbs = [GnodeB(gnb["name"], gnb["tac"]) for gnb in response["site-info"]["gNodeBs"]]
 
         return NetworkSlice(mcc, mnc, sst, sd, gnbs)
