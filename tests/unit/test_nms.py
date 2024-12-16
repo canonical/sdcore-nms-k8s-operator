@@ -402,11 +402,12 @@ class TestNMS:
         test_mcc = "123"
         test_mnc = "89"
         test_sst = "321"
-        test_sd = "4321"
+        test_sd_hex = "4321"
+        test_sd_int = int(test_sd_hex, 16)
         test_gnb_name = "some.gnb.name"
         network_slice_json = {
             "slice-name": test_slice_name,
-            "slice-id": {"sst": test_sst, "sd": test_sd},
+            "slice-id": {"sst": test_sst, "sd": test_sd_hex},
             "site-info": {
                 "plmn": {"mcc": test_mcc, "mnc": test_mnc},
                 "gNodeBs": [{"name": test_gnb_name, "tac": 1}],
@@ -420,7 +421,7 @@ class TestNMS:
             test_mcc,
             test_mnc,
             int(test_sst),
-            int(test_sd),
+            test_sd_int,
             [GnodeB(name=test_gnb_name, tac=1, plmns=[])]
         )
 
