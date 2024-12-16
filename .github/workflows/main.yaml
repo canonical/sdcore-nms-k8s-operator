@@ -93,7 +93,7 @@ jobs:
     if: ${{ github.ref_name == 'main' }}
     uses: canonical/sdcore-github-workflows/.github/workflows/publish-lib.yaml@v2.3.0
     with:
-      lib-name: "charms/sdcore_nms_k8s/v0/sdcore_config"
+      lib-name: "charms.sdcore_nms_k8s.v0.sdcore_config"
     secrets: inherit
 
   fiveg-core-gnb-lib-needs-publishing:
@@ -117,5 +117,5 @@ jobs:
     if: ${{ github.ref_name == 'main' }}
     uses: canonical/sdcore-github-workflows/.github/workflows/publish-lib.yaml@v2.3.0
     with:
-      lib-name: "charms/sdcore_nms_k8s/v0/fiveg_core_gnb"
+      lib-name: "charms.sdcore_nms_k8s.v0.fiveg_core_gnb"
     secrets: inherit
