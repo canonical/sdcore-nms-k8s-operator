@@ -44,6 +44,7 @@ TLS_PROVIDER_CHARM_NAME = "self-signed-certificates"
 TLS_PROVIDER_CHARM_CHANNEL = "latest/stable"
 TRAEFIK_CHARM_NAME = "traefik-k8s"
 TRAEFIK_CHARM_CHANNEL = "latest/stable"
+SDCORE_CHARMS_BASE = "ubuntu@24.04"
 TIMEOUT = 15 * 60
 
 
@@ -104,6 +105,7 @@ async def _deploy_sdcore_upf(ops_test: OpsTest):
         application_name=UPF_CHARM_NAME,
         channel=UPF_CHARM_CHANNEL,
         trust=True,
+        series="noble",  # TODO: This should be replaced with base=SDCORE_CHARMS_BASE once it's properly supported  # noqa: E501
     )
 
 
@@ -114,6 +116,7 @@ async def _deploy_sdcore_gnbsim(ops_test: OpsTest):
         application_name=GNBSIM_CHARM_NAME,
         channel=GNBSIM_CHARM_CHANNEL,
         trust=True,
+        base=SDCORE_CHARMS_BASE,
     )
     await ops_test.model.integrate(relation1=f"{GNBSIM_CHARM_NAME}:fiveg-n2", relation2=AMF_MOCK)
 

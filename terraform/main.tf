@@ -9,6 +9,7 @@ resource "juju_application" "nms" {
     name     = "sdcore-nms-k8s"
     channel  = var.channel
     revision = var.revision
+    base     = var.base
   }
 
   config      = var.config
