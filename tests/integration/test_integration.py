@@ -42,6 +42,7 @@ NRF_CHARM_CHANNEL = "1.5/edge"
 UPF_CHARM_NAME = "sdcore-upf-k8s"
 UPF_CHARM_CHANNEL = "1.5/edge"
 UPF_RELATION_NAME = "fiveg_n4"
+SDCORE_CHARMS_SERIES = "noble"
 TLS_PROVIDER_CHARM_NAME = "self-signed-certificates"
 TLS_PROVIDER_CHARM_CHANNEL = "latest/stable"
 TRAEFIK_CHARM_NAME = "traefik-k8s"
@@ -105,6 +106,7 @@ async def _deploy_sdcore_upf(ops_test: OpsTest):
         UPF_CHARM_NAME,
         application_name=UPF_CHARM_NAME,
         channel=UPF_CHARM_CHANNEL,
+        series=SDCORE_CHARMS_SERIES,  # TODO: This should be replaced with base="ubuntu@24.04" once it's properly supported # noqa: E501
         trust=True,
     )
 
@@ -115,6 +117,7 @@ async def _deploy_nrf(ops_test: OpsTest):
         NRF_CHARM_NAME,
         application_name=NRF_CHARM_NAME,
         channel=NRF_CHARM_CHANNEL,
+        series=SDCORE_CHARMS_SERIES,  # TODO: This should be replaced with base="ubuntu@24.04" once it's properly supported # noqa: E501
     )
     await ops_test.model.integrate(
         relation1=f"{NRF_CHARM_NAME}:database", relation2=f"{DATABASE_APP_NAME}"
@@ -128,6 +131,7 @@ async def _deploy_sdcore_gnbsim(ops_test: OpsTest):
         GNBSIM_CHARM_NAME,
         application_name=GNBSIM_CHARM_NAME,
         channel=GNBSIM_CHARM_CHANNEL,
+        series=SDCORE_CHARMS_SERIES,  # TODO: This should be replaced with base="ubuntu@24.04" once it's properly supported # noqa: E501
         trust=True,
     )
 
@@ -147,6 +151,7 @@ async def _deploy_amf(ops_test: OpsTest):
         AMF_CHARM_NAME,
         application_name=AMF_CHARM_NAME,
         channel=AMF_CHARM_CHANNEL,
+        series=SDCORE_CHARMS_SERIES,  # TODO: This should be replaced with base="ubuntu@24.04" once it's properly supported # noqa: E501
         trust=True,
     )
     await ops_test.model.integrate(relation1=AMF_CHARM_NAME, relation2=NRF_CHARM_NAME)
