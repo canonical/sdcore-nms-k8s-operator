@@ -23,7 +23,7 @@ resources:
   nms-image:
     type: oci-image
     description: OCI image for SD-Core NMS
-    upstream-source: ghcr.io/canonical/sdcore-nms:1.0.0
+    upstream-source: ghcr.io/canonical/sdcore-nms:1.1.0
 
 assumes:
   - k8s-api
@@ -47,8 +47,6 @@ requires:
     interface: mongodb_client
   webui_database:
     interface: mongodb_client
-  fiveg_gnb_identity:
-    interface: fiveg_gnb_identity
   fiveg_n4:
     interface: fiveg_n4
   logging:
@@ -57,6 +55,8 @@ requires:
     interface: tls-certificates
 
 provides:
+  fiveg_core_gnb:
+    interface: fiveg_core_gnb
   sdcore_config:
     interface: sdcore_config
 
@@ -83,3 +83,10 @@ parts:
       rustup default stable
       uv export --frozen --no-dev -o requirements.txt
       craftctl default
+
+config:
+  options:
+    log-level:
+      type: string
+      default: info
+      description: Log level for the NMS. One of `debug`, `info`, `warn`, `error`, `fatal`, `panic`.

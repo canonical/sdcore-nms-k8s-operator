@@ -6,14 +6,16 @@
 
 import json
 import logging
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any, List, Optional
 
 import requests
+from charms.sdcore_nms_k8s.v0.fiveg_core_gnb import PLMNConfig
 
 logger = logging.getLogger(__name__)
 
 GNB_CONFIG_URL = "config/v1/inventory/gnb"
+NETWORK_SLICE_CONFIG_URL = "config/v1/network-slice"
 UPF_CONFIG_URL = "config/v1/inventory/upf"
 ACCOUNTS_URL = "config/v1/account"
 
@@ -25,7 +27,8 @@ class GnodeB:
     """Class to represent a gNB."""
 
     name: str
-    tac: int
+    tac: int = 1
+    plmns: List[PLMNConfig] = field(default_factory=list)
 
 
 @dataclass
@@ -34,6 +37,17 @@ class Upf:
 
     hostname: str
     port: int
+
+
+@dataclass
+class NetworkSlice:
+    """Class to represent a NetworkSlice."""
+
+    mcc: str
+    mnc: str
+    sst: int
+    sd: int
+    gnodebs: List[GnodeB]
 
 
 @dataclass
@@ -225,3 +239,26 @@ class NMS:
         create_user_params = CreateUserParams(username=username, password=password)
         self._make_request("POST", f"/{ACCOUNTS_URL}", data=asdict(create_user_params))
 
+    def list_network_slices(self, token: str) -> List[str]:
+        """List NetworkSlices."""
+        response = self._make_request("GET", f"/{NETWORK_SLICE_CONFIG_URL}", token=token)
+        if not response:
+            return []
+        return response
+
+    def get_network_slice(self, slice_name: str, token: str) -> Optional[NetworkSlice]:
+        """Get NetworkSlice.
+
+        The SD value received in the Network Slice configuration is a hex. In this function
+        we cast it to a human-readable integer.
+        """
+        response = self._make_request("GET", f"/{NETWORK_SLICE_CONFIG_URL}/{slice_name}", token=token)  # noqa: E501
+        if not response:
+            return None
+        mcc = response["site-info"]["plmn"]["mcc"]
+        mnc = response["site-info"]["plmn"]["mnc"]
+        sst = int(response["slice-id"]["sst"])
+        sd = int(response["slice-id"]["sd"], 16)
+        gnbs = [GnodeB(gnb["name"], gnb["tac"]) for gnb in response["site-info"]["gNodeBs"]]
+
+        return NetworkSlice(mcc, mnc, sst, sd, gnbs)

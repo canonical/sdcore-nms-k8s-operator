@@ -11,16 +11,12 @@ import string
 from dataclasses import dataclass
 from ipaddress import IPv4Address
 from subprocess import CalledProcessError, check_output
-from typing import List, Optional
+from typing import List, Optional, cast
 
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires
 from charms.loki_k8s.v1.loki_push_api import LogForwarder
-from charms.sdcore_gnbsim_k8s.v0.fiveg_gnb_identity import (
-    GnbIdentityRequires,
-)
-from charms.sdcore_nms_k8s.v0.sdcore_config import (
-    SdcoreConfigProvides,
-)
+from charms.sdcore_nms_k8s.v0.fiveg_core_gnb import FivegCoreGnbProvides, PLMNConfig
+from charms.sdcore_nms_k8s.v0.sdcore_config import SdcoreConfigProvides
 from charms.sdcore_upf_k8s.v0.fiveg_n4 import N4Requires
 from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
 from jinja2 import Environment, FileSystemLoader
@@ -51,7 +47,7 @@ AUTH_DATABASE_RELATION_NAME = "auth_database"
 COMMON_DATABASE_RELATION_NAME = "common_database"
 WEBUI_DATABASE_RELATION_NAME = "webui_database"
 FIVEG_N4_RELATION_NAME = "fiveg_n4"
-GNB_IDENTITY_RELATION_NAME = "fiveg_gnb_identity"
+FIVEG_CORE_GNB_RELATION_NAME = "fiveg_core_gnb"
 LOGGING_RELATION_NAME = "logging"
 SDCORE_CONFIG_RELATION_NAME = "sdcore_config"
 AUTH_DATABASE_NAME = "authentication"
@@ -96,27 +92,6 @@ def _get_pod_ip() -> Optional[str]:
         return str(IPv4Address(ip_address.decode().strip())) if ip_address else None
     except (CalledProcessError, ValueError):
         return None
-
-
-def render_config_file(
-    common_database_name: str,
-    common_database_url: str,
-    auth_database_name: str,
-    auth_database_url: str,
-    webui_database_name: str,
-    webui_database_url: str,
-) -> str:
-    """Render nms configuration file based on Jinja template."""
-    jinja2_environment = Environment(loader=FileSystemLoader("src/templates/"))
-    template = jinja2_environment.get_template("nmscfg.conf.j2")
-    return template.render(
-        common_database_name=common_database_name,
-        common_database_url=common_database_url,
-        auth_database_name=auth_database_name,
-        auth_database_url=auth_database_url,
-        webui_database_name=webui_database_name,
-        webui_database_url=webui_database_url,
-    )
 
 
 class SDCoreNMSOperatorCharm(CharmBase):
@@ -169,8 +144,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
         )
 
         self.fiveg_n4 = N4Requires(charm=self, relation_name=FIVEG_N4_RELATION_NAME)
-        self._gnb_identity = GnbIdentityRequires(self, GNB_IDENTITY_RELATION_NAME)
         self._logging = LogForwarder(charm=self, relation_name=LOGGING_RELATION_NAME)
+        self._fiveg_core_gnb_provider = FivegCoreGnbProvides(self, FIVEG_CORE_GNB_RELATION_NAME)
         self._sdcore_config = SdcoreConfigProvides(self, SDCORE_CONFIG_RELATION_NAME)
         self.framework.observe(self.on.update_status, self._configure_sdcore_nms)
         self.framework.observe(self.on.nms_pebble_ready, self._configure_sdcore_nms)
@@ -187,15 +162,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
             self._auth_database.on.endpoints_changed, self._configure_sdcore_nms
         )
         self.framework.observe(self.on.sdcore_config_relation_joined, self._configure_sdcore_nms)
+        self.framework.observe(self.on.fiveg_core_gnb_relation_changed, self._configure_sdcore_nms)
+        self.framework.observe(self.on.fiveg_core_gnb_relation_broken, self._configure_sdcore_nms)
         self.framework.observe(self.fiveg_n4.on.fiveg_n4_available, self._configure_sdcore_nms)
-        self.framework.observe(
-            self._gnb_identity.on.fiveg_gnb_identity_available,
-            self._configure_sdcore_nms,
-        )
-        self.framework.observe(
-            self.on[GNB_IDENTITY_RELATION_NAME].relation_broken,
-            self._configure_sdcore_nms,
-        )
         self.framework.observe(
             self.on[FIVEG_N4_RELATION_NAME].relation_broken,
             self._configure_sdcore_nms,
@@ -209,12 +178,16 @@ class SDCoreNMSOperatorCharm(CharmBase):
         )
         # Handling config changed event to publish the new url if the unit reboots and gets new IP
         self.framework.observe(self.on.config_changed, self._configure_sdcore_nms)
+        self.framework.observe(
+            self.on["nms"].pebble_custom_notice, self._sync_network_config
+        )
+
         self._nms = NMS(
             url=f"https://{socket.getfqdn()}:{NMS_URL_PORT}",
             ca_certificate_path=CA_CERTIFICATE_CHARM_PATH,
         )
 
-    def _configure_sdcore_nms(self, event: EventBase) -> None:
+    def _configure_sdcore_nms(self, event: EventBase) -> None:  # noqa: C901
         """Handle Juju events.
 
         Whenever a Juju event is emitted, this method performs a couple of checks to make sure that
@@ -222,6 +195,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
         runs the Pebble services and expose the service information through charm's interface.
         """
         if not self._container.can_connect():
+            return
+        if self._get_invalid_configs():
             return
         if not self._container.exists(path=BASE_CONFIG_PATH):
             return
@@ -244,6 +219,31 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self._publish_sdcore_config_url()
         self._sync_gnbs()
         self._sync_upfs()
+        self._sync_network_config(event)
+
+    def _sync_network_config(self, event: EventBase):
+        """Synchronize network configuration between the Core and the RAN.
+
+        Every time network configuration is updated (NetworkSlice configuration change in the NMS),
+        the `webconsole` sends a custom Pebble notification. When it happens, this method fetches
+        the current network setup and passes the configuration to the RAN part of the network
+        through the relevant Juju integrations.
+        """
+        gnbs_config = self._get_gnbs_config()
+        for relation in self.model.relations.get(FIVEG_CORE_GNB_RELATION_NAME, []):
+            if not relation.app:
+                logger.warning(
+                    "Application missing from the %s relation data",
+                    FIVEG_CORE_GNB_RELATION_NAME,
+                )
+                continue
+            relation_gnb_name = self._fiveg_core_gnb_provider.get_gnb_name(relation.id)
+            if gnodeb := next((gnb for gnb in gnbs_config if gnb.name == relation_gnb_name), None):
+                self._fiveg_core_gnb_provider.publish_gnb_config_information(
+                    relation_id=relation.id,
+                    tac=gnodeb.tac,
+                    plmns=gnodeb.plmns,
+                )
 
     def _on_collect_unit_status(self, event: CollectStatusEvent):  # noqa: C901
         """Check the unit status and set to Unit when CollectStatusEvent is fired.
@@ -258,6 +258,12 @@ class SDCoreNMSOperatorCharm(CharmBase):
             # charm.
             event.add_status(BlockedStatus("Scaling is not implemented for this charm"))
             logger.info("Scaling is not implemented for this charm")
+            return
+        if invalid_configs := self._get_invalid_configs():
+            event.add_status(
+                BlockedStatus(f"The following configurations are not valid: {invalid_configs}")
+            )
+            logger.info("The following configurations are not valid: %s", invalid_configs)
             return
         for relation in MANDATORY_RELATIONS:
             if not self._relation_created(relation):
@@ -418,6 +424,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             webui_database_url=self._get_webui_database_url(),
             tls_key_path=self._tls.private_key_workload_path,
             tls_certificate_path=self._tls.certificate_workload_path,
+            log_level=self._get_log_level_config(),
         )
 
     def _is_nms_service_running(self) -> bool:
@@ -444,37 +451,28 @@ class SDCoreNMSOperatorCharm(CharmBase):
                 upf_host_port_list.append(Upf(hostname=hostname, port=int(port)))
         return upf_host_port_list
 
-    def _get_gnb_config_from_relations(self) -> List[GnodeB]:
-        gnb_name_tac_list = []
-        for gnb_identity_relation in self.model.relations.get(GNB_IDENTITY_RELATION_NAME, []):
-            if not gnb_identity_relation.app:
-                logger.warning(
-                    "Application missing from the %s relation data",
-                    GNB_IDENTITY_RELATION_NAME,
-                )
-                continue
-            gnb_name = gnb_identity_relation.data[gnb_identity_relation.app].get("gnb_name", "")
-            gnb_tac = gnb_identity_relation.data[gnb_identity_relation.app].get("tac", "")
-            if gnb_name and gnb_tac:
-                gnb_name_tac_list.append(GnodeB(name=gnb_name, tac=int(gnb_tac)))
-        return gnb_name_tac_list
-
     def _sync_gnbs(self) -> None:
-        """Align the gNBs from the `fiveg_gnb_identity`relations with the ones in nms."""
+        """Synchronize gNBs integrated through the `fiveg_core_gnb` relations with the NMS."""
         login_details = self._get_admin_account()
         if not login_details or not login_details.token:
             logger.warning("Failed to get admin account details")
             return
-        if not self.model.relations.get(GNB_IDENTITY_RELATION_NAME):
-            logger.info("Relation %s not available", GNB_IDENTITY_RELATION_NAME)
         nms_gnbs = self._nms.list_gnbs(token=login_details.token)
-        relation_gnbs = self._get_gnb_config_from_relations()
+        integrated_gnbs = self._get_integrated_gnbs()
         for gnb in nms_gnbs:
-            if gnb not in relation_gnbs:
+            if gnb not in integrated_gnbs:
                 self._nms.delete_gnb(name=gnb.name, token=login_details.token)
-        for gnb in relation_gnbs:
+        for gnb in integrated_gnbs:
             if gnb not in nms_gnbs:
                 self._nms.create_gnb(name=gnb.name, tac=gnb.tac, token=login_details.token)
+
+    def _get_integrated_gnbs(self) -> List[GnodeB]:
+        integrated_gnbs = []
+        for relation in self.model.relations.get(FIVEG_CORE_GNB_RELATION_NAME, []):
+            gnb_name = self._fiveg_core_gnb_provider.get_gnb_name(relation.id)
+            if gnb_name:
+                integrated_gnbs.append(GnodeB(name=gnb_name))
+        return integrated_gnbs
 
     def _sync_upfs(self) -> None:
         """Align the UPFs from the `fiveg_n4` relations with the ones in nms."""
@@ -494,6 +492,41 @@ class SDCoreNMSOperatorCharm(CharmBase):
                 self._nms.create_upf(
                     hostname=upf.hostname, port=upf.port, token=login_details.token
                 )
+
+    def _get_gnbs_config(self) -> List[GnodeB]:
+        """Get configuration of all gNodeBs in the network.
+
+        Returns:
+            List: List of GnodeBs in the network
+        """
+        gnbs_config = []
+        login_details = self._get_admin_account()
+        if not login_details or not login_details.token:
+            logger.warning("Failed to get admin account details")
+            return []
+        network_slices = self._nms.list_network_slices(token=login_details.token)
+        for network_slice_name in network_slices:
+            network_slice = self._nms.get_network_slice(
+                slice_name=network_slice_name, token=login_details.token
+            )
+            if not network_slice:
+                continue
+            plmn_config = PLMNConfig(
+                network_slice.mcc,
+                network_slice.mnc,
+                network_slice.sst,
+                network_slice.sd
+            )
+            for gnodeb in network_slice.gnodebs:
+                if existing_gnb := next(
+                    (gnb for gnb in gnbs_config if gnb.name == gnodeb.name),
+                    None,
+                ):
+                    existing_gnb.plmns.append(plmn_config)
+                else:
+                    gnodeb.plmns.append(plmn_config)
+                    gnbs_config.append(gnodeb)
+        return gnbs_config
 
     def _get_common_database_url(self) -> str:
         if not self._common_database_resource_is_available():
@@ -533,7 +566,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         the file is not present, an empty string is returned.
 
         Returns:
-            string: A human readable string representing the
+            string: A human-readable string representing the
             version of the workload
         """
         if self._container.exists(path=f"{WORKLOAD_VERSION_FILE_NAME}"):
@@ -542,6 +575,24 @@ class SDCoreNMSOperatorCharm(CharmBase):
             ).read()
             return version_file_content
         return ""
+
+    def _get_invalid_configs(self) -> list[str]:
+        """Return list of invalid configurations.
+
+        Returns:
+            list: List of strings matching config keys.
+        """
+        invalid_configs = []
+        if not self._is_log_level_valid():
+            invalid_configs.append("log-level")
+        return invalid_configs
+
+    def _get_log_level_config(self) -> Optional[str]:
+        return cast(Optional[str], self.model.config.get("log-level"))
+
+    def _is_log_level_valid(self) -> bool:
+        log_level = self._get_log_level_config()
+        return log_level in ["debug", "info", "warn", "error", "fatal", "panic"]
 
     def _write_file_in_workload(self, path: str, content: str) -> None:
         self._container.push(path=path, source=content)
@@ -578,10 +629,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
     @property
     def _environment_variables(self) -> dict:
         return {
-            "GRPC_GO_LOG_VERBOSITY_LEVEL": "99",
-            "GRPC_GO_LOG_SEVERITY_LEVEL": "info",
-            "GRPC_TRACE": "all",
-            "GRPC_VERBOSITY": "debug",
             "CONFIGPOD_DEPLOYMENT": "5G",
             "WEBUI_ENDPOINT": self._nms_endpoint,
             "GIN_MODE": "release",
