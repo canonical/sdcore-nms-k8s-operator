@@ -126,7 +126,7 @@ class TestNMS:
         self.nms.create_gnb(name="some.gnb.name", tac=111, token="some_token")
 
         self.mock_request.assert_called_once_with(
-            method="POST",
+            method="PUT",
             url="some_url/config/v1/inventory/gnb/some.gnb.name",
             headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
             json={"tac": "111"},
@@ -137,7 +137,7 @@ class TestNMS:
         self.nms.create_gnb(name="some.gnb.name", tac=111, token="some_token")
 
         self.mock_request.assert_called_once_with(
-            method="POST",
+            method="PUT",
             url="some_url/config/v1/inventory/gnb/some.gnb.name",
             headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
             json={"tac": "111"},
@@ -269,7 +269,7 @@ class TestNMS:
         self.nms.create_upf(hostname="some.upf.name", port=111, token="some_token")
 
         self.mock_request.assert_called_once_with(
-            method="POST",
+            method="PUT",
             url="some_url/config/v1/inventory/upf/some.upf.name",
             headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
             json={"port": "111"},
@@ -280,7 +280,7 @@ class TestNMS:
         self.nms.create_upf(hostname="some.upf.name", port=22, token="some_token")
 
         self.mock_request.assert_called_once_with(
-            method="POST",
+            method="PUT",
             url="some_url/config/v1/inventory/upf/some.upf.name",
             headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
             json={"port": "22"},

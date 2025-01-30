@@ -198,7 +198,7 @@ class NMS:
         """Create a gNB in the NMS inventory."""
         create_gnb_params = CreateGnbParams(tac=str(tac))
         self._make_request(
-            "POST", f"/{GNB_CONFIG_URL}/{name}", data=asdict(create_gnb_params), token=token
+            "PUT", f"/{GNB_CONFIG_URL}/{name}", data=asdict(create_gnb_params), token=token
         )
         logger.info("gNB %s created in NMS", name)
 
@@ -224,7 +224,7 @@ class NMS:
         """Create a UPF in the NMS inventory."""
         create_upf_params = CreateUPFParams(port=str(port))
         self._make_request(
-            "POST", f"/{UPF_CONFIG_URL}/{hostname}", data=asdict(create_upf_params), token=token
+            "PUT", f"/{UPF_CONFIG_URL}/{hostname}", data=asdict(create_upf_params), token=token
         )
         logger.info("UPF %s created in NMS", hostname)
 
