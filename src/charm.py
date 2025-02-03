@@ -467,16 +467,18 @@ class SDCoreNMSOperatorCharm(CharmBase):
             if nms_gnb.name not in integration_gnb_names:
                 self._nms.delete_gnb(name=nms_gnb.name, token=login_details.token)
 
-        for intrated_gnb in integrated_gnbs:
-            if intrated_gnb.name in nms_gnb_names:
-                nms_gnb = next((gnb for gnb in nms_gnbs if gnb.name == intrated_gnb.name), None)
-                if nms_gnb and nms_gnb.tac != intrated_gnb.tac:
+        for integrated_gnb in integrated_gnbs:
+            if integrated_gnb.name in nms_gnb_names:
+                nms_gnb = next((gnb for gnb in nms_gnbs if gnb.name == integrated_gnb.name), None)
+                if nms_gnb and nms_gnb.tac != integrated_gnb.tac:
                     self._nms.update_gnb(
-                        name=intrated_gnb.name, tac=intrated_gnb.tac, token=login_details.token
+                        name=integrated_gnb.name,
+                        tac=integrated_gnb.tac,
+                        token=login_details.token
                     )
             else:
                 self._nms.create_gnb(
-                    name=intrated_gnb.name, tac=intrated_gnb.tac, token=login_details.token
+                    name=integrated_gnb.name, tac=integrated_gnb.tac, token=login_details.token
                 )
 
     def _get_integrated_gnbs(self) -> List[GnodeB]:
