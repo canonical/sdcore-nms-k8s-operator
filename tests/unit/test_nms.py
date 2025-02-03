@@ -126,6 +126,41 @@ class TestNMS:
         self.nms.create_gnb(name="some.gnb.name", tac=111, token="some_token")
 
         self.mock_request.assert_called_once_with(
+            method="POST",
+            url="some_url/config/v1/inventory/gnb",
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
+            json={"name": "some.gnb.name", "tac": "111"},
+            verify=False,
+        )
+
+    def test_given_a_valid_gnb_when_create_gnb_then_gnb_is_added_to_nms(self):
+        self.nms.create_gnb(name="some.gnb.name", tac=111, token="some_token")
+
+        self.mock_request.assert_called_once_with(
+            method="POST",
+            url="some_url/config/v1/inventory/gnb",
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
+            json={"name": "some.gnb.name", "tac": "111"},
+            verify=False,
+        )
+
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(
+                mock_response_with_http_error_exception,
+            ),
+            pytest.param(
+                mock_response_with_connection_error_exception,
+            ),
+        ],
+    )
+    def test_given_exception_is_raised_when_update_gnb_then_exception_is_handled(self, exception):
+        self.mock_request.side_effect = exception()
+
+        self.nms.update_gnb(name="some.gnb.name", tac=111, token="some_token")
+
+        self.mock_request.assert_called_once_with(
             method="PUT",
             url="some_url/config/v1/inventory/gnb/some.gnb.name",
             headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
@@ -133,8 +168,8 @@ class TestNMS:
             verify=False,
         )
 
-    def test_given_a_valid_gnb_when_create_gnb_then_gnb_is_added_to_nms(self):
-        self.nms.create_gnb(name="some.gnb.name", tac=111, token="some_token")
+    def test_given_a_valid_gnb_when_update_gnb_then_gnb_is_added_to_nms(self):
+        self.nms.update_gnb(name="some.gnb.name", tac=111, token="some_token")
 
         self.mock_request.assert_called_once_with(
             method="PUT",
@@ -269,6 +304,41 @@ class TestNMS:
         self.nms.create_upf(hostname="some.upf.name", port=111, token="some_token")
 
         self.mock_request.assert_called_once_with(
+            method="POST",
+            url="some_url/config/v1/inventory/upf",
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
+            json={"hostname": "some.upf.name", "port": "111"},
+            verify=False,
+        )
+
+    def test_given_a_valid_upf_when_create_upf_then_upf_is_added_to_nms(self):
+        self.nms.create_upf(hostname="some.upf.name", port=22, token="some_token")
+
+        self.mock_request.assert_called_once_with(
+            method="POST",
+            url="some_url/config/v1/inventory/upf",
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
+            json={"hostname": "some.upf.name", "port": "22"},
+            verify=False,
+        )
+
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            pytest.param(
+                mock_response_with_http_error_exception,
+            ),
+            pytest.param(
+                mock_response_with_connection_error_exception,
+            ),
+        ],
+    )
+    def test_given_exception_is_raised_when_update_upf_then_exception_is_handled(self, exception):
+        self.mock_request.side_effect = exception()
+
+        self.nms.update_upf(hostname="some.upf.name", port=111, token="some_token")
+
+        self.mock_request.assert_called_once_with(
             method="PUT",
             url="some_url/config/v1/inventory/upf/some.upf.name",
             headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
@@ -276,8 +346,8 @@ class TestNMS:
             verify=False,
         )
 
-    def test_given_a_valid_upf_when_create_upf_then_upf_is_added_to_nms(self):
-        self.nms.create_upf(hostname="some.upf.name", port=22, token="some_token")
+    def test_given_a_valid_upf_when_update_upf_then_upf_is_added_to_nms(self):
+        self.nms.update_upf(hostname="some.upf.name", port=22, token="some_token")
 
         self.mock_request.assert_called_once_with(
             method="PUT",

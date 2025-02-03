@@ -83,6 +83,12 @@ class CreateUserParams:
 @dataclass
 class CreateGnbParams:
     """Parameters to create a gNB."""
+    name: str
+    tac: str
+
+@dataclass
+class UpdateGnbParams:
+    """Parameters to update a gNB."""
 
     tac: str
 
@@ -90,6 +96,12 @@ class CreateGnbParams:
 @dataclass
 class CreateUPFParams:
     """Parameters to create a UPF."""
+    hostname: str
+    port: str
+
+@dataclass
+class UpdateUPFParams:
+    """Parameters to update a UPF."""
 
     port: str
 
@@ -196,9 +208,17 @@ class NMS:
 
     def create_gnb(self, name: str, tac: int, token: str) -> None:
         """Create a gNB in the NMS inventory."""
-        create_gnb_params = CreateGnbParams(tac=str(tac))
+        create_gnb_params = CreateGnbParams(name=name, tac=str(tac))
         self._make_request(
-            "PUT", f"/{GNB_CONFIG_URL}/{name}", data=asdict(create_gnb_params), token=token
+            "POST", f"/{GNB_CONFIG_URL}", data=asdict(create_gnb_params), token=token
+        )
+        logger.info("gNB %s created in NMS", name)
+
+    def update_gnb(self, name: str, tac: int, token: str) -> None:
+        """Update a gNB in the NMS inventory."""
+        update_gnb_params = UpdateGnbParams(tac=str(tac))
+        self._make_request(
+            "PUT", f"/{GNB_CONFIG_URL}/{name}", data=asdict(update_gnb_params), token=token
         )
         logger.info("gNB %s created in NMS", name)
 
@@ -222,11 +242,19 @@ class NMS:
 
     def create_upf(self, hostname: str, port: int, token: str) -> None:
         """Create a UPF in the NMS inventory."""
-        create_upf_params = CreateUPFParams(port=str(port))
+        create_upf_params = CreateUPFParams(hostname=hostname, port=str(port))
         self._make_request(
-            "PUT", f"/{UPF_CONFIG_URL}/{hostname}", data=asdict(create_upf_params), token=token
+            "POST", f"/{UPF_CONFIG_URL}", data=asdict(create_upf_params), token=token
         )
         logger.info("UPF %s created in NMS", hostname)
+
+    def update_upf(self, hostname: str, port: int, token: str) -> None:
+        """Update a UPF in the NMS inventory."""
+        update_upf_params = UpdateUPFParams(port=str(port))
+        self._make_request(
+            "PUT", f"/{UPF_CONFIG_URL}/{hostname}", data=asdict(update_upf_params), token=token
+        )
+        logger.info("UPF %s updated in NMS", hostname)
 
     def delete_upf(self, hostname: str, token: str) -> None:
         """Delete a UPF list from the NMS inventory."""
