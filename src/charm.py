@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from ipaddress import IPv4Address
 from subprocess import CalledProcessError, check_output
 from typing import List, Optional, cast
+from urllib.parse import urlparse
 
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires
 from charms.loki_k8s.v1.loki_push_api import LogForwarder
@@ -640,6 +641,14 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
     @property
     def _nms_endpoint(self) -> str:
+        ingress_url = self.ingress.url
+        if ingress_url:
+            try:
+                netloc = urlparse(ingress_url).netloc
+                if netloc:
+                    return netloc
+            except ValueError as e:
+                logger.info("Error parsing the ingress URL: %s", e)
         return f"{_get_pod_ip()}:{NMS_URL_PORT}"
 
     @property

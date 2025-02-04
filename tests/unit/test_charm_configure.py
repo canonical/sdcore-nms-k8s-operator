@@ -3,7 +3,7 @@
 import json
 import os
 import tempfile
-from unittest.mock import call
+from unittest.mock import call, patch
 
 import pytest
 import scenario
@@ -338,6 +338,258 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 assert f.read() == open(EXPECTED_CONFIG_FILE_PATH, "r").read()
 
     def test_given_container_is_ready_db_relations_exist_and_storage_attached_when_pebble_ready_then_pebble_plan_is_applied(  # noqa: E501
+        self,
+    ):
+        self.mock_nms_login.return_value = None
+        with tempfile.TemporaryDirectory() as tempdir:
+            common_database_relation = scenario.Relation(
+                endpoint="common_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            auth_database_relation = scenario.Relation(
+                endpoint="auth_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
+            config_mount = scenario.Mount(
+                location="/nms/config",
+                source=tempdir,
+            )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
+            container = scenario.Container(
+                name="nms",
+                can_connect=True,
+                mounts={
+                    "config": config_mount,
+                    "certs": certs_mount,
+                },
+            )
+            state_in = scenario.State(
+                leader=True,
+                containers={container},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    webui_database_relation,
+                    certificates_relation,
+                },
+            )
+            self.mock_certificate_is_available.return_value = True
+
+            state_out = self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
+
+            assert state_out.get_container("nms").layers["nms"] == Layer(
+                {
+                    "summary": "NMS layer",
+                    "description": "pebble config layer for the NMS",
+                    "services": {
+                        "nms": {
+                            "startup": "enabled",
+                            "override": "replace",
+                            "command": "/bin/webconsole --cfg /nms/config/nmscfg.conf",
+                            "environment": {
+                                "CONFIGPOD_DEPLOYMENT": "5G",
+                                "WEBUI_ENDPOINT": "None:5000",
+                            },
+                        }
+                    },
+                }
+            )
+
+    @patch("charms.traefik_k8s.v2.ingress.IngressPerAppRequirer.url", "https://potato/")
+    def test_given_container_is_ready_db_relations_exist_and_storage_attached_and_ingress_url_known_when_pebble_ready_then_pebble_plan_is_applied(  # noqa: E501
+        self,
+    ):
+        self.mock_nms_login.return_value = None
+        with tempfile.TemporaryDirectory() as tempdir:
+            common_database_relation = scenario.Relation(
+                endpoint="common_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            auth_database_relation = scenario.Relation(
+                endpoint="auth_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
+            config_mount = scenario.Mount(
+                location="/nms/config",
+                source=tempdir,
+            )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
+            container = scenario.Container(
+                name="nms",
+                can_connect=True,
+                mounts={
+                    "config": config_mount,
+                    "certs": certs_mount,
+                },
+            )
+            state_in = scenario.State(
+                leader=True,
+                containers={container},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    webui_database_relation,
+                    certificates_relation,
+                },
+            )
+            self.mock_certificate_is_available.return_value = True
+
+            state_out = self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
+
+            assert state_out.get_container("nms").layers["nms"] == Layer(
+                {
+                    "summary": "NMS layer",
+                    "description": "pebble config layer for the NMS",
+                    "services": {
+                        "nms": {
+                            "startup": "enabled",
+                            "override": "replace",
+                            "command": "/bin/webconsole --cfg /nms/config/nmscfg.conf",
+                            "environment": {
+                                "CONFIGPOD_DEPLOYMENT": "5G",
+                                "WEBUI_ENDPOINT": "potato",
+                            },
+                        }
+                    },
+                }
+            )
+
+    @patch("charms.traefik_k8s.v2.ingress.IngressPerAppRequirer.url", "/banana")
+    def test_given_container_is_ready_db_relations_exist_and_storage_attached_and_ingress_url_no_netloc_when_pebble_ready_then_pebble_plan_is_applied(  # noqa: E501
+        self,
+    ):
+        self.mock_nms_login.return_value = None
+        with tempfile.TemporaryDirectory() as tempdir:
+            common_database_relation = scenario.Relation(
+                endpoint="common_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            auth_database_relation = scenario.Relation(
+                endpoint="auth_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
+            config_mount = scenario.Mount(
+                location="/nms/config",
+                source=tempdir,
+            )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
+            container = scenario.Container(
+                name="nms",
+                can_connect=True,
+                mounts={
+                    "config": config_mount,
+                    "certs": certs_mount,
+                },
+            )
+            state_in = scenario.State(
+                leader=True,
+                containers={container},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    webui_database_relation,
+                    certificates_relation,
+                },
+            )
+            self.mock_certificate_is_available.return_value = True
+
+            state_out = self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
+
+            assert state_out.get_container("nms").layers["nms"] == Layer(
+                {
+                    "summary": "NMS layer",
+                    "description": "pebble config layer for the NMS",
+                    "services": {
+                        "nms": {
+                            "startup": "enabled",
+                            "override": "replace",
+                            "command": "/bin/webconsole --cfg /nms/config/nmscfg.conf",
+                            "environment": {
+                                "CONFIGPOD_DEPLOYMENT": "5G",
+                                "WEBUI_ENDPOINT": "None:5000",
+                            },
+                        }
+                    },
+                }
+            )
+
+    @patch("charms.traefik_k8s.v2.ingress.IngressPerAppRequirer.url", "https://$&*$&[%/")
+    def test_given_container_is_ready_db_relations_exist_and_storage_attached_and_ingress_url_invalid_when_pebble_ready_then_pebble_plan_is_applied(  # noqa: E501
         self,
     ):
         self.mock_nms_login.return_value = None
