@@ -459,12 +459,27 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         nms_gnbs = self._nms.list_gnbs(token=login_details.token)
         integrated_gnbs = self._get_integrated_gnbs()
-        for gnb in nms_gnbs:
-            if gnb not in integrated_gnbs:
-                self._nms.delete_gnb(name=gnb.name, token=login_details.token)
-        for gnb in integrated_gnbs:
-            if gnb not in nms_gnbs:
-                self._nms.create_gnb(name=gnb.name, tac=gnb.tac, token=login_details.token)
+
+        nms_gnb_names = [gnb.name for gnb in nms_gnbs]
+        integration_gnb_names = [gnb.name for gnb in integrated_gnbs]
+
+        for nms_gnb in nms_gnbs:
+            if nms_gnb.name not in integration_gnb_names:
+                self._nms.delete_gnb(name=nms_gnb.name, token=login_details.token)
+
+        for integrated_gnb in integrated_gnbs:
+            if integrated_gnb.name in nms_gnb_names:
+                nms_gnb = next((gnb for gnb in nms_gnbs if gnb.name == integrated_gnb.name), None)
+                if nms_gnb and nms_gnb.tac != integrated_gnb.tac:
+                    self._nms.update_gnb(
+                        name=integrated_gnb.name,
+                        tac=integrated_gnb.tac,
+                        token=login_details.token
+                    )
+            else:
+                self._nms.create_gnb(
+                    name=integrated_gnb.name, tac=integrated_gnb.tac, token=login_details.token
+                )
 
     def _get_integrated_gnbs(self) -> List[GnodeB]:
         integrated_gnbs = []
@@ -484,13 +499,31 @@ class SDCoreNMSOperatorCharm(CharmBase):
             logger.info("Relation %s not available", FIVEG_N4_RELATION_NAME)
         nms_upfs = self._nms.list_upfs(token=login_details.token)
         relation_upfs = self._get_upf_config_from_relations()
-        for upf in nms_upfs:
-            if upf not in relation_upfs:
-                self._nms.delete_upf(hostname=upf.hostname, token=login_details.token)
-        for upf in relation_upfs:
-            if upf not in nms_upfs:
+
+        nms_hostnames = [upf.hostname for upf in nms_upfs]
+        relation_hostnames = [upf.hostname for upf in relation_upfs]
+
+        for nsm_upf in nms_upfs:
+            if nsm_upf.hostname not in relation_hostnames:
+                self._nms.delete_upf(hostname=nsm_upf.hostname, token=login_details.token)
+
+        for relation_upf in relation_upfs:
+            if relation_upf.hostname in nms_hostnames:
+                nms_upf = next(
+                    (upf for upf in nms_upfs if upf.hostname == relation_upf.hostname),
+                    None
+                )
+                if nms_upf and nms_upf.port != relation_upf.port:
+                    self._nms.update_upf(
+                        hostname=relation_upf.hostname,
+                        port=relation_upf.port,
+                        token=login_details.token
+                    )
+            else:
                 self._nms.create_upf(
-                    hostname=upf.hostname, port=upf.port, token=login_details.token
+                    hostname=relation_upf.hostname,
+                    port=relation_upf.port,
+                    token=login_details.token
                 )
 
     def _get_gnbs_config(self) -> List[GnodeB]:

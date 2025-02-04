@@ -921,6 +921,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.mock_create_gnb.assert_not_called()
             self.mock_create_upf.assert_not_called()
+            self.mock_update_gnb.assert_not_called()
+            self.mock_update_upf.assert_not_called()
             self.mock_delete_gnb.assert_not_called()
             self.mock_delete_upf.assert_not_called()
 
@@ -970,8 +972,10 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             self.mock_create_gnb.assert_not_called()
+            self.mock_update_gnb.assert_not_called()
             self.mock_delete_gnb.assert_not_called()
             self.mock_create_upf.assert_not_called()
+            self.mock_update_gnb.assert_not_called()
             self.mock_delete_upf.assert_not_called()
 
     def test_given_mandatory_relations_when_pebble_ready_then_nms_upf_is_updated(
@@ -1066,6 +1070,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.mock_create_upf.assert_called_once_with(
                 hostname="some.host.name", port=1234, token="test-token"
             )
+            self.mock_update_upf.assert_not_called()
+            self.mock_delete_upf.assert_not_called()
 
     def test_given_mandatory_relations_when_pebble_ready_then_nms_gnb_is_updated(
         self,
@@ -1158,6 +1164,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.mock_create_gnb.assert_called_once_with(
                 name="some.gnb.name", tac=1, token="test-token"
             )
+            self.mock_update_gnb.assert_not_called()
+            self.mock_delete_gnb.assert_not_called()
 
     def test_given_multiple_n4_relations_when_pebble_ready_then_both_upfs_are_added_to_nms(
         self,
@@ -1253,6 +1261,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 call(hostname="some.host.name", port=1234, token="test-token"),
             ]
             self.mock_create_upf.assert_has_calls(calls, any_order=True)
+            self.mock_update_upf.assert_not_called()
+            self.mock_delete_upf.assert_not_called()
 
     def test_given_multiple_gnb_relations_when_pebble_ready_then_both_gnbs_are_added_to_nms(
         self,
@@ -1346,6 +1356,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 call(name="my_gnb", tac=1, token="test-token"),
             ]
             self.mock_create_gnb.assert_has_calls(calls, any_order=True)
+            self.mock_update_gnb.assert_not_called()
+            self.mock_delete_gnb.assert_not_called()
 
     def test_given_upf_exist_in_nms_and_relation_matches_when_pebble_ready_then_nms_upfs_are_not_updated(  # noqa: E501
         self,
@@ -1430,6 +1442,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.mock_list_upfs.assert_called()
             self.mock_create_upf.assert_not_called()
+            self.mock_update_upf.assert_not_called()
+            self.mock_delete_upf.assert_not_called()
 
     def test_given_gnb_exist_in_nms_and_relation_matches_when_pebble_ready_then_nms_gnbs_are_not_updated(  # noqa: E501
         self,
@@ -1514,6 +1528,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.mock_list_gnbs.assert_called()
             self.mock_create_gnb.assert_not_called()
+            self.mock_update_gnb.assert_not_called()
+            self.mock_delete_gnb.assert_not_called()
 
     def test_given_no_upf_or_gnb_relation_or_db_when_pebble_ready_then_nms_resources_are_not_updated(  # noqa: E501
         self,
@@ -1642,6 +1658,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 hostname="my_host", port=4567, token="test-token"
             )
             self.mock_delete_upf.assert_not_called()
+            self.mock_update_upf.assert_not_called()
 
     def test_given_gnb_exists_in_nms_and_new_fiveg_core_gnb_relation_is_added_when_pebble_ready_then_second_gnb_is_added_to_nms(  # noqa: E501
         self,
@@ -1732,6 +1749,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 name="my_gnb", tac=1, token="test-token"
             )
             self.mock_delete_gnb.assert_not_called()
+            self.mock_update_gnb.assert_not_called()
 
     def test_given_two_n4_relations_when_n4_relation_broken_then_upf_is_removed_from_nms(
         self,
@@ -1831,6 +1849,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 hostname="some.host.name", token="test-token"
             )
             self.mock_create_upf.assert_not_called()
+            self.mock_update_upf.assert_not_called()
 
     def test_given_two_fiveg_core_gnb_relations_when_relation_broken_then_gnb_is_removed_from_nms(
         self,
@@ -1926,8 +1945,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.mock_delete_gnb.assert_called_once_with(name="some.gnb.name", token="test-token")
             self.mock_create_gnb.assert_not_called()
+            self.mock_update_gnb.assert_not_called()
 
-    def test_given_one_upf_in_nms_when_upf_is_modified_in_relation_then_nms_upfs_are_updated(  # noqa: E501
+    def test_given_one_upf_in_nms_when_upf_is_modified_in_relation_then_nms_upf_is_updated(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -2011,14 +2031,102 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_joined(fiveg_n4_relation), state_in)
 
-            self.mock_delete_upf.assert_called_once_with(
-                hostname="some.host.name", token="test-token"
-            )
-            self.mock_create_upf.assert_called_once_with(
+            self.mock_delete_upf.assert_not_called()
+            self.mock_create_upf.assert_not_called()
+            self.mock_update_upf.assert_called_once_with(
                 hostname="some.host.name", port=22, token="test-token"
             )
 
-    def test_given_one_gnb_in_nms_when_gnb_is_modified_in_relation_then_nms_gnbs_are_updated(  # noqa: E501
+    def test_given_one_gnb_in_nms_when_gnb_is_modified_in_relation_then_nms_gnb_is_updated(  # noqa: E501
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as tempdir:
+            common_database_relation = scenario.Relation(
+                endpoint="common_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            auth_database_relation = scenario.Relation(
+                endpoint="auth_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
+            existing_gnbs = [
+                GnodeB(name="some.gnb.name", tac=34),
+            ]
+            self.mock_list_gnbs.return_value = existing_gnbs
+            config_mount = scenario.Mount(
+                location="/nms/config",
+                source=tempdir,
+            )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
+            container = scenario.Container(
+                name="nms",
+                can_connect=True,
+                mounts={
+                    "config": config_mount,
+                    "certs": certs_mount,
+                },
+            )
+            fiveg_core_gnb_relation = scenario.Relation(
+                endpoint="fiveg_core_gnb",
+                interface="fiveg_core_gnb",
+                remote_app_data={
+                    "gnb-name": "some.gnb.name",
+                },
+            )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
+            state_in = scenario.State(
+                leader=True,
+                containers={container},
+                secrets={login_secret},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    webui_database_relation,
+                    certificates_relation,
+                    fiveg_core_gnb_relation,
+                },
+            )
+            self.mock_certificate_is_available.return_value = True
+
+            self.ctx.run(self.ctx.on.relation_changed(fiveg_core_gnb_relation), state_in)
+
+            self.mock_delete_gnb.assert_not_called()
+            self.mock_create_gnb.assert_not_called()
+            self.mock_update_gnb.assert_called_once_with(
+                name="some.gnb.name", tac=1, token="test-token"
+            )
+
+    def test_given_one_gnb_in_nms_when_gnb_is_added_in_relation_then_old_gnb_is_removed_and_new_is_created(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -2102,11 +2210,12 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.ctx.run(self.ctx.on.relation_changed(fiveg_core_gnb_relation), state_in)
 
             self.mock_delete_gnb.assert_called_once_with(name="some.gnb.name", token="test-token")
+            self.mock_update_gnb.assert_not_called()
             self.mock_create_gnb.assert_called_once_with(
                 name="some.new.gnb.name", tac=1, token="test-token"
             )
 
-    def test_given_one_upf_in_nms_when_new_upf_is_added_then_old_upf_is_removed_and_new_upf_is_added(  # noqa: E501
+    def test_given_one_upf_in_nms_when_new_upf_is_added_then_old_upf_is_removed_and_new_upf_is_created(  # noqa: E501
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -2191,6 +2300,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.ctx.run(self.ctx.on.relation_joined(fiveg_n4_relation), state_in)
 
             self.mock_delete_upf.assert_called_once_with(hostname="old.name", token="test-token")
+            self.mock_update_upf.assert_not_called()
             self.mock_create_upf.assert_called_once_with(
                 hostname="some.host.name", port=22, token="test-token"
             )
