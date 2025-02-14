@@ -195,6 +195,7 @@ class NMS:
 
     def list_gnbs(self, token: str) -> List[GnodeB]:
         """List gNBs from the NMS inventory."""
+        logger.info("Listing NMS gNBs")
         response = self._make_request("GET", f"/{GNB_CONFIG_URL}", token=token)
         if not response:
             return []
@@ -220,7 +221,7 @@ class NMS:
         self._make_request(
             "PUT", f"/{GNB_CONFIG_URL}/{name}", data=asdict(update_gnb_params), token=token
         )
-        logger.info("gNB %s created in NMS", name)
+        logger.info("gNB %s updated in NMS", name)
 
     def delete_gnb(self, name: str, token: str) -> None:
         """Delete a gNB list from the NMS inventory."""
@@ -229,6 +230,7 @@ class NMS:
 
     def list_upfs(self, token: str) -> List[Upf]:
         """List UPFs from the NMS inventory."""
+        logger.info("Listing NMS UPFs")
         response = self._make_request("GET", f"/{UPF_CONFIG_URL}", token=token)
         if not response:
             return []
