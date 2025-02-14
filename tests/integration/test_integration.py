@@ -341,10 +341,17 @@ async def test_given_nms_related_to_upf_and_upf_status_is_active_then_nms_invent
     nms_url = await get_sdcore_nms_external_endpoint(ops_test)
     nms_client = NMS(url=nms_url)
 
-    admin_credentials = await get_nms_credentials(ops_test)
-    token = admin_credentials.get("token")
-    assert token
-    upfs = nms_client.list_upfs(token=token)
+    t0 = time.time()
+    timeout = 180  # seconds
+    while time.time() - t0 < timeout:
+        admin_credentials = await get_nms_credentials(ops_test)
+        token = admin_credentials.get("token")
+        assert token
+        upfs = nms_client.list_upfs(token=token)
+        if upfs:
+            break
+        logger.info(f"Waiting for UPFs to be syncronized")
+        time.sleep(10)
 
     expected_upf_hostname = f"{UPF_CHARM_NAME}-external.{ops_test.model.name}.svc.cluster.local"
     expected_upf = Upf(hostname=expected_upf_hostname, port=8805)
