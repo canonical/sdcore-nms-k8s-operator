@@ -229,6 +229,7 @@ class NMS:
 
     def list_upfs(self, token: str) -> List[Upf]:
         """List UPFs from the NMS inventory."""
+        logger.info("Listing NMS UPFs")
         response = self._make_request("GET", f"/{UPF_CONFIG_URL}", token=token)
         if not response:
             return []

@@ -337,13 +337,13 @@ async def test_given_nms_related_to_upf_and_upf_status_is_active_then_nms_invent
     ops_test: OpsTest, deploy
 ):
     assert ops_test.model
-    admin_credentials = await get_nms_credentials(ops_test)
-    token = admin_credentials.get("token")
-    assert token
     await ops_test.model.wait_for_idle(apps=[UPF_CHARM_NAME], status="active", timeout=TIMEOUT)
     nms_url = await get_sdcore_nms_external_endpoint(ops_test)
     nms_client = NMS(url=nms_url)
 
+    admin_credentials = await get_nms_credentials(ops_test)
+    token = admin_credentials.get("token")
+    assert token
     upfs = nms_client.list_upfs(token=token)
 
     expected_upf_hostname = f"{UPF_CHARM_NAME}-external.{ops_test.model.name}.svc.cluster.local"
