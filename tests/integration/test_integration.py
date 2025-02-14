@@ -8,7 +8,6 @@ import time
 from base64 import b64decode
 from collections import Counter
 from pathlib import Path
-from typing import List
 
 import pytest
 import requests
