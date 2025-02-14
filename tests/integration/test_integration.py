@@ -343,6 +343,7 @@ async def test_given_nms_related_to_upf_and_upf_status_is_active_then_nms_invent
 
     t0 = time.time()
     timeout = 180  # seconds
+    upfs = []
     while time.time() - t0 < timeout:
         admin_credentials = await get_nms_credentials(ops_test)
         token = admin_credentials.get("token")
