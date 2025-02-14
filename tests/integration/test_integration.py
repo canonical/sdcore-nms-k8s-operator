@@ -207,20 +207,6 @@ def ui_is_running(nms_endpoint: str) -> bool:
     return False
 
 
-def get_nms_inventory_resource(url: str) -> List:
-    t0 = time.time()
-    timeout = 100  # seconds
-    while time.time() - t0 < timeout:
-        try:
-            response = requests.get(url=url, timeout=5)
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error("Cannot connect to the nms inventory: %s", e)
-        time.sleep(2)
-    return []
-
-
 async def get_nms_credentials(ops_test: OpsTest) -> dict[str, str]:
     assert ops_test.model
     secrets = await ops_test.model.list_secrets(
