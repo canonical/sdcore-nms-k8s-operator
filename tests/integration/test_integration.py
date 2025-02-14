@@ -350,7 +350,7 @@ async def test_given_nms_related_to_upf_and_upf_status_is_active_then_nms_invent
         upfs = nms_client.list_upfs(token=token)
         if upfs:
             break
-        logger.info(f"Waiting for UPFs to be syncronized")
+        logger.info("Waiting for UPFs to be syncronized")
         time.sleep(10)
 
     expected_upf_hostname = f"{UPF_CHARM_NAME}-external.{ops_test.model.name}.svc.cluster.local"
