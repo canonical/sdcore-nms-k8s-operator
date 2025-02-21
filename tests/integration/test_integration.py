@@ -302,18 +302,24 @@ async def test_given_nms_related_to_gnbsim_and_gnbsim_status_is_active_then_nms_
     ops_test: OpsTest, deploy
 ):
     assert ops_test.model
-    admin_credentials = await get_nms_credentials(ops_test)
-    token = admin_credentials.get("token")
-    assert token
     nms_url = await get_sdcore_nms_external_endpoint(ops_test)
     nms_client = NMS(url=nms_url)
 
-    gnbs = nms_client.list_gnbs(token=token)
+    t0 = time.time()
+    timeout = 180  # seconds
+    gnbs = []
+    while time.time() - t0 < timeout:
+        admin_credentials = await get_nms_credentials(ops_test)
+        token = admin_credentials.get("token")
+        assert token
+        gnbs = nms_client.list_gnbs(token=token)
+        if gnbs:
+            break
+        logger.info("Waiting for gNBs to be synchronized")
+        time.sleep(10)
 
     expected_gnb_name = f"{ops_test.model.name}-gnbsim-{GNBSIM_CHARM_NAME}"
     expected_gnb = GnodeB(name=expected_gnb_name, tac=1)
-    logger.info(expected_gnb_name)
-    logger.info(expected_gnb)
     assert gnbs == [expected_gnb]
 
 
