@@ -9,6 +9,26 @@ import requests
 from nms import NMS, GnodeB, NetworkSlice, Upf
 
 
+def mock_response_with_http_error_exception() -> MagicMock:
+    mock_response = MagicMock()
+    mock_response.raise_for_status.side_effect = requests.HTTPError("HTTP Error occurred")
+    mock_response.text = "burrito"
+    return mock_response
+
+def mock_response_with_connection_error_exception() -> MagicMock:
+    mock_response = MagicMock()
+    mock_response.side_effect = requests.RequestException(
+        "Error connecting to NMS"
+    )
+    return mock_response
+
+def mock_response_with_object(resource_object) -> MagicMock:
+    mock_response = MagicMock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.json.return_value = resource_object
+    return mock_response
+
+
 class TestNMS:
     patcher_request = patch("requests.request")
 
@@ -21,27 +41,6 @@ class TestNMS:
     @staticmethod
     def tearDown() -> None:
         patch.stopall()
-
-    @staticmethod
-    def mock_response_with_http_error_exception() -> MagicMock:
-        mock_response = MagicMock()
-        mock_response.raise_for_status.side_effect = requests.HTTPError("HTTP Error occurred")
-        return mock_response
-
-    @staticmethod
-    def mock_response_with_connection_error_exception() -> MagicMock:
-        mock_response = MagicMock()
-        mock_response.raise_for_status.side_effect = requests.exceptions.RequestException(
-            "Error connecting to NMS"
-        )
-        return mock_response
-
-    @staticmethod
-    def mock_response_with_object(resource_object) -> MagicMock:
-        mock_response = MagicMock()
-        mock_response.raise_for_status.return_value = None
-        mock_response.json.return_value = resource_object
-        return mock_response
 
     @pytest.mark.parametrize(
         "exception",
@@ -60,7 +59,7 @@ class TestNMS:
         assert gnbs == []
 
     def test_when_list_gnbs_then_gnb_url_is_used(self):
-        self.mock_request.return_value = self.mock_response_with_object([])
+        self.mock_request.return_value = mock_response_with_object([])
 
         self.nms.list_gnbs(token="some_token")
 
@@ -74,7 +73,7 @@ class TestNMS:
 
     def test_given_nms_returns_a_gnb_list_when_list_gnbs_then_a_gnb_list_is_returned(self):
         nms_gnbs = [{"name": "some.gnb.name", "tac": "111"}]
-        self.mock_request.return_value = self.mock_response_with_object(nms_gnbs)
+        self.mock_request.return_value = mock_response_with_object(nms_gnbs)
 
         gnbs = self.nms.list_gnbs(token="some_token")
 
@@ -84,7 +83,7 @@ class TestNMS:
 
     def test_given_nms_returns_an_empty_list_when_list_gnbs_then_empty_list_is_returned(self):
         nms_gnbs = []
-        self.mock_request.return_value = self.mock_response_with_object(nms_gnbs)
+        self.mock_request.return_value = mock_response_with_object(nms_gnbs)
 
         gnbs = self.nms.list_gnbs(token="some_token")
 
@@ -96,7 +95,7 @@ class TestNMS:
             {"name": "a_gnb_name", "tac": "342"},
             {"name": "other.gnb_name", "tac": "99"},
         ]
-        self.mock_request.return_value = self.mock_response_with_object(nms_gnbs)
+        self.mock_request.return_value = mock_response_with_object(nms_gnbs)
 
         gnbs = self.nms.list_gnbs(token="some_token")
 
@@ -109,19 +108,8 @@ class TestNMS:
             assert gnb in gnbs
         assert len(gnbs) == 3
 
-    @pytest.mark.parametrize(
-        "exception",
-        [
-            pytest.param(
-                mock_response_with_http_error_exception,
-            ),
-            pytest.param(
-                mock_response_with_connection_error_exception,
-            ),
-        ],
-    )
-    def test_given_exception_is_raised_when_create_gnb_then_exception_is_handled(self, exception):
-        self.mock_request.side_effect = exception()
+    def test_given_cannot_connect_when_create_gnb_then_exception_is_handled(self, caplog):
+        self.mock_request.side_effect = mock_response_with_connection_error_exception()
 
         self.nms.create_gnb(name="some.gnb.name", tac=111, token="some_token")
 
@@ -132,6 +120,22 @@ class TestNMS:
             json={"name": "some.gnb.name", "tac": "111"},
             verify=False,
         )
+        assert "Error connecting to NMS" in caplog.text
+
+    def test_given_http_error_when_create_gnb_then_exception_is_handled(self, caplog):
+        self.mock_request.return_value = mock_response_with_http_error_exception()
+
+        self.nms.create_gnb(name="some.gnb.name", tac=111, token="some_token")
+
+        self.mock_request.assert_called_once_with(
+            method="POST",
+            url="some_url/config/v1/inventory/gnb",
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
+            json={"name": "some.gnb.name", "tac": "111"},
+            verify=False,
+        )
+        assert "with message: burrito" in caplog.text
+        assert "created in NMS" not in caplog.text
 
     def test_given_a_valid_gnb_when_create_gnb_then_gnb_is_added_to_nms(self):
         self.nms.create_gnb(name="some.gnb.name", tac=111, token="some_token")
@@ -144,19 +148,8 @@ class TestNMS:
             verify=False,
         )
 
-    @pytest.mark.parametrize(
-        "exception",
-        [
-            pytest.param(
-                mock_response_with_http_error_exception,
-            ),
-            pytest.param(
-                mock_response_with_connection_error_exception,
-            ),
-        ],
-    )
-    def test_given_exception_is_raised_when_update_gnb_then_exception_is_handled(self, exception):
-        self.mock_request.side_effect = exception()
+    def test_given_cannot_connect_when_update_gnb_then_exception_is_handled(self, caplog):
+        self.mock_request.side_effect = mock_response_with_connection_error_exception()
 
         self.nms.update_gnb(name="some.gnb.name", tac=111, token="some_token")
 
@@ -167,6 +160,22 @@ class TestNMS:
             json={"tac": "111"},
             verify=False,
         )
+        assert "Error connecting to NMS" in caplog.text
+
+    def test_given_http_error_when_update_gnb_then_exception_is_handled(self, caplog):
+        self.mock_request.return_value = mock_response_with_http_error_exception()
+
+        self.nms.update_gnb(name="some.gnb.name", tac=111, token="some_token")
+
+        self.mock_request.assert_called_once_with(
+            method="PUT",
+            url="some_url/config/v1/inventory/gnb/some.gnb.name",
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
+            json={"tac": "111"},
+            verify=False,
+        )
+        assert "with message: burrito" in caplog.text
+        assert "updated in NMS" not in caplog.text
 
     def test_given_a_valid_gnb_when_update_gnb_then_gnb_is_added_to_nms(self):
         self.nms.update_gnb(name="some.gnb.name", tac=111, token="some_token")
@@ -179,19 +188,8 @@ class TestNMS:
             verify=False,
         )
 
-    @pytest.mark.parametrize(
-        "exception",
-        [
-            pytest.param(
-                mock_response_with_http_error_exception,
-            ),
-            pytest.param(
-                mock_response_with_connection_error_exception,
-            ),
-        ],
-    )
-    def test_given_exception_is_raised_when_delete_gnb_then_exceptions_is_handled(self, exception):
-        self.mock_request.side_effect = exception()
+    def test_given_cannot_connect_when_delete_gnb_then_exceptions_is_handled(self, caplog):
+        self.mock_request.side_effect = mock_response_with_connection_error_exception()
 
         gnb_name = "some.gnb.name"
         self.nms.delete_gnb(name=gnb_name, token="some_token")
@@ -203,6 +201,23 @@ class TestNMS:
             json=None,
             verify=False,
         )
+        assert "Error connecting to NMS" in caplog.text
+
+    def test_given_http_error_when_delete_gnb_then_exceptions_is_handled(self, caplog):
+        self.mock_request.return_value = mock_response_with_http_error_exception()
+
+        gnb_name = "some.gnb.name"
+        self.nms.delete_gnb(name=gnb_name, token="some_token")
+
+        self.mock_request.assert_called_once_with(
+            method="DELETE",
+            url="some_url/config/v1/inventory/gnb/some.gnb.name",
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
+            json=None,
+            verify=False,
+        )
+        assert "with message: burrito" in caplog.text
+        assert "deleted from NMS" not in caplog.text
 
     def test_given_valid_gnb_when_delete_gnb_then_gnb_is_successfully_deleted(self):
         gnb_name = "some.gnb.name"
@@ -216,21 +231,19 @@ class TestNMS:
             verify=False,
         )
 
-    @pytest.mark.parametrize(
-        "exception",
-        [
-            pytest.param(
-                mock_response_with_http_error_exception,
-            ),
-            pytest.param(
-                mock_response_with_connection_error_exception,
-            ),
-        ],
-    )
-    def test_given_exception_is_raised_when_list_upfs_then_an_empty_list_is_returned(
-        self, exception
+    def test_given_cannot_connect_when_list_upfs_then_an_empty_list_is_returned(
+        self,
     ):
-        self.mock_request.side_effect = exception()
+        self.mock_request.side_effect = mock_response_with_connection_error_exception()
+
+        upfs = self.nms.list_upfs(token="some_token")
+
+        assert upfs == []
+
+    def test_given_http_error_when_list_upfs_then_an_empty_list_is_returned(
+        self,
+    ):
+        self.mock_request.side_effect = mock_response_with_http_error_exception()
 
         upfs = self.nms.list_upfs(token="some_token")
 
@@ -238,7 +251,7 @@ class TestNMS:
 
     def test_when_list_upfs_then_upf_url_is_used(self):
         nms_upfs = []
-        self.mock_request.side_effect = self.mock_response_with_object(nms_upfs)
+        self.mock_request.side_effect = mock_response_with_object(nms_upfs)
 
         self.nms.list_upfs(token="some_token")
 
@@ -252,7 +265,7 @@ class TestNMS:
 
     def test_given_nms_returns_a_upf_list_when_list_upfs_then_a_upf_list_is_returned(self):
         nms_upfs = [{"hostname": "some.host.name", "port": "111"}]
-        self.mock_request.return_value = self.mock_response_with_object(nms_upfs)
+        self.mock_request.return_value = mock_response_with_object(nms_upfs)
 
         upfs = self.nms.list_upfs(token="some_token")
 
@@ -262,7 +275,7 @@ class TestNMS:
 
     def test_given_nms_returns_an_empty_list_when_list_upfs_then_empty_list_is_returned(self):
         nms_upfs = []
-        self.mock_request.return_value = self.mock_response_with_object(nms_upfs)
+        self.mock_request.return_value = mock_response_with_object(nms_upfs)
 
         upfs = self.nms.list_upfs(token="some_token")
 
@@ -274,7 +287,7 @@ class TestNMS:
             {"hostname": "a_host_name", "port": "342"},
             {"hostname": "other.host_name", "port": "99"},
         ]
-        self.mock_request.return_value = self.mock_response_with_object(nms_upfs)
+        self.mock_request.return_value = mock_response_with_object(nms_upfs)
 
         upfs = self.nms.list_upfs(token="some_token")
 
@@ -287,19 +300,11 @@ class TestNMS:
             assert upf in upfs
         assert len(upfs) == 3
 
-    @pytest.mark.parametrize(
-        "exception",
-        [
-            pytest.param(
-                mock_response_with_http_error_exception,
-            ),
-            pytest.param(
-                mock_response_with_connection_error_exception,
-            ),
-        ],
-    )
-    def test_given_exception_is_raised_when_create_upf_then_exception_is_handled(self, exception):
-        self.mock_request.side_effect = exception()
+    def test_given_cannot_connect_when_create_upf_then_exception_is_handled(
+        self,
+        caplog
+    ):
+        self.mock_request.side_effect = requests.RequestException("Error connecting to NMS")
 
         self.nms.create_upf(hostname="some.upf.name", port=111, token="some_token")
 
@@ -310,6 +315,25 @@ class TestNMS:
             json={"hostname": "some.upf.name", "port": "111"},
             verify=False,
         )
+        assert "Error connecting to NMS" in caplog.text
+
+    def test_given_http_error_when_create_upf_then_exception_is_handled(
+        self,
+        caplog
+    ):
+        self.mock_request.return_value = mock_response_with_http_error_exception()
+
+        self.nms.create_upf(hostname="some.upf.name", port=111, token="some_token")
+
+        self.mock_request.assert_called_once_with(
+            method="POST",
+            url="some_url/config/v1/inventory/upf",
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
+            json={"hostname": "some.upf.name", "port": "111"},
+            verify=False,
+        )
+        assert "with message: burrito" in caplog.text
+        assert "created in NMS" not in caplog.text
 
     def test_given_a_valid_upf_when_create_upf_then_upf_is_added_to_nms(self):
         self.nms.create_upf(hostname="some.upf.name", port=22, token="some_token")
@@ -322,19 +346,8 @@ class TestNMS:
             verify=False,
         )
 
-    @pytest.mark.parametrize(
-        "exception",
-        [
-            pytest.param(
-                mock_response_with_http_error_exception,
-            ),
-            pytest.param(
-                mock_response_with_connection_error_exception,
-            ),
-        ],
-    )
-    def test_given_exception_is_raised_when_update_upf_then_exception_is_handled(self, exception):
-        self.mock_request.side_effect = exception()
+    def test_given_cannot_connect_when_update_upf_then_exception_is_handled(self, caplog):
+        self.mock_request.side_effect = mock_response_with_connection_error_exception()
 
         self.nms.update_upf(hostname="some.upf.name", port=111, token="some_token")
 
@@ -345,6 +358,22 @@ class TestNMS:
             json={"port": "111"},
             verify=False,
         )
+        assert "Error connecting to NMS" in caplog.text
+
+    def test_given_http_error_when_update_upf_then_exception_is_handled(self, caplog):
+        self.mock_request.return_value = mock_response_with_http_error_exception()
+
+        self.nms.update_upf(hostname="some.upf.name", port=111, token="some_token")
+
+        self.mock_request.assert_called_once_with(
+            method="PUT",
+            url="some_url/config/v1/inventory/upf/some.upf.name",
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
+            json={"port": "111"},
+            verify=False,
+        )
+        assert "with message: burrito" in caplog.text
+        assert "updated in NMS" not in caplog.text
 
     def test_given_a_valid_upf_when_update_upf_then_upf_is_added_to_nms(self):
         self.nms.update_upf(hostname="some.upf.name", port=22, token="some_token")
@@ -357,19 +386,8 @@ class TestNMS:
             verify=False,
         )
 
-    @pytest.mark.parametrize(
-        "exception",
-        [
-            pytest.param(
-                mock_response_with_http_error_exception,
-            ),
-            pytest.param(
-                mock_response_with_connection_error_exception,
-            ),
-        ],
-    )
-    def test_given_exception_is_raised_when_delete_upf_then_exceptions_is_handled(self, exception):
-        self.mock_request.side_effect = exception()
+    def test_given_cannot_connect_when_delete_upf_then_exceptions_is_handled(self, caplog):
+        self.mock_request.side_effect = mock_response_with_connection_error_exception()
 
         upf_name = "some.upf.name"
         self.nms.delete_upf(hostname=upf_name, token="some_token")
@@ -381,6 +399,23 @@ class TestNMS:
             json=None,
             verify=False,
         )
+        assert "Error connecting to NMS" in caplog.text
+
+    def test_given_http_error_when_delete_upf_then_exceptions_is_handled(self, caplog):
+        self.mock_request.return_value = mock_response_with_http_error_exception()
+
+        upf_name = "some.upf.name"
+        self.nms.delete_upf(hostname=upf_name, token="some_token")
+
+        self.mock_request.assert_called_once_with(
+            method="DELETE",
+            url="some_url/config/v1/inventory/upf/some.upf.name",
+            headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
+            json=None,
+            verify=False,
+        )
+        assert "with message: burrito" in caplog.text
+        assert "deleted from NMS" not in caplog.text
 
     def test_given_valid_upf_when_delete_upf_then_upf_is_successfully_deleted(self):
         upf_name = "some.upf.name"
@@ -414,7 +449,7 @@ class TestNMS:
     )
     def test_given_nms_returns_an_invalid_gnb_when_list_gnbs_then_gnb_is_not_returned(self, gnb):
         nms_gnbs = [gnb]
-        self.mock_request.return_value = self.mock_response_with_object(nms_gnbs)
+        self.mock_request.return_value = mock_response_with_object(nms_gnbs)
 
         gnbs = self.nms.list_gnbs(token="some_token")
 
@@ -439,7 +474,7 @@ class TestNMS:
     )
     def test_given_nms_returns_an_invalid_upf_when_list_upfs_then_upf_is_not_returned(self, upf):
         nms_upfs = [upf]
-        self.mock_request.return_value = self.mock_response_with_object(nms_upfs)
+        self.mock_request.return_value = mock_response_with_object(nms_upfs)
 
         upfs = self.nms.list_upfs(token="some_token")
 
@@ -449,7 +484,7 @@ class TestNMS:
         self,
     ):
         network_slices = []
-        self.mock_request.return_value = self.mock_response_with_object(network_slices)
+        self.mock_request.return_value = mock_response_with_object(network_slices)
 
         network_slices = self.nms.list_network_slices(token="some_token")
 
@@ -459,7 +494,7 @@ class TestNMS:
         self,
     ):
         network_slices = ["slice1", "slice2"]
-        self.mock_request.return_value = self.mock_response_with_object(network_slices)
+        self.mock_request.return_value = mock_response_with_object(network_slices)
 
         network_slices = self.nms.list_network_slices(token="some_token")
 
@@ -483,7 +518,7 @@ class TestNMS:
                 "gNodeBs": [{"name": test_gnb_name, "tac": 1}],
             }
         }
-        self.mock_request.return_value = self.mock_response_with_object(network_slice_json)
+        self.mock_request.return_value = mock_response_with_object(network_slice_json)
 
         network_slice = self.nms.get_network_slice(slice_name=test_slice_name, token="some_token")
 
@@ -498,7 +533,7 @@ class TestNMS:
     def test_given_nms_doesnt_return_network_slice_data_when_get_network_slice_then_none_is_returned(  # noqa: E501
         self,
     ):
-        self.mock_request.return_value = self.mock_response_with_http_error_exception()
+        self.mock_request.return_value = mock_response_with_http_error_exception()
 
         network_slice = self.nms.get_network_slice(
             slice_name="non-existent-slice", token="some_token"
