@@ -1,12 +1,13 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 
-from nms import NMS, GnodeB, NetworkSlice, Upf
+from nms import NMS, GnodeB, LoginResponse, NetworkSlice, StatusResponse, Upf
 
 
 def mock_response_with_http_error_exception() -> MagicMock:
@@ -20,6 +21,12 @@ def mock_response_with_connection_error_exception() -> MagicMock:
     mock_response.side_effect = requests.RequestException(
         "Error connecting to NMS"
     )
+    return mock_response
+
+def mock_response_with_json_error_exception() -> MagicMock:
+    mock_response = MagicMock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "doc", 0)
     return mock_response
 
 def mock_response_with_object(resource_object) -> MagicMock:
@@ -490,6 +497,15 @@ class TestNMS:
 
         assert network_slices == []
 
+    def test_given_http_error_when_list_network_slices_then_empty_list_is_returned(
+        self,
+    ):
+        self.mock_request.side_effect = mock_response_with_connection_error_exception()
+
+        network_slices = self.nms.list_network_slices(token="some_token")
+
+        assert network_slices == []
+
     def test_given_nms_returns_list_of_network_slices_when_list_network_slices_then_then_same_list_is_returned(  # noqa: E501
         self,
     ):
@@ -540,3 +556,49 @@ class TestNMS:
         )
 
         assert network_slice is None
+
+    def test_given_token_created_when_token_is_valid_then_true_is_returned(self):
+        self.mock_request.return_value = mock_response_with_object({})
+        assert self.nms.token_is_valid("token")
+
+    def test_given_connection_error_when_token_is_valid_then_false_is_returned(self):
+        self.mock_request.side_effect = mock_response_with_connection_error_exception()
+        assert not self.nms.token_is_valid("token")
+
+    def test_given_bad_token_when_token_is_valid_then_false_is_returned(self):
+        self.mock_request.return_value = mock_response_with_http_error_exception()
+        assert not self.nms.token_is_valid("token")
+
+    @pytest.mark.parametrize(
+        "initialized",
+        [True, False],
+    )
+    def test_given_nms_up_when_get_status_then_status_is_returned(self, initialized):
+        self.mock_request.return_value = mock_response_with_object({"initialized": initialized})
+        assert self.nms.get_status() == StatusResponse(initialized=initialized)
+
+    def test_given_response_not_json_when_get_status_then_none_is_returned(self):
+        self.mock_request.return_value = mock_response_with_json_error_exception()
+        assert self.nms.get_status() is None
+
+    def test_given_connection_error_when_get_status_then_none_is_returned(self):
+        self.mock_request.side_effect = mock_response_with_connection_error_exception()
+        assert self.nms.get_status() is None
+
+    def test_given_http_error_when_get_status_then_none_is_returned(self):
+        self.mock_request.return_value = mock_response_with_http_error_exception()
+        assert self.nms.get_status() is None
+
+    def test_given_username_and_password_valid_when_login_then_token_is_returned(self):
+        self.mock_request.return_value = mock_response_with_object({"token": "supersecret"})
+        assert (
+            self.nms.login("admin", "Correct Staple Horse") == LoginResponse(token="supersecret")
+        )
+
+    def test_given_connection_error_when_login_then_none_is_returned(self):
+        self.mock_request.side_effect = mock_response_with_connection_error_exception()
+        assert self.nms.login("admin", "Correct Staple Horse") is None
+
+    def test_given_http_error_when_login_then_none_is_returned(self):
+        self.mock_request.return_value = mock_response_with_http_error_exception()
+        assert self.nms.login("admin", "qwerty123") is None

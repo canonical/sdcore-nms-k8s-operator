@@ -189,14 +189,16 @@ class NMS:
     def token_is_valid(self, token: str) -> bool:
         """Return if the token is still valid by attempting to connect to an endpoint."""
         try:
-            return self._make_request("GET", f"/{ACCOUNTS_URL}", token=token)
+            self._make_request("GET", f"/{ACCOUNTS_URL}", token=token)
+            return True
         except NMSError:
             return False
 
     def get_status(self) -> StatusResponse | None:
         """Return if NMS is initialized."""
         try:
-            return self._make_request("GET", "/status")
+            response = self._make_request("GET", "/status")
+            return StatusResponse(initialized=response.get("initialized", False))
         except NMSError:
             return None
 
