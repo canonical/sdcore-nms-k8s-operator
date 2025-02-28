@@ -22,6 +22,11 @@ ACCOUNTS_URL = "config/v1/account"
 JSON_HEADER = {"Content-Type": "application/json"}
 
 
+class NMSError(Exception):
+    """Exception raised when an error occurs communicating with the NMS."""
+    pass
+
+
 @dataclass
 class GnodeB:
     """Class to represent a gNB."""
@@ -121,7 +126,7 @@ class NMS:
         endpoint: str,
         token: Optional[str] = None,
         data: any = None,  # type: ignore[reportGeneralTypeIssues]
-    ) -> Any | None:
+    ) -> Any:
         """Make an HTTP request and handle common error patterns."""
         headers = JSON_HEADER
         if token:
@@ -137,26 +142,27 @@ class NMS:
             )
         except requests.exceptions.SSLError as e:
             logger.error("SSL error: %s", e)
-            return None
+            raise NMSError() from e
         except requests.RequestException as e:
             logger.error("HTTP request failed: %s", e)
-            return None
+            raise NMSError() from e
         except OSError as e:
             logger.error("couldn't complete HTTP request: %s", e)
-            return None
+            raise NMSError() from e
         try:
             response.raise_for_status()
-        except requests.HTTPError:
+        except requests.HTTPError as e:
             logger.error(
-                "%s request failed: code %s",
+                "%s request failed: code %s with message: %s",
                 endpoint,
                 response.status_code,
+                response.text,
             )
-            return None
+            raise NMSError() from e
         try:
             json_response = response.json()
-        except json.JSONDecodeError:
-            return None
+        except json.JSONDecodeError as e:
+            raise NMSError() from e
         return json_response
 
     def is_initialized(self) -> bool:
@@ -172,32 +178,36 @@ class NMS:
     def login(self, username: str, password: str) -> LoginResponse | None:
         """Login to NMS by sending the username and password and return a Token."""
         login_params = LoginParams(username=username, password=password)
-        response = self._make_request("POST", "/login", data=asdict(login_params))
-        if response:
+        try:
+            response = self._make_request("POST", "/login", data=asdict(login_params))
             return LoginResponse(
                 token=response.get("token"),
             )
-        return None
+        except NMSError:
+            return None
 
     def token_is_valid(self, token: str) -> bool:
         """Return if the token is still valid by attempting to connect to an endpoint."""
-        response = self._make_request("GET", f"/{ACCOUNTS_URL}", token=token)
-        return response is not None
+        try:
+            self._make_request("GET", f"/{ACCOUNTS_URL}", token=token)
+            return True
+        except NMSError:
+            return False
 
     def get_status(self) -> StatusResponse | None:
         """Return if NMS is initialized."""
-        response = self._make_request("GET", "/status")
-        if response:
-            return StatusResponse(
-                initialized=response.get("initialized"),
-            )
-        return None
+        try:
+            response = self._make_request("GET", "/status")
+            return StatusResponse(initialized=response.get("initialized", False))
+        except NMSError:
+            return None
 
     def list_gnbs(self, token: str) -> List[GnodeB]:
         """List gNBs from the NMS inventory."""
         logger.info("Listing NMS gNBs")
-        response = self._make_request("GET", f"/{GNB_CONFIG_URL}", token=token)
-        if not response:
+        try:
+            response = self._make_request("GET", f"/{GNB_CONFIG_URL}", token=token)
+        except NMSError:
             return []
         gnb_list = []
         for item in response:
@@ -210,29 +220,39 @@ class NMS:
     def create_gnb(self, name: str, tac: int, token: str) -> None:
         """Create a gNB in the NMS inventory."""
         create_gnb_params = CreateGnbParams(name=name, tac=str(tac))
-        self._make_request(
-            "POST", f"/{GNB_CONFIG_URL}", data=asdict(create_gnb_params), token=token
-        )
-        logger.info("gNB %s created in NMS", name)
+        try:
+            self._make_request(
+                "POST", f"/{GNB_CONFIG_URL}", data=asdict(create_gnb_params), token=token
+            )
+            logger.info("gNB %s created in NMS", name)
+        except NMSError:
+            return
 
     def update_gnb(self, name: str, tac: int, token: str) -> None:
         """Update a gNB in the NMS inventory."""
         update_gnb_params = UpdateGnbParams(tac=str(tac))
-        self._make_request(
-            "PUT", f"/{GNB_CONFIG_URL}/{name}", data=asdict(update_gnb_params), token=token
-        )
-        logger.info("gNB %s updated in NMS", name)
+        try:
+            self._make_request(
+                "PUT", f"/{GNB_CONFIG_URL}/{name}", data=asdict(update_gnb_params), token=token
+            )
+            logger.info("gNB %s updated in NMS", name)
+        except NMSError:
+            return
 
     def delete_gnb(self, name: str, token: str) -> None:
         """Delete a gNB list from the NMS inventory."""
-        self._make_request("DELETE", f"/{GNB_CONFIG_URL}/{name}", token=token)
-        logger.info("UPF %s deleted from NMS", name)
+        try:
+            self._make_request("DELETE", f"/{GNB_CONFIG_URL}/{name}", token=token)
+            logger.info("UPF %s deleted from NMS", name)
+        except NMSError:
+            return
 
     def list_upfs(self, token: str) -> List[Upf]:
         """List UPFs from the NMS inventory."""
         logger.info("Listing NMS UPFs")
-        response = self._make_request("GET", f"/{UPF_CONFIG_URL}", token=token)
-        if not response:
+        try:
+            response = self._make_request("GET", f"/{UPF_CONFIG_URL}", token=token)
+        except NMSError:
             return []
         upf_list = []
         for item in response:
@@ -245,23 +265,32 @@ class NMS:
     def create_upf(self, hostname: str, port: int, token: str) -> None:
         """Create a UPF in the NMS inventory."""
         create_upf_params = CreateUPFParams(hostname=hostname, port=str(port))
-        self._make_request(
-            "POST", f"/{UPF_CONFIG_URL}", data=asdict(create_upf_params), token=token
-        )
-        logger.info("UPF %s created in NMS", hostname)
+        try:
+            self._make_request(
+                "POST", f"/{UPF_CONFIG_URL}", data=asdict(create_upf_params), token=token
+            )
+            logger.info("UPF %s created in NMS", hostname)
+        except NMSError:
+            return
 
     def update_upf(self, hostname: str, port: int, token: str) -> None:
         """Update a UPF in the NMS inventory."""
         update_upf_params = UpdateUPFParams(port=str(port))
-        self._make_request(
-            "PUT", f"/{UPF_CONFIG_URL}/{hostname}", data=asdict(update_upf_params), token=token
-        )
-        logger.info("UPF %s updated in NMS", hostname)
+        try:
+            self._make_request(
+                "PUT", f"/{UPF_CONFIG_URL}/{hostname}", data=asdict(update_upf_params), token=token
+            )
+            logger.info("UPF %s updated in NMS", hostname)
+        except NMSError:
+            return
 
     def delete_upf(self, hostname: str, token: str) -> None:
         """Delete a UPF list from the NMS inventory."""
-        self._make_request("DELETE", f"/{UPF_CONFIG_URL}/{hostname}", token=token)
-        logger.info("UPF %s deleted from NMS", hostname)
+        try:
+            self._make_request("DELETE", f"/{UPF_CONFIG_URL}/{hostname}", token=token)
+            logger.info("UPF %s deleted from NMS", hostname)
+        except NMSError:
+            return
 
     def create_first_user(self, username: str, password: str) -> None:
         """Create the first admin user."""
@@ -271,10 +300,10 @@ class NMS:
 
     def list_network_slices(self, token: str) -> List[str]:
         """List NetworkSlices."""
-        response = self._make_request("GET", f"/{NETWORK_SLICE_CONFIG_URL}", token=token)
-        if not response:
+        try:
+            return self._make_request("GET", f"/{NETWORK_SLICE_CONFIG_URL}", token=token)
+        except NMSError:
             return []
-        return response
 
     def get_network_slice(self, slice_name: str, token: str) -> Optional[NetworkSlice]:
         """Get NetworkSlice.
@@ -282,8 +311,9 @@ class NMS:
         The SD value received in the Network Slice configuration is a hex. In this function
         we cast it to a human-readable integer.
         """
-        response = self._make_request("GET", f"/{NETWORK_SLICE_CONFIG_URL}/{slice_name}", token=token)  # noqa: E501
-        if not response:
+        try:
+            response = self._make_request("GET", f"/{NETWORK_SLICE_CONFIG_URL}/{slice_name}", token=token)  # noqa: E501
+        except NMSError:
             return None
         mcc = response["site-info"]["plmn"]["mcc"]
         mnc = response["site-info"]["plmn"]["mnc"]
