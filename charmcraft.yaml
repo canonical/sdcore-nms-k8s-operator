@@ -91,7 +91,7 @@ config:
       default: info
       description: Log level for the NMS. One of `debug`, `info`, `warn`, `error`, `fatal`, `panic`.
     gnb-tac:
-      type: integer
+      type: int
       default: 1
       description: |
         The TAC value to use for the gNBs.
