@@ -21,13 +21,7 @@ class TestFivegCoreGnbRequirer:
                 "requires": {"fiveg_core_gnb": {"interface": "fiveg_core_gnb"}},
             },
             actions={
-                "publish-gnb-name": {
-                    "params": {
-                        "gnb-name": {
-                            "type": "string"
-                        }
-                    }
-                },
+                "publish-gnb-name": {"params": {"gnb-name": {"type": "string"}}},
                 "get-gnb-config": {
                     "params": {
                         "tac": {
@@ -55,14 +49,12 @@ class TestFivegCoreGnbRequirer:
             leader=True,
             relations={fiveg_core_gnb_relation},
         )
-        params = {
-            "gnb-name": GNB_NAME
-        }
+        params = {"gnb-name": GNB_NAME}
 
         state_out = self.ctx.run(self.ctx.on.action("publish-gnb-name", params=params), state_in)
         assert (
-                state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data["gnb-name"]
-                == GNB_NAME
+            state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data["gnb-name"]
+            == GNB_NAME
         )
 
     def test_given_gnb_config_in_relation_data_when_get_gnb_config_then_gnb_config_is_returned(  # noqa: E501
@@ -84,7 +76,9 @@ class TestFivegCoreGnbRequirer:
 
         self.ctx.run(self.ctx.on.action("get-gnb-config", params=params), state_in)
 
-    def test_given_fiveg_core_gnb_relation_does_not_exist_when_publish_gnb_name_then_exception_is_raised(self):  # noqa E501
+    def test_given_fiveg_core_gnb_relation_does_not_exist_when_publish_gnb_name_then_exception_is_raised(  # noqa E501
+        self,
+    ):
         state_in = scenario.State(relations=[], leader=True)
         params = {"gnb-name": GNB_NAME}
 

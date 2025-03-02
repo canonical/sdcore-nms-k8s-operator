@@ -1466,7 +1466,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
-            existing_gnbs = [GnodeB(name="some.gnb.name")]
+            existing_gnbs = [GnodeB(name="some.gnb.name", tac=1)]
             self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
                 location="/nms/config",
@@ -1729,9 +1729,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_changed(fiveg_core_gnb_relation_2), state_in)
 
-            self.mock_create_gnb.assert_called_once_with(
-                name="my_gnb", tac=1, token="test-token"
-            )
+            self.mock_create_gnb.assert_called_once_with(name="my_gnb", tac=1, token="test-token")
             self.mock_delete_gnb.assert_not_called()
 
     def test_given_two_n4_relations_when_n4_relation_broken_then_upf_is_removed_from_nms(
@@ -1868,8 +1866,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="certificates", interface="tls-certificates"
             )
             existing_gnbs = [
-                GnodeB(name="some.gnb.name"),
-                GnodeB(name="gnb.name"),
+                GnodeB(name="some.gnb.name", tac=1),
+                GnodeB(name="gnb.name", tac=1),
             ]
             self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
@@ -2054,7 +2052,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="certificates", interface="tls-certificates"
             )
             existing_gnbs = [
-                GnodeB(name="some.gnb.name"),
+                GnodeB(name="some.gnb.name", tac=1),
             ]
             self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
@@ -2272,8 +2270,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
         test_sst = 1
         test_sd = 102030
         test_plmn_config = PLMNConfig(test_mcc, test_mnc, test_sst, test_sd)
-        expected_local_app_data = {"tac": '1', "plmns": json.dumps([test_plmn_config.asdict()])}
-        with (tempfile.TemporaryDirectory() as tempdir):
+        expected_local_app_data = {"tac": "1", "plmns": json.dumps([test_plmn_config.asdict()])}
+        with tempfile.TemporaryDirectory() as tempdir:
             common_database_relation = scenario.Relation(
                 endpoint="common_database",
                 interface="mongodb_client",
@@ -2304,14 +2302,14 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
-            self.mock_list_gnbs.return_value = [GnodeB(name=test_gnb_name)]
+            self.mock_list_gnbs.return_value = [GnodeB(name=test_gnb_name, tac=1)]
             self.mock_list_network_slices.return_value = ["default"]
             self.mock_get_network_slice.return_value = NetworkSlice(
                 mcc=test_mcc,
                 mnc=test_mnc,
                 sst=test_sst,
                 sd=test_sd,
-                gnodebs=[GnodeB(name=test_gnb_name)],
+                gnodebs=[GnodeB(name=test_gnb_name, tac=1)],
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
@@ -2328,7 +2326,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "config": config_mount,
                     "certs": certs_mount,
                 },
-                notices=[test_pebble_notice]
+                notices=[test_pebble_notice],
             )
             fiveg_core_gnb_relation = scenario.Relation(
                 endpoint="fiveg_core_gnb",
@@ -2362,9 +2360,10 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 state_in,
             )
 
-            assert state_out.get_relation(
-                fiveg_core_gnb_relation.id
-            ).local_app_data == expected_local_app_data
+            assert (
+                state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data
+                == expected_local_app_data
+            )
 
     def test_given_two_gnbs_in_nms_when_network_slice_config_for_gnb_1_changes_then_gnb_2_config_is_not_updated_in_fiveg_core_gnb_relation_data(  # noqa: E501
         self,
@@ -2408,8 +2407,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="certificates", interface="tls-certificates"
             )
             self.mock_list_gnbs.return_value = [
-                GnodeB(name=test_gnb_name),
-                GnodeB(name=test_gnb_2_name),
+                GnodeB(name=test_gnb_name, tac=1),
+                GnodeB(name=test_gnb_2_name, tac=1),
             ]
             self.mock_list_network_slices.return_value = ["default"]
             self.mock_get_network_slice.return_value = NetworkSlice(
@@ -2417,7 +2416,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 mnc=test_mnc,
                 sst=test_sst,
                 sd=test_sd,
-                gnodebs=[GnodeB(name=test_gnb_name)],
+                gnodebs=[GnodeB(name=test_gnb_name, tac=1)],
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
@@ -2434,7 +2433,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "config": config_mount,
                     "certs": certs_mount,
                 },
-                notices=[test_pebble_notice]
+                notices=[test_pebble_notice],
             )
             fiveg_core_gnb_relation = scenario.Relation(
                 endpoint="fiveg_core_gnb",
@@ -2494,10 +2493,10 @@ class TestCharmConfigure(NMSUnitTestFixtures):
         test_plmn_config = PLMNConfig(test_mcc, test_mnc, test_sst, test_sd)
         test_plmn_2_config = PLMNConfig(test_mcc_2, test_mnc_2, test_sst_2, test_sd_2)
         expected_local_app_data = {
-            "tac": '1',
+            "tac": "1",
             "plmns": json.dumps([test_plmn_config.asdict(), test_plmn_2_config.asdict()]),
         }
-        with (tempfile.TemporaryDirectory() as tempdir):
+        with tempfile.TemporaryDirectory() as tempdir:
             common_database_relation = scenario.Relation(
                 endpoint="common_database",
                 interface="mongodb_client",
@@ -2528,12 +2527,18 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
-            self.mock_list_gnbs.return_value = [GnodeB(name=test_gnb_name)]
+            self.mock_list_gnbs.return_value = [GnodeB(name=test_gnb_name, tac=1)]
             self.mock_list_network_slices.return_value = ["slice_one", "slice_two"]
             self.mock_get_network_slice.side_effect = [
-                NetworkSlice(test_mcc, test_mnc, test_sst, test_sd, [GnodeB(name=test_gnb_name)]),
                 NetworkSlice(
-                    test_mcc_2, test_mnc_2, test_sst_2, test_sd_2, [GnodeB(name=test_gnb_name)]
+                    test_mcc, test_mnc, test_sst, test_sd, [GnodeB(name=test_gnb_name, tac=1)]
+                ),
+                NetworkSlice(
+                    test_mcc_2,
+                    test_mnc_2,
+                    test_sst_2,
+                    test_sd_2,
+                    [GnodeB(name=test_gnb_name, tac=1)],
                 ),
             ]
             config_mount = scenario.Mount(
@@ -2551,7 +2556,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "config": config_mount,
                     "certs": certs_mount,
                 },
-                notices=[test_pebble_notice]
+                notices=[test_pebble_notice],
             )
             fiveg_core_gnb_relation = scenario.Relation(
                 endpoint="fiveg_core_gnb",
@@ -2585,6 +2590,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 state_in,
             )
 
-            assert state_out.get_relation(
-                fiveg_core_gnb_relation.id
-            ).local_app_data == expected_local_app_data
+            assert (
+                state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data
+                == expected_local_app_data
+            )

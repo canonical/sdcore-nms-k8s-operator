@@ -131,6 +131,7 @@ async def _deploy_self_signed_certificates(ops_test: OpsTest):
         channel=TLS_PROVIDER_CHARM_CHANNEL,
     )
 
+
 async def _deploy_amf_mock(ops_test: OpsTest):
     fiveg_n2_lib_url = "https://github.com/canonical/sdcore-amf-k8s-operator/raw/main/lib/charms/sdcore_amf_k8s/v0/fiveg_n2.py"
     fiveg_n2_lib = requests.get(fiveg_n2_lib_url, timeout=10).text
@@ -145,7 +146,7 @@ async def _deploy_amf_mock(ops_test: OpsTest):
         channel="beta",
         config={
             "src-overwrite": json.dumps(any_charm_src_overwrite),
-            "python-packages": "pytest-interface-tester"
+            "python-packages": "pytest-interface-tester",
         },
     )
 
@@ -410,7 +411,7 @@ async def test_given_db_restored_then_credentials_are_restored_and_valid(
     assert password
     nms_url = await get_sdcore_nms_external_endpoint(ops_test)
     nms_client = NMS(url=nms_url)
-    token = nms_client.login(username=username, password = password)
+    token = nms_client.login(username=username, password=password)
     assert token
 
 
