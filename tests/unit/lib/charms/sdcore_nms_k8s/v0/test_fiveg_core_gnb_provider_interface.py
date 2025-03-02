@@ -87,14 +87,12 @@ class TestFivegCoreGnbProviderCharm:
         params = {
             "relation-id": str(fiveg_core_gnb_relation.id),
             "tac": str(TEST_TAC_VALID),
-            "plmns": json.dumps([plmn.asdict() for plmn in plmns])
+            "plmns": json.dumps([plmn.asdict() for plmn in plmns]),
         }
 
-        state_out = self.ctx.run(self.ctx.on.action("publish-gnb-config", params=params),
-                                 state_in)
-        assert (
-            state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data["tac"]
-            == str(TEST_TAC_VALID)
+        state_out = self.ctx.run(self.ctx.on.action("publish-gnb-config", params=params), state_in)
+        assert state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data["tac"] == str(
+            TEST_TAC_VALID
         )
         rel_plmns = state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data["plmns"]
         assert plmns == [PLMNConfig(**data) for data in json.loads(rel_plmns)]
@@ -114,7 +112,7 @@ class TestFivegCoreGnbProviderCharm:
         params = {
             "relation-id": str(fiveg_core_gnb_relation.id),
             "tac": str(TEST_TAC_INVALID),
-            "plmns": json.dumps([plmn.asdict() for plmn in plmns])
+            "plmns": json.dumps([plmn.asdict() for plmn in plmns]),
         }
 
         with pytest.raises(Exception) as exc:
@@ -136,7 +134,7 @@ class TestFivegCoreGnbProviderCharm:
         params = {
             "relation-id": str(fiveg_core_gnb_relation.id),
             "tac": str(TEST_TAC_VALID),
-            "plmns": "[]"
+            "plmns": "[]",
         }
 
         with pytest.raises(Exception) as exc:
@@ -159,14 +157,12 @@ class TestFivegCoreGnbProviderCharm:
         params = {
             "relation-id": str(fiveg_core_gnb_relation.id),
             "tac": str(TEST_TAC_VALID),
-            "plmns": json.dumps([plmn.asdict() for plmn in plmns])
+            "plmns": json.dumps([plmn.asdict() for plmn in plmns]),
         }
 
-        state_out = self.ctx.run(self.ctx.on.action("publish-gnb-config", params=params),
-                                 state_in)
-        assert (
-                state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data["tac"]
-                == str(TEST_TAC_VALID)
+        state_out = self.ctx.run(self.ctx.on.action("publish-gnb-config", params=params), state_in)
+        assert state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data["tac"] == str(
+            TEST_TAC_VALID
         )
         rel_plmns = state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data["plmns"]
         assert plmns == [PLMNConfig(**data) for data in json.loads(rel_plmns)]
@@ -178,7 +174,7 @@ class TestFivegCoreGnbProviderCharm:
         plmns = [PLMNConfig(mcc=TEST_MCC, mnc=TEST_MNC, sst=TEST_SST, sd=TEST_SD)]
         params = {
             "tac": str(TEST_TAC_VALID),
-            "plmns": json.dumps([plmn.asdict() for plmn in plmns])
+            "plmns": json.dumps([plmn.asdict() for plmn in plmns]),
         }
 
         # TODO: It seems like this should use event.fail() rather than raising.
@@ -200,7 +196,7 @@ class TestFivegCoreGnbProviderCharm:
         params = {
             "relation-id": str(fiveg_core_gnb_relation.id),
             "tac": str(TEST_TAC_VALID),
-            "plmns": json.dumps([plmn.asdict() for plmn in plmns])
+            "plmns": json.dumps([plmn.asdict() for plmn in plmns]),
         }
 
         # TODO: It seems like this should use event.fail() rather than raising.
@@ -209,12 +205,14 @@ class TestFivegCoreGnbProviderCharm:
 
         assert "Unit must be leader to set application relation data" in str(e.value)
 
-    def test_given_fiveg_core_gnb_relation_does_not_exist_when_publish_gnb_config_then_exception_is_raised(self):  # noqa E501
+    def test_given_fiveg_core_gnb_relation_does_not_exist_when_publish_gnb_config_then_exception_is_raised(  # noqa E501
+        self,
+    ):
         state_in = scenario.State(relations=[], leader=True)
         plmns = [PLMNConfig(mcc=TEST_MCC, mnc=TEST_MNC, sst=TEST_SST, sd=TEST_SD)]
         params = {
             "tac": str(TEST_TAC_VALID),
-            "plmns": json.dumps([plmn.asdict() for plmn in plmns])
+            "plmns": json.dumps([plmn.asdict() for plmn in plmns]),
         }
 
         with pytest.raises(Exception) as exc:
@@ -238,7 +236,9 @@ class TestFivegCoreGnbProviderCharm:
 
         self.ctx.run(self.ctx.on.action("get-gnb-name", params=params), state_in)
 
-    def test_given_fiveg_core_gnb_relation_does_not_exist_when_get_gnb_name_then_none_is_returned(self):  # noqa E501
+    def test_given_fiveg_core_gnb_relation_does_not_exist_when_get_gnb_name_then_none_is_returned(
+        self,
+    ):  # noqa E501
         state_in = scenario.State(relations=[], leader=True)
 
         self.ctx.run(self.ctx.on.action("get-gnb-name-invalid"), state_in)

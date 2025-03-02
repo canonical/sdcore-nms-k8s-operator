@@ -411,7 +411,7 @@ class TestNMS:
             "site-info": {
                 "plmn": {"mcc": test_mcc, "mnc": test_mnc},
                 "gNodeBs": [{"name": test_gnb_name, "tac": 1}],
-            }
+            },
         }
         self.mock_request.return_value = self.mock_response_with_object(network_slice_json)
 
@@ -422,7 +422,7 @@ class TestNMS:
             test_mnc,
             int(test_sst),
             test_sd_int,
-            [GnodeB(name=test_gnb_name, tac=1, plmns=[])]
+            [GnodeB(name=test_gnb_name, tac=1, plmns=[])],
         )
 
     def test_given_nms_doesnt_return_network_slice_data_when_get_network_slice_then_none_is_returned(  # noqa: E501

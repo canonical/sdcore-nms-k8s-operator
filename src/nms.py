@@ -27,7 +27,7 @@ class GnodeB:
     """Class to represent a gNB."""
 
     name: str
-    tac: int = 1
+    tac: int
     plmns: List[PLMNConfig] = field(default_factory=list)
 
 
@@ -252,7 +252,9 @@ class NMS:
         The SD value received in the Network Slice configuration is a hex. In this function
         we cast it to a human-readable integer.
         """
-        response = self._make_request("GET", f"/{NETWORK_SLICE_CONFIG_URL}/{slice_name}", token=token)  # noqa: E501
+        response = self._make_request(
+            "GET", f"/{NETWORK_SLICE_CONFIG_URL}/{slice_name}", token=token
+        )  # noqa: E501
         if not response:
             return None
         mcc = response["site-info"]["plmn"]["mcc"]

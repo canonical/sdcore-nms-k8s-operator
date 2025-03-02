@@ -90,3 +90,9 @@ config:
       type: string
       default: info
       description: Log level for the NMS. One of `debug`, `info`, `warn`, `error`, `fatal`, `panic`.
+    gnb-tac:
+      type: integer
+      default: 1
+      description: |
+        The TAC value to use for the gNBs.
+        This value will be provided to integrated gNodeB's over the `fiveg_core_gnb` charm relation interface.

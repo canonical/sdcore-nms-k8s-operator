@@ -178,9 +178,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         )
         # Handling config changed event to publish the new url if the unit reboots and gets new IP
         self.framework.observe(self.on.config_changed, self._configure_sdcore_nms)
-        self.framework.observe(
-            self.on["nms"].pebble_custom_notice, self._sync_network_config
-        )
+        self.framework.observe(self.on["nms"].pebble_custom_notice, self._sync_network_config)
 
         self._nms = NMS(
             url=f"https://{socket.getfqdn()}:{NMS_URL_PORT}",
@@ -468,10 +466,14 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
     def _get_integrated_gnbs(self) -> List[GnodeB]:
         integrated_gnbs = []
+        gnb_tac = self._get_gnb_tac_config()
+        if not gnb_tac:
+            logger.warning("Failed to get gNB TAC config")
+            return []
         for relation in self.model.relations.get(FIVEG_CORE_GNB_RELATION_NAME, []):
             gnb_name = self._fiveg_core_gnb_provider.get_gnb_name(relation.id)
             if gnb_name:
-                integrated_gnbs.append(GnodeB(name=gnb_name))
+                integrated_gnbs.append(GnodeB(name=gnb_name, tac=gnb_tac))
         return integrated_gnbs
 
     def _sync_upfs(self) -> None:
@@ -512,10 +514,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             if not network_slice:
                 continue
             plmn_config = PLMNConfig(
-                network_slice.mcc,
-                network_slice.mnc,
-                network_slice.sst,
-                network_slice.sd
+                network_slice.mcc, network_slice.mnc, network_slice.sst, network_slice.sd
             )
             for gnodeb in network_slice.gnodebs:
                 if existing_gnb := next(
@@ -585,10 +584,15 @@ class SDCoreNMSOperatorCharm(CharmBase):
         invalid_configs = []
         if not self._is_log_level_valid():
             invalid_configs.append("log-level")
+        if not self._get_gnb_tac_config():
+            invalid_configs.append("gnb-tac")
         return invalid_configs
 
     def _get_log_level_config(self) -> Optional[str]:
         return cast(Optional[str], self.model.config.get("log-level"))
+
+    def _get_gnb_tac_config(self) -> Optional[int]:
+        return cast(Optional[int], self.model.config.get("gnb-tac"))
 
     def _is_log_level_valid(self) -> bool:
         log_level = self._get_log_level_config()
