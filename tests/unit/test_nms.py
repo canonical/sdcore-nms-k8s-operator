@@ -16,18 +16,19 @@ def mock_response_with_http_error_exception() -> MagicMock:
     mock_response.text = "burrito"
     return mock_response
 
+
 def mock_response_with_connection_error_exception() -> MagicMock:
     mock_response = MagicMock()
-    mock_response.side_effect = requests.RequestException(
-        "Error connecting to NMS"
-    )
+    mock_response.side_effect = requests.RequestException("Error connecting to NMS")
     return mock_response
+
 
 def mock_response_with_json_error_exception() -> MagicMock:
     mock_response = MagicMock()
     mock_response.raise_for_status.return_value = None
     mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "doc", 0)
     return mock_response
+
 
 def mock_response_with_object(resource_object) -> MagicMock:
     mock_response = MagicMock()
@@ -307,10 +308,7 @@ class TestNMS:
             assert upf in upfs
         assert len(upfs) == 3
 
-    def test_given_cannot_connect_when_create_upf_then_exception_is_handled(
-        self,
-        caplog
-    ):
+    def test_given_cannot_connect_when_create_upf_then_exception_is_handled(self, caplog):
         self.mock_request.side_effect = requests.RequestException("Error connecting to NMS")
 
         self.nms.create_upf(hostname="some.upf.name", port=111, token="some_token")
@@ -324,10 +322,7 @@ class TestNMS:
         )
         assert "Error connecting to NMS" in caplog.text
 
-    def test_given_http_error_when_create_upf_then_exception_is_handled(
-        self,
-        caplog
-    ):
+    def test_given_http_error_when_create_upf_then_exception_is_handled(self, caplog):
         self.mock_request.return_value = mock_response_with_http_error_exception()
 
         self.nms.create_upf(hostname="some.upf.name", port=111, token="some_token")
@@ -532,7 +527,7 @@ class TestNMS:
             "site-info": {
                 "plmn": {"mcc": test_mcc, "mnc": test_mnc},
                 "gNodeBs": [{"name": test_gnb_name, "tac": 1}],
-            }
+            },
         }
         self.mock_request.return_value = mock_response_with_object(network_slice_json)
 
@@ -543,7 +538,7 @@ class TestNMS:
             test_mnc,
             int(test_sst),
             test_sd_int,
-            [GnodeB(name=test_gnb_name, tac=1, plmns=[])]
+            [GnodeB(name=test_gnb_name, tac=1, plmns=[])],
         )
 
     def test_given_nms_doesnt_return_network_slice_data_when_get_network_slice_then_none_is_returned(  # noqa: E501
@@ -591,8 +586,8 @@ class TestNMS:
 
     def test_given_username_and_password_valid_when_login_then_token_is_returned(self):
         self.mock_request.return_value = mock_response_with_object({"token": "supersecret"})
-        assert (
-            self.nms.login("admin", "Correct Staple Horse") == LoginResponse(token="supersecret")
+        assert self.nms.login("admin", "Correct Staple Horse") == LoginResponse(
+            token="supersecret"
         )
 
     def test_given_connection_error_when_login_then_none_is_returned(self):

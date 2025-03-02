@@ -21,8 +21,7 @@ class DummyFivegCoreGnbRequirerCharm(ops.CharmBase):
         framework.observe(self.on.publish_gnb_name_action, self._on_publish_gnb_name)
         framework.observe(self.on.get_gnb_config_action, self._on_get_gnb_config_action)
         framework.observe(
-            self.on.get_gnb_config_invalid_action,
-            self._on_get_gnb_config_action_invalid
+            self.on.get_gnb_config_invalid_action, self._on_get_gnb_config_action_invalid
         )
 
     def _on_publish_gnb_name(self, event: ops.ActionEvent):

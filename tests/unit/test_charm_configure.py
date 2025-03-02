@@ -506,8 +506,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
     @pytest.mark.parametrize("url", ["/banana", "https://$&*$&[%/"])
     def test_given_container_is_ready_db_relations_exist_and_storage_attached_and_ingress_url_no_netloc_when_pebble_ready_then_pebble_plan_is_applied(  # noqa: E501
-        self,
-        url
+        self, url
     ):
         with patch("charms.traefik_k8s.v2.ingress.IngressPerAppRequirer.url", url):
             self.mock_nms_login.return_value = None
@@ -1649,7 +1648,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
-            existing_gnbs = [GnodeB(name="some.gnb.name")]
+            existing_gnbs = [GnodeB(name="some.gnb.name", tac=1)]
             self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
                 location="/nms/config",
@@ -1915,9 +1914,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_changed(fiveg_core_gnb_relation_2), state_in)
 
-            self.mock_create_gnb.assert_called_once_with(
-                name="my_gnb", tac=1, token="test-token"
-            )
+            self.mock_create_gnb.assert_called_once_with(name="my_gnb", tac=1, token="test-token")
             self.mock_delete_gnb.assert_not_called()
             self.mock_update_gnb.assert_not_called()
 
@@ -2056,8 +2053,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="certificates", interface="tls-certificates"
             )
             existing_gnbs = [
-                GnodeB(name="some.gnb.name"),
-                GnodeB(name="gnb.name"),
+                GnodeB(name="some.gnb.name", tac=1),
+                GnodeB(name="gnb.name", tac=1),
             ]
             self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
@@ -2331,7 +2328,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="certificates", interface="tls-certificates"
             )
             existing_gnbs = [
-                GnodeB(name="some.gnb.name"),
+                GnodeB(name="some.gnb.name", tac=1),
             ]
             self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
@@ -2546,13 +2543,14 @@ class TestCharmConfigure(NMSUnitTestFixtures):
     ):
         test_pebble_notice = scenario.Notice("aetherproject.org/webconsole/networkslice/create")
         test_gnb_name = "some.gnb.name"
+        test_gnb_tac = 1
         test_mcc = "123"
         test_mnc = "98"
         test_sst = 1
         test_sd = 102030
         test_plmn_config = PLMNConfig(test_mcc, test_mnc, test_sst, test_sd)
-        expected_local_app_data = {"tac": '1', "plmns": json.dumps([test_plmn_config.asdict()])}
-        with (tempfile.TemporaryDirectory() as tempdir):
+        expected_local_app_data = {"tac": "1", "plmns": json.dumps([test_plmn_config.asdict()])}
+        with tempfile.TemporaryDirectory() as tempdir:
             common_database_relation = scenario.Relation(
                 endpoint="common_database",
                 interface="mongodb_client",
@@ -2583,14 +2581,14 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
-            self.mock_list_gnbs.return_value = [GnodeB(name=test_gnb_name)]
+            self.mock_list_gnbs.return_value = [GnodeB(name=test_gnb_name, tac=test_gnb_tac)]
             self.mock_list_network_slices.return_value = ["default"]
             self.mock_get_network_slice.return_value = NetworkSlice(
                 mcc=test_mcc,
                 mnc=test_mnc,
                 sst=test_sst,
                 sd=test_sd,
-                gnodebs=[GnodeB(name=test_gnb_name)],
+                gnodebs=[GnodeB(name=test_gnb_name, tac=test_gnb_tac)],
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
@@ -2607,7 +2605,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "config": config_mount,
                     "certs": certs_mount,
                 },
-                notices=[test_pebble_notice]
+                notices=[test_pebble_notice],
             )
             fiveg_core_gnb_relation = scenario.Relation(
                 endpoint="fiveg_core_gnb",
@@ -2641,15 +2639,17 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 state_in,
             )
 
-            assert state_out.get_relation(
-                fiveg_core_gnb_relation.id
-            ).local_app_data == expected_local_app_data
+            assert (
+                state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data
+                == expected_local_app_data
+            )
 
     def test_given_two_gnbs_in_nms_when_network_slice_config_for_gnb_1_changes_then_gnb_2_config_is_not_updated_in_fiveg_core_gnb_relation_data(  # noqa: E501
         self,
     ):
         test_pebble_notice = scenario.Notice("aetherproject.org/webconsole/networkslice/create")
         test_gnb_name = "some.gnb.name"
+        test_gnb_tac = 1
         test_gnb_2_name = "some.other.gnb.name"
         test_mcc = "123"
         test_mnc = "98"
@@ -2687,8 +2687,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="certificates", interface="tls-certificates"
             )
             self.mock_list_gnbs.return_value = [
-                GnodeB(name=test_gnb_name),
-                GnodeB(name=test_gnb_2_name),
+                GnodeB(name=test_gnb_name, tac=test_gnb_tac),
+                GnodeB(name=test_gnb_2_name, tac=test_gnb_tac),
             ]
             self.mock_list_network_slices.return_value = ["default"]
             self.mock_get_network_slice.return_value = NetworkSlice(
@@ -2696,7 +2696,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 mnc=test_mnc,
                 sst=test_sst,
                 sd=test_sd,
-                gnodebs=[GnodeB(name=test_gnb_name)],
+                gnodebs=[GnodeB(name=test_gnb_name, tac=test_gnb_tac)],
             )
             config_mount = scenario.Mount(
                 location="/nms/config",
@@ -2713,7 +2713,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "config": config_mount,
                     "certs": certs_mount,
                 },
-                notices=[test_pebble_notice]
+                notices=[test_pebble_notice],
             )
             fiveg_core_gnb_relation = scenario.Relation(
                 endpoint="fiveg_core_gnb",
@@ -2762,6 +2762,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
     ):
         test_pebble_notice = scenario.Notice("aetherproject.org/webconsole/networkslice/create")
         test_gnb_name = "some.gnb.name"
+        test_gnb_tac = 1
         test_mcc = "123"
         test_mcc_2 = "321"
         test_mnc = "98"
@@ -2773,10 +2774,10 @@ class TestCharmConfigure(NMSUnitTestFixtures):
         test_plmn_config = PLMNConfig(test_mcc, test_mnc, test_sst, test_sd)
         test_plmn_2_config = PLMNConfig(test_mcc_2, test_mnc_2, test_sst_2, test_sd_2)
         expected_local_app_data = {
-            "tac": '1',
+            "tac": "1",
             "plmns": json.dumps([test_plmn_config.asdict(), test_plmn_2_config.asdict()]),
         }
-        with (tempfile.TemporaryDirectory() as tempdir):
+        with tempfile.TemporaryDirectory() as tempdir:
             common_database_relation = scenario.Relation(
                 endpoint="common_database",
                 interface="mongodb_client",
@@ -2807,12 +2808,22 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
-            self.mock_list_gnbs.return_value = [GnodeB(name=test_gnb_name)]
+            self.mock_list_gnbs.return_value = [GnodeB(name=test_gnb_name, tac=test_gnb_tac)]
             self.mock_list_network_slices.return_value = ["slice_one", "slice_two"]
             self.mock_get_network_slice.side_effect = [
-                NetworkSlice(test_mcc, test_mnc, test_sst, test_sd, [GnodeB(name=test_gnb_name)]),
                 NetworkSlice(
-                    test_mcc_2, test_mnc_2, test_sst_2, test_sd_2, [GnodeB(name=test_gnb_name)]
+                    test_mcc,
+                    test_mnc,
+                    test_sst,
+                    test_sd,
+                    [GnodeB(name=test_gnb_name, tac=test_gnb_tac)],
+                ),
+                NetworkSlice(
+                    test_mcc_2,
+                    test_mnc_2,
+                    test_sst_2,
+                    test_sd_2,
+                    [GnodeB(name=test_gnb_name, tac=test_gnb_tac)],
                 ),
             ]
             config_mount = scenario.Mount(
@@ -2830,7 +2841,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                     "config": config_mount,
                     "certs": certs_mount,
                 },
-                notices=[test_pebble_notice]
+                notices=[test_pebble_notice],
             )
             fiveg_core_gnb_relation = scenario.Relation(
                 endpoint="fiveg_core_gnb",
@@ -2864,6 +2875,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 state_in,
             )
 
-            assert state_out.get_relation(
-                fiveg_core_gnb_relation.id
-            ).local_app_data == expected_local_app_data
+            assert (
+                state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data
+                == expected_local_app_data
+            )

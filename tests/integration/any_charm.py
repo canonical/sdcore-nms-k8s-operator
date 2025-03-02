@@ -4,6 +4,7 @@ from ops.framework import EventBase, logger
 
 N2_RELATION_NAME = "provide-fiveg-n2"
 
+
 class AnyCharm(AnyCharmBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

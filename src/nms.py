@@ -24,6 +24,7 @@ JSON_HEADER = {"Content-Type": "application/json"}
 
 class NMSError(Exception):
     """Exception raised when an error occurs communicating with the NMS."""
+
     pass
 
 
@@ -32,7 +33,7 @@ class GnodeB:
     """Class to represent a gNB."""
 
     name: str
-    tac: int = 1
+    tac: int
     plmns: List[PLMNConfig] = field(default_factory=list)
 
 
@@ -88,8 +89,10 @@ class CreateUserParams:
 @dataclass
 class CreateGnbParams:
     """Parameters to create a gNB."""
+
     name: str
     tac: str
+
 
 @dataclass
 class UpdateGnbParams:
@@ -101,8 +104,10 @@ class UpdateGnbParams:
 @dataclass
 class CreateUPFParams:
     """Parameters to create a UPF."""
+
     hostname: str
     port: str
+
 
 @dataclass
 class UpdateUPFParams:
@@ -312,7 +317,9 @@ class NMS:
         we cast it to a human-readable integer.
         """
         try:
-            response = self._make_request("GET", f"/{NETWORK_SLICE_CONFIG_URL}/{slice_name}", token=token)  # noqa: E501
+            response = self._make_request(
+                "GET", f"/{NETWORK_SLICE_CONFIG_URL}/{slice_name}", token=token
+            )  # noqa: E501
         except NMSError:
             return None
         mcc = response["site-info"]["plmn"]["mcc"]

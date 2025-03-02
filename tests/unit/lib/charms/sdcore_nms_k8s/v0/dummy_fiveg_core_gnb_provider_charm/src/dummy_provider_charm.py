@@ -25,8 +25,7 @@ class DummyFivegCoreGnbProviderCharm(ops.CharmBase):
         )
         framework.observe(self.on.get_gnb_name_action, self._on_get_gnb_name_action)
         framework.observe(
-            self.on.get_gnb_name_invalid_action,
-            self._on_get_gnb_name_action_invalid
+            self.on.get_gnb_name_invalid_action, self._on_get_gnb_name_action_invalid
         )
 
     def _on_publish_gnb_config_action(self, event: ops.ActionEvent):
@@ -60,9 +59,8 @@ class DummyFivegCoreGnbProviderCharm(ops.CharmBase):
         }
         requirer_app_data = FivegCoreGnbRequirerAppData(**validated_data)
 
-        assert (
-                requirer_app_data.gnb_name ==
-                self.fiveg_core_gnb_provider.get_gnb_name(int(relation_id))
+        assert requirer_app_data.gnb_name == self.fiveg_core_gnb_provider.get_gnb_name(
+            int(relation_id)
         )
 
     def _on_get_gnb_name_action_invalid(self, event: ops.ActionEvent):
