@@ -682,9 +682,8 @@ def _generate_password() -> str:
     pw.append(secrets.choice(string.ascii_lowercase))
     pw.append(secrets.choice(string.ascii_uppercase))
     pw.append(secrets.choice(string.digits))
-    pw.append(secrets.choice(string.punctuation))
     for i in range(8):
-        pw.append(secrets.choice(string.ascii_letters + string.digits + string.punctuation))
+        pw.append(secrets.choice(string.ascii_letters + string.digits))
     secrets.SystemRandom().shuffle(pw)
     return "".join(pw)
 
