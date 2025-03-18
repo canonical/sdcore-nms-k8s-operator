@@ -469,15 +469,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
                 self._nms.delete_gnb(name=nms_gnb.name, token=login_details.token)
 
         for integrated_gnb in integrated_gnbs:
-            if integrated_gnb.name in nms_gnb_names:
-                nms_gnb = next((gnb for gnb in nms_gnbs if gnb.name == integrated_gnb.name), None)
-                if nms_gnb and nms_gnb.tac != integrated_gnb.tac:
-                    self._nms.update_gnb(
-                        name=integrated_gnb.name,
-                        tac=integrated_gnb.tac,
-                        token=login_details.token
-                    )
-            else:
+            if integrated_gnb.name not in nms_gnb_names:
                 self._nms.create_gnb(
                     name=integrated_gnb.name, tac=integrated_gnb.tac, token=login_details.token
                 )

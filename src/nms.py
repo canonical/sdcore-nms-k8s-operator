@@ -32,8 +32,8 @@ class GnodeB:
     """Class to represent a gNB."""
 
     name: str
-    tac: int = 1
     plmns: List[PLMNConfig] = field(default_factory=list)
+    tac: Optional[int] = None
 
 
 @dataclass
@@ -217,7 +217,7 @@ class NMS:
                 logger.error("invalid gNB data: %s", item)
         return gnb_list
 
-    def create_gnb(self, name: str, tac: int, token: str) -> None:
+    def create_gnb(self, name: str, tac: Optional[int], token: str) -> None:
         """Create a gNB in the NMS inventory."""
         create_gnb_params = CreateGnbParams(name=name, tac=str(tac))
         try:
@@ -319,6 +319,8 @@ class NMS:
         mnc = response["site-info"]["plmn"]["mnc"]
         sst = int(response["slice-id"]["sst"])
         sd = int(response["slice-id"]["sd"], 16)
-        gnbs = [GnodeB(gnb["name"], gnb["tac"]) for gnb in response["site-info"]["gNodeBs"]]
+        gnbs = [
+            GnodeB(name=gnb["name"], tac=gnb["tac"]) for gnb in response["site-info"]["gNodeBs"]
+        ]
 
         return NetworkSlice(mcc, mnc, sst, sd, gnbs)
