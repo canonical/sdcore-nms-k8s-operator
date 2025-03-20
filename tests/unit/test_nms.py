@@ -82,7 +82,7 @@ class TestNMS:
         )
 
     def test_given_nms_returns_a_gnb_list_when_list_gnbs_then_a_gnb_list_is_returned(self):
-        nms_gnbs = [{"name": "some.gnb.name", "tac": "111"}]
+        nms_gnbs = [{"name": "some.gnb.name", "tac": 111}]
         self.mock_request.return_value = mock_response_with_object(nms_gnbs)
 
         gnbs = self.nms.list_gnbs(token="some_token")
@@ -101,9 +101,9 @@ class TestNMS:
 
     def test_given_multiple_gnbs_in_nms_when_list_gnbs_then_multiple_gnbs_are_returned(self):
         nms_gnbs = [
-            {"name": "some.gnb.name", "tac": "111"},
-            {"name": "a_gnb_name", "tac": "342"},
-            {"name": "other.gnb_name", "tac": "99"},
+            {"name": "some.gnb.name", "tac": 111},
+            {"name": "a_gnb_name", "tac": 342},
+            {"name": "other.gnb_name", "tac": 99},
         ]
         self.mock_request.return_value = mock_response_with_object(nms_gnbs)
 
@@ -127,7 +127,7 @@ class TestNMS:
             method="POST",
             url="some_url/config/v1/inventory/gnb",
             headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
-            json={"name": "some.gnb.name", "tac": "111"},
+            json={"name": "some.gnb.name", "tac": 111},
             verify=False,
         )
         assert "Error connecting to NMS" in caplog.text
@@ -141,7 +141,7 @@ class TestNMS:
             method="POST",
             url="some_url/config/v1/inventory/gnb",
             headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
-            json={"name": "some.gnb.name", "tac": "111"},
+            json={"name": "some.gnb.name", "tac": 111},
             verify=False,
         )
         assert "with message: burrito" in caplog.text
@@ -154,7 +154,7 @@ class TestNMS:
             method="POST",
             url="some_url/config/v1/inventory/gnb",
             headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
-            json={"name": "some.gnb.name", "tac": "111"},
+            json={"name": "some.gnb.name", "tac": 111},
             verify=False,
         )
 
@@ -404,16 +404,12 @@ class TestNMS:
         "gnb",
         [
             pytest.param(
-                {"tac": "111"},
+                {"tac": 111},
                 id="missing_name_parameter",
             ),
             pytest.param(
-                {"name": "some.gnb.name", "port": "111"},
-                id="missing_tac_parameter",
-            ),
-            pytest.param(
                 {"name": "some.host.name", "tac": "aaa"},
-                id="invalid_str_tac",
+                id="invalid_tac",
             ),
         ],
     )
@@ -424,6 +420,14 @@ class TestNMS:
         gnbs = self.nms.list_gnbs(token="some_token")
 
         assert gnbs == []
+
+    def test_given_nms_returns_a_gnb_without_tac_when_list_gnbs_then_gnb_is_returned(self):
+        nms_gnbs = [{"name": "gnb-no-tac"}]
+        self.mock_request.return_value = mock_response_with_object(nms_gnbs)
+
+        gnbs = self.nms.list_gnbs(token="some_token")
+
+        assert gnbs == [GnodeB(name="gnb-no-tac")]
 
     @pytest.mark.parametrize(
         "upf",

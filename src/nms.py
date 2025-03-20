@@ -89,7 +89,7 @@ class CreateUserParams:
 class CreateGnbParams:
     """Parameters to create a gNB."""
     name: str
-    tac: str
+    tac: int
 
 @dataclass
 class UpdateGnbParams:
@@ -212,14 +212,17 @@ class NMS:
         gnb_list = []
         for item in response:
             try:
-                gnb_list.append(GnodeB(name=item["name"], tac=int(item["tac"])))
+                if gnb_tac := item.get("tac", None):
+                    gnb_list.append(GnodeB(name=item["name"], tac=int(gnb_tac)))
+                else:
+                    gnb_list.append(GnodeB(name=item["name"]))
             except (ValueError, KeyError):
                 logger.error("invalid gNB data: %s", item)
         return gnb_list
 
     def create_gnb(self, name: str, tac: Optional[int], token: str) -> None:
         """Create a gNB in the NMS inventory."""
-        create_gnb_params = CreateGnbParams(name=name, tac=str(tac))
+        create_gnb_params = CreateGnbParams(name=name, tac=tac)
         try:
             self._make_request(
                 "POST", f"/{GNB_CONFIG_URL}", data=asdict(create_gnb_params), token=token
