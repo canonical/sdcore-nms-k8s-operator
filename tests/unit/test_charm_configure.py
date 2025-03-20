@@ -2775,3 +2775,101 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             assert state_out.get_relation(
                 fiveg_core_gnb_relation.id
             ).local_app_data == expected_local_app_data
+
+    def test_given_invalid_gnb_in_network_slice_when_network_slice_config_changes_then_assertion_error_is_raised(  # noqa: E501
+        self,
+    ):
+        test_pebble_notice = scenario.Notice("aetherproject.org/webconsole/networkslice/create")
+        test_gnb_name = "some.gnb.name"
+        test_mcc = "123"
+        test_mnc = "98"
+        test_sst = 1
+        test_sd = 102030
+        with (tempfile.TemporaryDirectory() as tempdir):
+            common_database_relation = scenario.Relation(
+                endpoint="common_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            auth_database_relation = scenario.Relation(
+                endpoint="auth_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "banana",
+                    "password": "pizza",
+                    "uris": "2.2.2.2:1234",
+                },
+            )
+            webui_database_relation = scenario.Relation(
+                endpoint="webui_database",
+                interface="mongodb_client",
+                remote_app_data={
+                    "username": "carrot",
+                    "password": "hotdog",
+                    "uris": "1.1.1.1:1234",
+                },
+            )
+            certificates_relation = scenario.Relation(
+                endpoint="certificates", interface="tls-certificates"
+            )
+            self.mock_list_gnbs.return_value = [GnodeB(name=test_gnb_name)]
+            self.mock_list_network_slices.return_value = ["slice_one"]
+            self.mock_get_network_slice.side_effect = [
+                NetworkSlice(
+                    test_mcc, test_mnc, test_sst, test_sd,
+                    [GnodeB(name=test_gnb_name)]
+                ),
+            ]
+            config_mount = scenario.Mount(
+                location="/nms/config",
+                source=tempdir,
+            )
+            certs_mount = scenario.Mount(
+                location="/support/TLS",
+                source=tempdir,
+            )
+            container = scenario.Container(
+                name="nms",
+                can_connect=True,
+                mounts={
+                    "config": config_mount,
+                    "certs": certs_mount,
+                },
+                notices=[test_pebble_notice]
+            )
+            fiveg_core_gnb_relation = scenario.Relation(
+                endpoint="fiveg_core_gnb",
+                interface="fiveg_core_gnb",
+                remote_app_data={
+                    "gnb-name": "some.gnb.name",
+                },
+            )
+            login_secret = scenario.Secret(
+                {"username": "hello", "password": "world", "token": "test-token"},
+                id="1",
+                label="NMS_LOGIN",
+                owner="app",
+            )
+            state_in = scenario.State(
+                leader=True,
+                containers={container},
+                secrets={login_secret},
+                relations={
+                    common_database_relation,
+                    auth_database_relation,
+                    webui_database_relation,
+                    certificates_relation,
+                    fiveg_core_gnb_relation,
+                },
+            )
+            self.mock_certificate_is_available.return_value = True
+
+            with pytest.raises(Exception):
+                self.ctx.run(
+                    self.ctx.on.pebble_custom_notice(container, test_pebble_notice),
+                    state_in,
+                )
