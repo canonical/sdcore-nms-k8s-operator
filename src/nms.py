@@ -228,17 +228,6 @@ class NMS:
         except NMSError:
             return
 
-    def update_gnb(self, name: str, tac: int, token: str) -> None:
-        """Update a gNB in the NMS inventory."""
-        update_gnb_params = UpdateGnbParams(tac=str(tac))
-        try:
-            self._make_request(
-                "PUT", f"/{GNB_CONFIG_URL}/{name}", data=asdict(update_gnb_params), token=token
-            )
-            logger.info("gNB %s updated in NMS", name)
-        except NMSError:
-            return
-
     def delete_gnb(self, name: str, token: str) -> None:
         """Delete a gNB list from the NMS inventory."""
         try:
