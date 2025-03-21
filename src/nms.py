@@ -89,13 +89,7 @@ class CreateUserParams:
 class CreateGnbParams:
     """Parameters to create a gNB."""
     name: str
-    tac: int
-
-@dataclass
-class UpdateGnbParams:
-    """Parameters to update a gNB."""
-
-    tac: str
+    tac: Optional[int]
 
 
 @dataclass
@@ -103,6 +97,7 @@ class CreateUPFParams:
     """Parameters to create a UPF."""
     hostname: str
     port: str
+
 
 @dataclass
 class UpdateUPFParams:
