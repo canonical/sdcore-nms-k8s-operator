@@ -89,7 +89,7 @@ class CreateUserParams:
 class CreateGnbParams:
     """Parameters to create a gNB."""
     name: str
-    tac: int
+    tac: Optional[int]
 
 @dataclass
 class UpdateGnbParams:
