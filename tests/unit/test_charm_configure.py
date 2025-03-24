@@ -1329,7 +1329,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             self.mock_create_gnb.assert_called_once_with(
-                name="some.gnb.name", tac=None, token="test-token"
+                name="some.gnb.name", token="test-token"
             )
             self.mock_delete_gnb.assert_not_called()
 
@@ -1518,8 +1518,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             calls = [
-                call(name="some.gnb.name", tac=None, token="test-token"),
-                call(name="my_gnb", tac=None, token="test-token"),
+                call(name="some.gnb.name", token="test-token"),
+                call(name="my_gnb", token="test-token"),
             ]
             self.mock_create_gnb.assert_has_calls(calls, any_order=True)
             self.mock_delete_gnb.assert_not_called()
@@ -1910,7 +1910,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.ctx.run(self.ctx.on.relation_changed(fiveg_core_gnb_relation_2), state_in)
 
             self.mock_create_gnb.assert_called_once_with(
-                name="my_gnb", tac=None, token="test-token"
+                name="my_gnb", token="test-token"
             )
             self.mock_delete_gnb.assert_not_called()
 
@@ -2284,7 +2284,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.mock_delete_gnb.assert_called_once_with(name="some.gnb.name", token="test-token")
             self.mock_create_gnb.assert_called_once_with(
-                name="some.new.gnb.name", tac=None, token="test-token"
+                name="some.new.gnb.name", token="test-token"
             )
 
     def test_given_one_upf_in_nms_when_new_upf_is_added_then_old_upf_is_removed_and_new_upf_is_created(  # noqa: E501
