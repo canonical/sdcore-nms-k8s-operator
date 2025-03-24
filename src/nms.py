@@ -32,8 +32,8 @@ class GnodeB:
     """Class to represent a gNB."""
 
     name: str
-    tac: int = 1
     plmns: List[PLMNConfig] = field(default_factory=list)
+    tac: Optional[int] = None
 
 
 @dataclass
@@ -89,13 +89,7 @@ class CreateUserParams:
 class CreateGnbParams:
     """Parameters to create a gNB."""
     name: str
-    tac: str
-
-@dataclass
-class UpdateGnbParams:
-    """Parameters to update a gNB."""
-
-    tac: str
+    tac: Optional[int]
 
 
 @dataclass
@@ -103,6 +97,7 @@ class CreateUPFParams:
     """Parameters to create a UPF."""
     hostname: str
     port: str
+
 
 @dataclass
 class UpdateUPFParams:
@@ -212,30 +207,22 @@ class NMS:
         gnb_list = []
         for item in response:
             try:
-                gnb_list.append(GnodeB(name=item["name"], tac=int(item["tac"])))
+                if gnb_tac := item.get("tac", None):
+                    gnb_list.append(GnodeB(name=item["name"], tac=int(gnb_tac)))
+                else:
+                    gnb_list.append(GnodeB(name=item["name"]))
             except (ValueError, KeyError):
                 logger.error("invalid gNB data: %s", item)
         return gnb_list
 
-    def create_gnb(self, name: str, tac: int, token: str) -> None:
+    def create_gnb(self, name: str, tac: Optional[int], token: str) -> None:
         """Create a gNB in the NMS inventory."""
-        create_gnb_params = CreateGnbParams(name=name, tac=str(tac))
+        create_gnb_params = CreateGnbParams(name=name, tac=tac)
         try:
             self._make_request(
                 "POST", f"/{GNB_CONFIG_URL}", data=asdict(create_gnb_params), token=token
             )
             logger.info("gNB %s created in NMS", name)
-        except NMSError:
-            return
-
-    def update_gnb(self, name: str, tac: int, token: str) -> None:
-        """Update a gNB in the NMS inventory."""
-        update_gnb_params = UpdateGnbParams(tac=str(tac))
-        try:
-            self._make_request(
-                "PUT", f"/{GNB_CONFIG_URL}/{name}", data=asdict(update_gnb_params), token=token
-            )
-            logger.info("gNB %s updated in NMS", name)
         except NMSError:
             return
 
@@ -319,6 +306,8 @@ class NMS:
         mnc = response["site-info"]["plmn"]["mnc"]
         sst = int(response["slice-id"]["sst"])
         sd = int(response["slice-id"]["sd"], 16)
-        gnbs = [GnodeB(gnb["name"], gnb["tac"]) for gnb in response["site-info"]["gNodeBs"]]
+        gnbs = [
+            GnodeB(name=gnb["name"], tac=gnb["tac"]) for gnb in response["site-info"]["gNodeBs"]
+        ]
 
         return NetworkSlice(mcc, mnc, sst, sd, gnbs)

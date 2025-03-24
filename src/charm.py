@@ -240,6 +240,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
                 continue
             relation_gnb_name = self._fiveg_core_gnb_provider.get_gnb_name(relation.id)
             if gnodeb := next((gnb for gnb in gnbs_config if gnb.name == relation_gnb_name), None):
+                if not gnodeb.tac:
+                    raise ValueError("gNB must have a TAC")
                 self._fiveg_core_gnb_provider.publish_gnb_config_information(
                     relation_id=relation.id,
                     tac=gnodeb.tac,
@@ -469,15 +471,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
                 self._nms.delete_gnb(name=nms_gnb.name, token=login_details.token)
 
         for integrated_gnb in integrated_gnbs:
-            if integrated_gnb.name in nms_gnb_names:
-                nms_gnb = next((gnb for gnb in nms_gnbs if gnb.name == integrated_gnb.name), None)
-                if nms_gnb and nms_gnb.tac != integrated_gnb.tac:
-                    self._nms.update_gnb(
-                        name=integrated_gnb.name,
-                        tac=integrated_gnb.tac,
-                        token=login_details.token
-                    )
-            else:
+            if integrated_gnb.name not in nms_gnb_names:
                 self._nms.create_gnb(
                     name=integrated_gnb.name, tac=integrated_gnb.tac, token=login_details.token
                 )
