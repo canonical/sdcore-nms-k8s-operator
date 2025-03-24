@@ -319,7 +319,7 @@ async def test_given_nms_related_to_gnbsim_and_gnbsim_status_is_active_then_nms_
         time.sleep(10)
 
     expected_gnb_name = f"{ops_test.model.name}-gnbsim-{GNBSIM_CHARM_NAME}"
-    expected_gnb = GnodeB(name=expected_gnb_name, tac=None)
+    expected_gnb = GnodeB(name=expected_gnb_name)
     assert gnbs == [expected_gnb]
 
 

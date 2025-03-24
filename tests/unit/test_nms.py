@@ -121,13 +121,13 @@ class TestNMS:
     def test_given_cannot_connect_when_create_gnb_then_exception_is_handled(self, caplog):
         self.mock_request.side_effect = mock_response_with_connection_error_exception()
 
-        self.nms.create_gnb(name="some.gnb.name", tac=111, token="some_token")
+        self.nms.create_gnb(name="some.gnb.name", token="some_token")
 
         self.mock_request.assert_called_once_with(
             method="POST",
             url="some_url/config/v1/inventory/gnb",
             headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
-            json={"name": "some.gnb.name", "tac": 111},
+            json={"name": "some.gnb.name"},
             verify=False,
         )
         assert "Error connecting to NMS" in caplog.text
@@ -135,26 +135,26 @@ class TestNMS:
     def test_given_http_error_when_create_gnb_then_exception_is_handled(self, caplog):
         self.mock_request.return_value = mock_response_with_http_error_exception()
 
-        self.nms.create_gnb(name="some.gnb.name", tac=111, token="some_token")
+        self.nms.create_gnb(name="some.gnb.name", token="some_token")
 
         self.mock_request.assert_called_once_with(
             method="POST",
             url="some_url/config/v1/inventory/gnb",
             headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
-            json={"name": "some.gnb.name", "tac": 111},
+            json={"name": "some.gnb.name"},
             verify=False,
         )
         assert "with message: burrito" in caplog.text
         assert "created in NMS" not in caplog.text
 
     def test_given_a_valid_gnb_when_create_gnb_then_gnb_is_added_to_nms(self):
-        self.nms.create_gnb(name="some.gnb.name", tac=111, token="some_token")
+        self.nms.create_gnb(name="some.gnb.name", token="some_token")
 
         self.mock_request.assert_called_once_with(
             method="POST",
             url="some_url/config/v1/inventory/gnb",
             headers={"Content-Type": "application/json", "Authorization": "Bearer some_token"},
-            json={"name": "some.gnb.name", "tac": 111},
+            json={"name": "some.gnb.name"},
             verify=False,
         )
 

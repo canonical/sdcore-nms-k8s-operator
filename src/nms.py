@@ -89,7 +89,6 @@ class CreateUserParams:
 class CreateGnbParams:
     """Parameters to create a gNB."""
     name: str
-    tac: Optional[int]
 
 
 @dataclass
@@ -215,9 +214,9 @@ class NMS:
                 logger.error("invalid gNB data: %s", item)
         return gnb_list
 
-    def create_gnb(self, name: str, tac: Optional[int], token: str) -> None:
+    def create_gnb(self, name: str, token: str) -> None:
         """Create a gNB in the NMS inventory."""
-        create_gnb_params = CreateGnbParams(name=name, tac=tac)
+        create_gnb_params = CreateGnbParams(name=name)
         try:
             self._make_request(
                 "POST", f"/{GNB_CONFIG_URL}", data=asdict(create_gnb_params), token=token
