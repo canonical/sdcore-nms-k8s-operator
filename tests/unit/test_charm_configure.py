@@ -2776,7 +2776,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 fiveg_core_gnb_relation.id
             ).local_app_data == expected_local_app_data
 
-    def test_given_invalid_gnb_in_network_slice_when_network_slice_config_changes_then_assertion_error_is_raised(  # noqa: E501
+    def test_given_invalid_gnb_in_network_slice_when_network_slice_config_changes_then_value_error_is_raised(  # noqa: E501
         self,
     ):
         test_pebble_notice = scenario.Notice("aetherproject.org/webconsole/networkslice/create")

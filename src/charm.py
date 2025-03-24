@@ -240,7 +240,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
                 continue
             relation_gnb_name = self._fiveg_core_gnb_provider.get_gnb_name(relation.id)
             if gnodeb := next((gnb for gnb in gnbs_config if gnb.name == relation_gnb_name), None):
-                assert gnodeb.tac, "gNB must have a TAC"
+                if not gnodeb.tac:
+                    raise ValueError("gNB must have a TAC")
                 self._fiveg_core_gnb_provider.publish_gnb_config_information(
                     relation_id=relation.id,
                     tac=gnodeb.tac,
