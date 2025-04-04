@@ -23,7 +23,7 @@ resources:
   nms-image:
     type: oci-image
     description: OCI image for SD-Core NMS
-    upstream-source: ghcr.io/canonical/sdcore-nms:1.1.0
+    upstream-source: ghcr.io/canonical/sdcore-nms:1.8.5
 
 assumes:
   - k8s-api
