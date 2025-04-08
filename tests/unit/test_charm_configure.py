@@ -930,7 +930,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="fiveg_core_gnb",
                 interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb-name": "some.gnb.name",
+                    "gnb-name": "some-gnb-name",
                 },
             )
             fiveg_n4_relation = scenario.Relation(
@@ -1103,7 +1103,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="fiveg_core_gnb",
                 interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb-name": "some.gnb.name",
+                    "gnb-name": "some-gnb-name",
                 },
             )
             fiveg_n4_relation = scenario.Relation(
@@ -1184,7 +1184,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="fiveg_core_gnb",
                 interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb-name": "some.gnb.name",
+                    "gnb-name": "some-gnb-name",
                 },
             )
             fiveg_n4_relation = scenario.Relation(
@@ -1278,7 +1278,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="fiveg_core_gnb",
                 interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb-name": "some.gnb.name",
+                    "gnb-name": "some-gnb-name",
                 },
             )
             fiveg_n4_relation = scenario.Relation(
@@ -1329,7 +1329,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             self.mock_create_gnb.assert_called_once_with(
-                name="some.gnb.name", token="test-token"
+                name="some-gnb-name", token="test-token"
             )
             self.mock_delete_gnb.assert_not_called()
 
@@ -1468,7 +1468,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="fiveg_core_gnb",
                 interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb-name": "some.gnb.name",
+                    "gnb-name": "some-gnb-name",
                 },
             )
             fiveg_core_gnb_relation_2 = scenario.Relation(
@@ -1518,7 +1518,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             calls = [
-                call(name="some.gnb.name", token="test-token"),
+                call(name="some-gnb-name", token="test-token"),
                 call(name="my_gnb", token="test-token"),
             ]
             self.mock_create_gnb.assert_has_calls(calls, any_order=True)
@@ -1644,7 +1644,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
-            existing_gnbs = [GnodeB(name="some.gnb.name")]
+            existing_gnbs = [GnodeB(name="some-gnb-name")]
             self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
                 location="/nms/config",
@@ -1666,7 +1666,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="fiveg_core_gnb",
                 interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb-name": "some.gnb.name",
+                    "gnb-name": "some-gnb-name",
                 },
             )
             login_secret = scenario.Secret(
@@ -1858,7 +1858,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             certificates_relation = scenario.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
-            existing_gnbs = [GnodeB(name="some.gnb.name", tac=1)]
+            existing_gnbs = [GnodeB(name="some-gnb-name", tac=1)]
             self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
                 location="/nms/config",
@@ -1879,7 +1879,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
             fiveg_core_gnb_relation_1 = scenario.Relation(
                 endpoint="fiveg_core_gnb",
                 interface="fiveg_core_gnb",
-                remote_app_data={"gnb-name": "some.gnb.name"},
+                remote_app_data={"gnb-name": "some-gnb-name"},
             )
             fiveg_core_gnb_relation_2 = scenario.Relation(
                 endpoint="fiveg_core_gnb",
@@ -2049,8 +2049,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="certificates", interface="tls-certificates"
             )
             existing_gnbs = [
-                GnodeB(name="some.gnb.name"),
-                GnodeB(name="gnb.name"),
+                GnodeB(name="some-gnb-name"),
+                GnodeB(name="gnb-name"),
             ]
             self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
@@ -2073,14 +2073,14 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="fiveg_core_gnb",
                 interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb-name": "some.gnb.name",
+                    "gnb-name": "some-gnb-name",
                 },
             )
             fiveg_core_gnb_relation_2 = scenario.Relation(
                 endpoint="fiveg_core_gnb",
                 interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb-name": "gnb.name",
+                    "gnb-name": "gnb-name",
                 },
             )
             login_secret = scenario.Secret(
@@ -2106,7 +2106,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_broken(fiveg_core_gnb_relation_1), state_in)
 
-            self.mock_delete_gnb.assert_called_once_with(name="some.gnb.name", token="test-token")
+            self.mock_delete_gnb.assert_called_once_with(name="some-gnb-name", token="test-token")
             self.mock_create_gnb.assert_not_called()
 
     def test_given_one_upf_in_nms_when_upf_is_modified_in_relation_then_nms_upf_is_updated(  # noqa: E501
@@ -2234,7 +2234,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="certificates", interface="tls-certificates"
             )
             existing_gnbs = [
-                GnodeB(name="some.gnb.name"),
+                GnodeB(name="some-gnb-name"),
             ]
             self.mock_list_gnbs.return_value = existing_gnbs
             config_mount = scenario.Mount(
@@ -2257,7 +2257,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="fiveg_core_gnb",
                 interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb-name": "some.new.gnb.name",
+                    "gnb-name": "some-new-gnb-name",
                 },
             )
             login_secret = scenario.Secret(
@@ -2282,9 +2282,9 @@ class TestCharmConfigure(NMSUnitTestFixtures):
 
             self.ctx.run(self.ctx.on.relation_changed(fiveg_core_gnb_relation), state_in)
 
-            self.mock_delete_gnb.assert_called_once_with(name="some.gnb.name", token="test-token")
+            self.mock_delete_gnb.assert_called_once_with(name="some-gnb-name", token="test-token")
             self.mock_create_gnb.assert_called_once_with(
-                name="some.new.gnb.name", token="test-token"
+                name="some-new-gnb-name", token="test-token"
             )
 
     def test_given_one_upf_in_nms_when_new_upf_is_added_then_old_upf_is_removed_and_new_upf_is_created(  # noqa: E501
@@ -2426,7 +2426,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="fiveg_core_gnb",
                 interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb-name": "some.gnb.name",
+                    "gnb-name": "some-gnb-name",
                 },
             )
             state_in = scenario.State(
@@ -2447,7 +2447,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
         self,
     ):
         test_pebble_notice = scenario.Notice("aetherproject.org/webconsole/networkslice/create")
-        test_gnb_name = "some.gnb.name"
+        test_gnb_name = "some-gnb-name"
         test_mcc = "123"
         test_mnc = "98"
         test_sst = 1
@@ -2516,7 +2516,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="fiveg_core_gnb",
                 interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb-name": "some.gnb.name",
+                    "gnb-name": "some-gnb-name",
                 },
             )
             login_secret = scenario.Secret(
@@ -2552,8 +2552,8 @@ class TestCharmConfigure(NMSUnitTestFixtures):
         self,
     ):
         test_pebble_notice = scenario.Notice("aetherproject.org/webconsole/networkslice/create")
-        test_gnb_name = "some.gnb.name"
-        test_gnb_2_name = "some.other.gnb.name"
+        test_gnb_name = "some-gnb-name"
+        test_gnb_2_name = "some-other-gnb-name"
         test_mcc = "123"
         test_mnc = "98"
         test_sst = 1
@@ -2664,7 +2664,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
         self,
     ):
         test_pebble_notice = scenario.Notice("aetherproject.org/webconsole/networkslice/create")
-        test_gnb_name = "some.gnb.name"
+        test_gnb_name = "some-gnb-name"
         test_mcc = "123"
         test_mcc_2 = "321"
         test_mnc = "98"
@@ -2744,7 +2744,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="fiveg_core_gnb",
                 interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb-name": "some.gnb.name",
+                    "gnb-name": "some-gnb-name",
                 },
             )
             login_secret = scenario.Secret(
@@ -2780,7 +2780,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
         self,
     ):
         test_pebble_notice = scenario.Notice("aetherproject.org/webconsole/networkslice/create")
-        test_gnb_name = "some.gnb.name"
+        test_gnb_name = "some-gnb-name"
         test_mcc = "123"
         test_mnc = "98"
         test_sst = 1
@@ -2845,7 +2845,7 @@ class TestCharmConfigure(NMSUnitTestFixtures):
                 endpoint="fiveg_core_gnb",
                 interface="fiveg_core_gnb",
                 remote_app_data={
-                    "gnb-name": "some.gnb.name",
+                    "gnb-name": "some-gnb-name",
                 },
             )
             login_secret = scenario.Secret(

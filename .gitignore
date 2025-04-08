@@ -1,6 +1,7 @@
 *.idea
 .vscode/
 .coverage
+coverage.xml
 .mypy_cache/
 .tox/
 

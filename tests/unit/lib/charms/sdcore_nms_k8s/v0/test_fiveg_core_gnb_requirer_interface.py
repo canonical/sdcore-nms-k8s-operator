@@ -9,6 +9,7 @@ from tests.unit.lib.charms.sdcore_nms_k8s.v0.dummy_fiveg_core_gnb_requirer_charm
 )
 
 GNB_NAME = "gnb001"
+INVALID_GNB_NAME = "gnb?invalid"
 
 
 class TestFivegCoreGnbRequirer:
@@ -64,6 +65,26 @@ class TestFivegCoreGnbRequirer:
                 state_out.get_relation(fiveg_core_gnb_relation.id).local_app_data["gnb-name"]
                 == GNB_NAME
         )
+
+    def test_given_gnb_config_in_relation_data_when_publish_invalid_gnb_name_then_then_exception_is_raised(  # noqa: E501
+        self,
+    ):
+        fiveg_core_gnb_relation = scenario.Relation(
+            endpoint="fiveg_core_gnb",
+            interface="fiveg_core_gnb",
+        )
+        state_in = scenario.State(
+            leader=True,
+            relations={fiveg_core_gnb_relation},
+        )
+        params = {
+            "gnb-name": INVALID_GNB_NAME
+        }
+
+        with pytest.raises(Exception) as exc:
+            self.ctx.run(self.ctx.on.action("publish-gnb-name", params=params), state_in)
+
+        assert f"Invalid gNB name: {INVALID_GNB_NAME}" in str(exc.value)
 
     def test_given_gnb_config_in_relation_data_when_get_gnb_config_then_gnb_config_is_returned(  # noqa: E501
         self,
