@@ -65,6 +65,27 @@ class TestFivegCoreGnbRequirer:
                 == GNB_NAME
         )
 
+    @pytest.mark.parametrize("gnb_name", ["gnb?invalid", "1-gnb", "longname"*32+"1"])
+    def test_given_gnb_config_in_relation_data_when_publish_invalid_gnb_name_then_then_exception_is_raised(  # noqa: E501
+        self, gnb_name
+    ):
+        fiveg_core_gnb_relation = scenario.Relation(
+            endpoint="fiveg_core_gnb",
+            interface="fiveg_core_gnb",
+        )
+        state_in = scenario.State(
+            leader=True,
+            relations={fiveg_core_gnb_relation},
+        )
+        params = {
+            "gnb-name": gnb_name
+        }
+
+        with pytest.raises(Exception) as exc:
+            self.ctx.run(self.ctx.on.action("publish-gnb-name", params=params), state_in)
+
+        assert f"Invalid gNB name: {gnb_name}" in str(exc.value)
+
     def test_given_gnb_config_in_relation_data_when_get_gnb_config_then_gnb_config_is_returned(  # noqa: E501
         self,
     ):
