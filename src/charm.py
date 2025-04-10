@@ -101,13 +101,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
         self.framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)
-        if not self.unit.is_leader():
-            # NOTE: In cases where leader status is lost before the charm is
-            # finished processing all teardown events, this prevents teardown
-            # event code from running. Luckily, for this charm, none of the
-            # teardown code is necessary to perform if we're removing the
-            # charm.
-            return
         self._container_name = self._service_name = "nms"
         self._container = self.unit.get_container(self._container_name)
         self._tls = Tls(
@@ -150,6 +143,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self._sdcore_config = SdcoreConfigProvides(self, SDCORE_CONFIG_RELATION_NAME)
         self.framework.observe(self.on.update_status, self._configure_sdcore_nms)
         self.framework.observe(self.on.nms_pebble_ready, self._configure_sdcore_nms)
+        self.framework.observe(self.on.leader_elected, self._configure_sdcore_nms)
         self.framework.observe(self.on.common_database_relation_joined, self._configure_sdcore_nms)
         self.framework.observe(self.on.auth_database_relation_joined, self._configure_sdcore_nms)
         self.framework.observe(
@@ -255,15 +249,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
         Also sets the workload version if present in rock.
         """
-        if not self.unit.is_leader():
-            # NOTE: In cases where leader status is lost before the charm is
-            # finished processing all teardown events, this prevents teardown
-            # event code from running. Luckily, for this charm, none of the
-            # teardown code is necessary to perform if we're removing the
-            # charm.
-            event.add_status(BlockedStatus("Scaling is not implemented for this charm"))
-            logger.info("Scaling is not implemented for this charm")
-            return
         if invalid_configs := self._get_invalid_configs():
             event.add_status(
                 BlockedStatus(f"The following configurations are not valid: {invalid_configs}")

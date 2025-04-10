@@ -11,13 +11,6 @@ from tests.unit.fixtures import NMSUnitTestFixtures
 
 
 class TestCharmCollectStatus(NMSUnitTestFixtures):
-    def test_given_unit_is_not_leader_when_collect_unit_status_then_status_is_blocked(self):
-        state_in = scenario.State(leader=False)
-
-        state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
-
-        assert state_out.unit_status == BlockedStatus("Scaling is not implemented for this charm")
-
     def test_given_invalid_log_level_config_when_collect_unit_status_then_status_is_blocked(
         self,
     ):

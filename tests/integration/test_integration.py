@@ -6,13 +6,11 @@ import json
 import logging
 import time
 from base64 import b64decode
-from collections import Counter
 from pathlib import Path
 
 import pytest
 import requests
 import yaml
-from juju.application import Application
 from juju.client.client import SecretsFilter
 from pytest_operator.plugin import OpsTest
 
@@ -424,16 +422,6 @@ async def test_restore_tls_and_wait_for_active_status(ops_test: OpsTest, deploy)
     await _deploy_self_signed_certificates(ops_test)
     await ops_test.model.integrate(relation1=APP_NAME, relation2=TLS_PROVIDER_CHARM_NAME)
     await ops_test.model.wait_for_idle(apps=[APP_NAME], status="active", timeout=TIMEOUT)
-
-
-async def test_when_scale_app_beyond_1_then_only_one_unit_is_active(ops_test: OpsTest, deploy):
-    assert ops_test.model
-    assert isinstance(app := ops_test.model.applications[APP_NAME], Application)
-    await app.scale(3)
-    await ops_test.model.wait_for_idle(apps=[APP_NAME], timeout=TIMEOUT, wait_for_at_least_units=3)
-    unit_statuses = Counter(unit.workload_status for unit in app.units)
-    assert unit_statuses.get("active") == 1
-    assert unit_statuses.get("blocked") == 2
 
 
 async def test_remove_app(ops_test: OpsTest, deploy):
