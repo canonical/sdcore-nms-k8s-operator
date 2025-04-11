@@ -224,6 +224,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
         the current network setup and passes the configuration to the RAN part of the network
         through the relevant Juju integrations.
         """
+        if not self.unit.is_leader():
+            return
         gnbs_config = self._get_gnbs_config()
         for relation in self.model.relations.get(FIVEG_CORE_GNB_RELATION_NAME, []):
             if not relation.app:
@@ -345,6 +347,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self._tls.clean_up_certificates()
 
     def _publish_sdcore_config_url(self) -> None:
+        if not self.unit.is_leader():
+            return
         if not self._relation_created(SDCORE_CONFIG_RELATION_NAME):
             return
         if not self._is_nms_service_running():
@@ -445,6 +449,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
     def _sync_gnbs(self) -> None:
         """Synchronize gNBs integrated through the `fiveg_core_gnb` relations with the NMS."""
+        if not self.unit.is_leader():
+            return
         login_details = self._get_admin_account()
         if not login_details or not login_details.token:
             logger.warning("Failed to get admin account details")
@@ -475,6 +481,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
     def _sync_upfs(self) -> None:
         """Align the UPFs from the `fiveg_n4` relations with the ones in nms."""
+        if not self.unit.is_leader():
+            return
         login_details = self._get_admin_account()
         if not login_details or not login_details.token:
             logger.warning("Failed to get admin account details")
