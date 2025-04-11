@@ -375,6 +375,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
     def _configure_charm_authorization(self):
         """Create an admin user to manage NMS and log in."""
+        if not self.unit.is_leader():
+            return
         self._create_admin_account_if_does_not_exist()
         login_details = self._get_admin_account()
         if not login_details:
