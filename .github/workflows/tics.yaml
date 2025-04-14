@@ -9,6 +9,6 @@ jobs:
   tics-analysis:
     uses: canonical/sdcore-github-workflows/.github/workflows/tics-scan.yaml@v2.3.3
     with:
-      project: sdcore-amf-k8s-operator
+      project: sdcore-nms-k8s-operator
     secrets:
       TICSAUTHTOKEN: ${{ secrets.TICSAUTHTOKEN }}
