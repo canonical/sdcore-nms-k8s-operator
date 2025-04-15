@@ -129,14 +129,13 @@ class SDCoreNMSOperatorCharm(CharmBase):
             extra_user_roles="admin",
         )
         self.unit.set_ports(GRPC_PORT, NMS_URL_PORT)
-        if self.unit.is_leader():
-            self.ingress = IngressPerAppRequirer(
-                charm=self,
-                port=NMS_URL_PORT,
-                relation_name="ingress",
-                strip_prefix=True,
-                scheme=lambda: "https",
-            )
+        self.ingress = IngressPerAppRequirer(
+            charm=self,
+            port=NMS_URL_PORT,
+            relation_name="ingress",
+            strip_prefix=True,
+            scheme=lambda: "https",
+        )
 
         self.fiveg_n4 = N4Requires(charm=self, relation_name=FIVEG_N4_RELATION_NAME)
         self._logging = LogForwarder(charm=self, relation_name=LOGGING_RELATION_NAME)
