@@ -6,7 +6,7 @@
 
 import logging
 import secrets
-import socket
+# import socket
 import string
 from dataclasses import dataclass
 from ipaddress import IPv4Address
