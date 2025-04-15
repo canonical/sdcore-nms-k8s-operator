@@ -107,7 +107,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             charm=self,
             relation_name=TLS_RELATION_NAME,
             container=self._container,
-            domain_name=socket.getfqdn(),
+            domain_name="nms.sdcore.svc.cluster.local",
             workload_storage_path=CERTS_MOUNT_PATH,
         )
         self._common_database = DatabaseRequires(
