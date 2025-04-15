@@ -178,7 +178,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         )
 
         self._nms = NMS(
-            url=f"https://{socket.getfqdn()}:{NMS_URL_PORT}",
+            url=f"https://nms.sdcore.svc.cluster.local:{NMS_URL_PORT}",
             ca_certificate_path=CA_CERTIFICATE_CHARM_PATH,
         )
         logger.error("==============================================================")
@@ -389,6 +389,10 @@ class SDCoreNMSOperatorCharm(CharmBase):
         if not login_details:
             return
         if not login_details.token or not self._nms.token_is_valid(login_details.token):
+            logger.error("===================================================================")
+            logger.error(login_details.token)
+            logger.error(self._nms.token_is_valid(login_details.token))
+            logger.error("===================================================================")
             login_response = self._nms.login(login_details.username, login_details.password)
             if not login_response or not login_response.token:
                 logger.warning(
