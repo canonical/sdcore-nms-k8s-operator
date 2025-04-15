@@ -391,7 +391,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
         if not login_details.token or not self._nms.token_is_valid(login_details.token):
             logger.error("===================================================================")
             logger.error(login_details.token)
-            logger.error(self._nms.token_is_valid(login_details.token))
+            if login_details.token:
+                logger.error(self._nms.token_is_valid(login_details.token))
             logger.error("===================================================================")
             login_response = self._nms.login(login_details.username, login_details.password)
             if not login_response or not login_response.token:
