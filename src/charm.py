@@ -182,6 +182,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
             url=f"https://{socket.getfqdn()}:{NMS_URL_PORT}",
             ca_certificate_path=CA_CERTIFICATE_CHARM_PATH,
         )
+        logger.error("==============================================================")
+        logger.error(self._nms.url)
+        logger.error("==============================================================")
 
     def _configure_sdcore_nms(self, event: EventBase) -> None:  # noqa: C901
         """Handle Juju events.
