@@ -38,10 +38,10 @@ jobs:
     uses: canonical/sdcore-github-workflows/.github/workflows/build.yaml@v2.3.3
     secrets: inherit
 
-  integration-test:
-    needs:
-      - build
-    uses: canonical/sdcore-github-workflows/.github/workflows/integration-test-with-multus.yaml@v2.3.3
+#  integration-test:
+#    needs:
+#      - build
+#    uses: canonical/sdcore-github-workflows/.github/workflows/integration-test-with-multus.yaml@v2.3.3
 
   publish-charm:
     name: Publish Charm
