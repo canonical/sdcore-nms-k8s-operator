@@ -104,7 +104,7 @@ async def _deploy_sdcore_upf(ops_test: OpsTest):
         application_name=UPF_CHARM_NAME,
         channel=UPF_CHARM_CHANNEL,
         trust=True,
-        series="noble",  # TODO: This should be replaced with base=SDCORE_CHARMS_BASE once it's properly supported  # noqa: E501
+        base=SDCORE_CHARMS_BASE
     )
 
 
