@@ -30,7 +30,8 @@ from ops import (
     WaitingStatus,
     main,
 )
-from ops.charm import CharmBase
+from charms.traefik_k8s.v0.traefik_route import TraefikRouteRequirer
+from ops.charm import CharmBase, HookEvent, RelationJoinedEvent
 from ops.framework import EventBase
 from ops.pebble import Layer
 
@@ -101,13 +102,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
         self.framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)
-        if not self.unit.is_leader():
-            # NOTE: In cases where leader status is lost before the charm is
-            # finished processing all teardown events, this prevents teardown
-            # event code from running. Luckily, for this charm, none of the
-            # teardown code is necessary to perform if we're removing the
-            # charm.
-            return
         self._container_name = self._service_name = "nms"
         self._container = self.unit.get_container(self._container_name)
         self._tls = Tls(
@@ -136,14 +130,9 @@ class SDCoreNMSOperatorCharm(CharmBase):
             extra_user_roles="admin",
         )
         self.unit.set_ports(GRPC_PORT, NMS_URL_PORT)
-        self.ingress = IngressPerAppRequirer(
-            charm=self,
-            port=NMS_URL_PORT,
-            relation_name="ingress",
-            strip_prefix=True,
-            scheme=lambda: "https",
-        )
-
+        self.ingress = TraefikRouteRequirer(self, self.model.get_relation("ingress"), "ingress")
+        self.framework.observe(self.on["ingress"].relation_joined, self._on_ingress_joined)
+        self.framework.observe(self.on.leader_elected, self._configure_ingress)
         self.fiveg_n4 = N4Requires(charm=self, relation_name=FIVEG_N4_RELATION_NAME)
         self._logging = LogForwarder(charm=self, relation_name=LOGGING_RELATION_NAME)
         self._fiveg_core_gnb_provider = FivegCoreGnbProvides(self, FIVEG_CORE_GNB_RELATION_NAME)
@@ -188,6 +177,70 @@ class SDCoreNMSOperatorCharm(CharmBase):
             ca_certificate_path=CA_CERTIFICATE_CHARM_PATH,
         )
 
+    def _on_ingress_joined(self, event):
+        if self.unit.is_leader() and self.ingress.is_ready():
+            self.ingress.submit_to_traefik(self._ingress_config)
+
+    def _get_ingress_ip(self) -> Optional[str]:
+        try:
+            ingress_rel = self.model.get_relation("ingress")
+            if ingress_rel and ingress_rel.app:
+                url = ingress_rel.data[ingress_rel.app].get("url")
+                if url:
+                    return url.split("//")[-1].split(".nip.io")[0]
+        except Exception as e:
+            logger.warning(f"Failed to get ingress IP: {e}")
+        return None
+
+    def _external_hostname(self) -> Optional[str]:
+        base = self.ingress.external_host  # this is 10.0.0.4.nip.io
+        return f"{self.app.name}.{base}"
+
+
+    def _configure_ingress(self, _) -> None:
+        """Set up ingress if a relation is joined, config-changed or a new leader election.
+
+        Only the NMS leader must be exposed over ingress to propagate changes across to follower units,
+        ensuring that things are configured correctly on election is crucial.
+        """
+        if self.ingress.is_ready():
+            self.ingress.submit_to_traefik(self._ingress_config)
+
+    @property
+    def internal_url(self) -> str:
+        """Return workload's internal URL. Used for ingress."""
+        return f"https://{socket.getfqdn()}:{NMS_URL_PORT}"
+
+    @property
+    def _ingress_config(self) -> dict:
+        external_host = self._external_hostname()
+
+        routers = {
+            f"juju-{self.model.name}-{self.app.name}-router": {
+                "entryPoints": ["websecure"],
+                "rule": f"Host(`{external_host}`)",
+                "service": f"juju-{self.model.name}-{self.app.name}-service",
+                "tls": {
+                    "domains": [
+                        {
+                            "main": external_host,
+                            "sans": [f"*.{self.ingress.external_host}"],
+                        }
+                    ]
+                }
+            }
+        }
+
+        services = {
+            f"juju-{self.model.name}-{self.app.name}-service": {
+                "loadBalancer": {
+                    "servers": [{"url": self.internal_url}]
+                }
+            }
+        }
+
+        return {"http": {"routers": routers, "services": services}}
+
     def _configure_sdcore_nms(self, event: EventBase) -> None:  # noqa: C901
         """Handle Juju events.
 
@@ -215,6 +268,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
         if not self._tls.certificate_is_available():
             logger.info("The TLS certificate is not available yet.")
             return
+        if self.unit.is_leader():
+            self._configure_ingress(event)
         self._configure_workload()
         self._configure_charm_authorization()
         self._publish_sdcore_config_url()
@@ -255,15 +310,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
         Also sets the workload version if present in rock.
         """
-        if not self.unit.is_leader():
-            # NOTE: In cases where leader status is lost before the charm is
-            # finished processing all teardown events, this prevents teardown
-            # event code from running. Luckily, for this charm, none of the
-            # teardown code is necessary to perform if we're removing the
-            # charm.
-            event.add_status(BlockedStatus("Scaling is not implemented for this charm"))
-            logger.info("Scaling is not implemented for this charm")
-            return
         if invalid_configs := self._get_invalid_configs():
             event.add_status(
                 BlockedStatus(f"The following configurations are not valid: {invalid_configs}")
@@ -637,14 +683,10 @@ class SDCoreNMSOperatorCharm(CharmBase):
 
     @property
     def _nms_endpoint(self) -> str:
-        ingress_url = self.ingress.url
-        if ingress_url:
-            try:
-                netloc = urlparse(ingress_url).netloc
-                if netloc:
-                    return netloc
-            except ValueError as e:
-                logger.info("Error parsing the ingress URL: %s", e)
+        ingress_host = self.ingress.external_host
+        if ingress_host:
+            parsed = urlparse(ingress_host if ingress_host.startswith("http") else f"https://{ingress_host}")
+            return parsed.netloc or ingress_host
         return f"{_get_pod_ip()}:{NMS_URL_PORT}"
 
     @property
