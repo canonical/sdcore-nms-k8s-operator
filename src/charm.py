@@ -181,17 +181,6 @@ class SDCoreNMSOperatorCharm(CharmBase):
         if self.unit.is_leader() and self.ingress.is_ready():
             self.ingress.submit_to_traefik(self._ingress_config)
 
-    def _get_ingress_ip(self) -> Optional[str]:
-        try:
-            ingress_rel = self.model.get_relation("ingress")
-            if ingress_rel and ingress_rel.app:
-                url = ingress_rel.data[ingress_rel.app].get("url")
-                if url:
-                    return url.split("//")[-1].split(".nip.io")[0]
-        except Exception as e:
-            logger.warning(f"Failed to get ingress IP: {e}")
-        return None
-
     def _external_hostname(self) -> Optional[str]:
         base = self.ingress.external_host  # this is 10.0.0.4.nip.io
         return f"{self.app.name}.{base}"
