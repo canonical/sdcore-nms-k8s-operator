@@ -299,7 +299,7 @@ class SdcoreConfigProvides(Object):
             None
         """
         if not self.charm.unit.is_leader():
-            raise RuntimeError("Unit must be leader to set application relation data.")
+            return
 
         if not data_is_valid(data={"webui_url": webui_url}):
             raise ValueError(f"Invalid url: {webui_url}")
@@ -325,7 +325,7 @@ class SdcoreConfigProvides(Object):
             None
         """
         if not self.charm.unit.is_leader():
-            raise RuntimeError("Unit must be leader to set application relation data.")
+            return
 
         if not data_is_valid(data={"webui_url": webui_url}):
             raise ValueError(f"Invalid url: {webui_url}")

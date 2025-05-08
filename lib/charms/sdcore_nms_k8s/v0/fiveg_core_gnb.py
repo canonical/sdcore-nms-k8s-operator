@@ -257,7 +257,7 @@ class FivegCoreGnbProvides(Object):
             plmns (list[PLMNConfig]): Configured PLMNs.
         """
         if not self.charm.unit.is_leader():
-            raise RuntimeError("Unit must be leader to set application relation data.")
+            return
         if not data_matches_provider_schema(
             data={"tac": tac, "plmns": plmns}
         ):
@@ -373,7 +373,7 @@ class FivegCoreGnbRequires(Object):
             gnb_name (str): CU/gNB unique identifier.
         """
         if not self.charm.unit.is_leader():
-            raise RuntimeError("Unit must be leader to set application relation data.")
+            return
 
         if not data_matches_requirer_schema(
             data={"gnb-name": gnb_name}
