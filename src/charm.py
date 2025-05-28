@@ -222,7 +222,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
             return
         if not self._container.exists(path=BASE_CERT_PATH):
             return
-        self._setup_certificates()
+        self._setup_cert_directories()
         if not self._container.exists(path=UI_CERTS_MOUNT_PATH):
             return
         if not self._container.exists(path=CFG_CERTS_MOUNT_PATH):
@@ -248,6 +248,12 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self._sync_gnbs()
         self._sync_upfs()
         self._sync_network_config(event)
+
+    def _setup_cert_directories(self):
+        """Create UI and config TLS certificate directories in the NMS container."""
+        logger.info("Creating UI TLS certificate directories")
+        self._container.make_dir(path=UI_CERTS_MOUNT_PATH, make_parents=True)
+        self._container.make_dir(path=CFG_CERTS_MOUNT_PATH, make_parents=True)
 
     def _sync_network_config(self, event: EventBase):
         """Synchronize network configuration between the Core and the RAN.
@@ -321,7 +327,7 @@ class SDCoreNMSOperatorCharm(CharmBase):
         self.unit.set_workload_version(self._get_workload_version())
 
         if not self._container.exists(path=BASE_CONFIG_PATH) or not self._container.exists(
-            path=BASE_CERT_PATH
+            path=BASE_CERT_PATH) or not self._container.exists(path=CFG_CERTS_MOUNT_PATH) or not self._container.exists(path=UI_CERTS_MOUNT_PATH
         ):
             event.add_status(WaitingStatus("Waiting for storage to be attached"))
             logger.info("Waiting for storage to be attached")
@@ -467,8 +473,8 @@ class SDCoreNMSOperatorCharm(CharmBase):
             webui_database_url=self._get_webui_database_url(),
             ui_tls_key_path=self._ui_tls.private_key_workload_path,
             ui_tls_certificate_path=self._ui_tls.certificate_workload_path,
-            config_tls_key_path=self._cfg_tls_tls.private_key_workload_path,
-            config_tls_certificate_path=self._cfg_tls_tls.certificate_workload_path,
+            config_tls_key_path=self._cfg_tls.private_key_workload_path,
+            config_tls_certificate_path=self._cfg_tls.certificate_workload_path,
             log_level=self._get_log_level_config(),
         )
 
