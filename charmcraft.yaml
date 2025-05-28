@@ -51,7 +51,9 @@ requires:
     interface: fiveg_n4
   logging:
     interface: loki_push_api
-  certificates:
+  ui-certificates:
+    interface: tls-certificates
+  cfg-certificates:
     interface: tls-certificates
 
 provides:
