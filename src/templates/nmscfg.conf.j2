@@ -11,12 +11,12 @@ configuration:
     webuiDbUrl: {{ webui_database_url }}
   spec-compliant-sdf: false
   enableAuthentication: true
-  ui_tls:
-    key: {{ ui_tls_key_path }}
-    pem: {{ ui_tls_certificate_path }}
-  config_tls:
-    key: {{ config_tls_key_path }}
-    pem: {{ config_tls_certificate_path }}
+  webui-tls:
+    key: {{ webui_tls_key_path }}
+    pem: {{ webui_tls_certificate_path }}
+  nfconfig-tls:
+    key: {{ nfconfig_tls_key_path }}
+    pem: {{ nfconfig_tls_certificate_path }}
   send_pebble_notifications: true
 info:
   description: WebUI initial local configuration

@@ -87,5 +87,5 @@ config:
   options:
     log-level:
       type: string
-      default: info
+      default: debug
       description: Log level for the NMS. One of `debug`, `info`, `warn`, `error`, `fatal`, `panic`.
