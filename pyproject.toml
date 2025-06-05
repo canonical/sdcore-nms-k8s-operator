@@ -12,13 +12,13 @@ dependencies = [
     "pydantic<3.0",
     "pytest-interface-tester",
     "requests",
-    "rpds-py==0.24.0",
+    "rpds-py==0.25.1",
 ]
 
 [dependency-groups]
 test = [
     "coverage[toml]",
-    "juju>=3.6.1.1",
+    "juju>=3.6.1.2",
     "pytest",
     "pytest-operator",
     "pytest-asyncio<1.1",
