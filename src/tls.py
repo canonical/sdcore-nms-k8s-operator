@@ -5,6 +5,7 @@
 """Module use to handle TLS certificates for the NMS."""
 
 import logging
+import os
 from typing import Optional
 
 from charms.tls_certificates_interface.v4.tls_certificates import (
@@ -150,8 +151,16 @@ class Tls:
         return self._container.exists(path=self.ca_certificate_workload_path)
 
     def _store_certificate(self, certificate: Certificate) -> None:
-        self._container.push(path=self.certificate_workload_path, source=str(certificate))
-        logger.info("Pushed certificate to workload")
+        dir_path = os.path.dirname(self.certificate_workload_path)
+        self._container.make_dir(
+            path=dir_path,
+            make_parents=True
+        )
+
+        self._container.push(
+            path=self.certificate_workload_path,
+            source=str(certificate)
+        )
 
     def _store_private_key(self, private_key: PrivateKey) -> None:
         self._container.push(path=self.private_key_workload_path, source=str(private_key))
