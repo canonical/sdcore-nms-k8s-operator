@@ -7,7 +7,7 @@ on:
 
 jobs:
   tics-analysis:
-    uses: canonical/sdcore-github-workflows/.github/workflows/tics-scan.yaml@v2.3.3
+    uses: canonical/sdcore-github-workflows/.github/workflows/tics-scan.yaml@v2.3.5
     with:
       project: sdcore-nms-k8s-operator
     secrets:
